@@ -1,0 +1,4248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Scanner — Inspect Any Element Instantly</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ─── CSS Custom Properties ─────────────────────────────────────────── */
+    :root {
+      --panel-bg: #1a1a2e;
+      --panel-header-bg: #16213e;
+      --panel-border: #2d3561;
+      --panel-tab-active-bg: #0f3460;
+      --panel-tab-active-text: #00d4ff;
+      --panel-tab-text: #a0aec0;
+      --code-bg: #0d1117;
+      --code-text: #c9d1d9;
+      --key-color: #79c0ff;
+      --value-color: #a5d6ff;
+      --selector-color: #d2a8ff;
+      --mq-color: #ffa657;
+      --accent: #00d4ff;
+      --highlight-color: #00d4ff;
+      --highlight-bg: rgba(0, 212, 255, 0.08);
+      --toolbar-bg: #0d1117;
+    }
+
+    /* ─── Base Reset ────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; overflow-x: hidden; }
+
+    /* ─── Keyframes ─────────────────────────────────────────────────────── */
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50%       { transform: translateY(-30px) scale(1.05); }
+    }
+    @keyframes shimmer {
+      0%       { left: -100%; }
+      60%, 100% { left: 150%; }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes panelSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       HERO SECTION — vanilla CSS + pseudo-elements
+    ═══════════════════════════════════════════════════════════════════════ */
+
+    .hero-section {
+      position: relative;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      clip-path: polygon(0 0, 100% 0, 100% 88%, 0 100%);
+      overflow: hidden;
+      padding: 140px 8% 220px;
+      display: flex;
+      align-items: center;
+      gap: 80px;
+      min-height: 92vh;
+    }
+
+    /* Floating radial blob — top right */
+    .hero-section::before {
+      content: "";
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(100, 108, 255, 0.35) 0%, transparent 70%);
+      top: -250px;
+      right: -150px;
+      animation: float 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Grid overlay texture */
+    .hero-section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px),
+        repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,255,255,0.03) 39px, rgba(255,255,255,0.03) 40px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      max-width: 560px;
+      animation: fadeInUp 0.8s ease both;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(0, 212, 255, 0.12);
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      color: #00d4ff;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+
+    .hero-title {
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 800;
+      line-height: 1.1;
+      color: #fff;
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-highlight {
+      background: linear-gradient(90deg, #00d4ff 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.65);
+      margin-bottom: 40px;
+      max-width: 480px;
+    }
+
+    .hero-cta {
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      background: linear-gradient(135deg, #00d4ff 0%, #a855f7 100%);
+      color: #0d1117;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .hero-cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 48px rgba(0, 212, 255, 0.45);
+    }
+
+    .hero-cta:active {
+      transform: translateY(-1px);
+    }
+
+    /* Shimmer sweep on CTA */
+    .hero-cta::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+      animation: shimmer 2.6s ease-in-out infinite;
+    }
+
+    .hero-cta.scanner-active-state {
+      background: linear-gradient(135deg, #3fb950, #26a641);
+      color: #fff;
+    }
+
+    .hero-cta-icon {
+      font-size: 1.1rem;
+    }
+
+    /* Hero visual — right side code preview */
+    .hero-visual {
+      position: relative;
+      z-index: 1;
+      flex: 0 0 420px;
+      animation: fadeInUp 0.8s 0.15s ease both;
+    }
+
+    .hero-code-preview {
+      background: rgba(13, 17, 23, 0.88);
+      border: 1px solid rgba(0, 212, 255, 0.18);
+      border-radius: 14px;
+      padding: 28px 24px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.83rem;
+      backdrop-filter: blur(16px);
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(0, 212, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .hcp-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .hcp-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .hcp-dot:nth-child(1) { background: #ff5f57; }
+    .hcp-dot:nth-child(2) { background: #ffbd2e; }
+    .hcp-dot:nth-child(3) { background: #28ca41; }
+
+    .hcp-line { padding: 3px 0; line-height: 1.6; }
+
+    .hcp-selector { color: #d2a8ff; }
+    .hcp-close    { color: #d2a8ff; }
+    .hcp-prop     { padding-left: 18px; }
+    .hcp-key      { color: #79c0ff; }
+    .hcp-val      { color: #a5d6ff; }
+    .hcp-mq       { color: #ffa657; font-style: italic; }
+    .hcp-comment  { color: #8b949e; font-style: italic; }
+
+    .hcp-highlight-line {
+      background: rgba(0, 212, 255, 0.1);
+      border-left: 2px solid #00d4ff;
+      padding-left: 16px !important;
+      margin: 0 -24px;
+      padding-right: 24px;
+    }
+
+    /* Hero stats row */
+    .hero-stats {
+      display: flex;
+      gap: 32px;
+      margin-top: 40px;
+    }
+
+    .hero-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hero-stat-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-stat-label {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SCANNER UI
+    ═══════════════════════════════════════════════════════════════════════ */
+
+    /* ─── Toolbar ───────────────────────────────────────────────────────── */
+    #scanner-toolbar {
+      position: fixed;
+      top: 8px; left: 50%;
+      transform: translateX(-50%);
+      width: min(960px, calc(100vw - 24px));
+      height: 44px;
+      z-index: 999992;
+      /* Glassy white theme — floating rounded bar */
+      background: linear-gradient(180deg, rgba(255,255,255,0.80) 0%, rgba(244,246,251,0.74) 100%);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 22px;
+      font-size: 0.8rem;
+      box-shadow:
+        0 14px 40px rgba(30, 41, 89, 0.18),
+        0 2px 8px rgba(30, 41, 89, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    #scanner-toolbar[hidden] { display: none !important; }
+
+    #scanner-badge {
+      color: #3fb950;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .scanner-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #3fb950;
+      animation: pulse-dot 1.6s ease-in-out infinite;
+    }
+
+    #scanner-hint {
+      color: #718096;
+      font-size: 0.75rem;
+      flex: 1;
+    }
+
+    #scanner-toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    #scanner-disable-btn {
+      padding: 5px 14px;
+      background: rgba(79, 124, 255, 0.08);
+      border: 1px solid rgba(79, 124, 255, 0.22);
+      color: #4f5870;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #scanner-disable-btn:hover {
+      background: rgba(79, 124, 255, 0.16);
+      color: #1f2740;
+    }
+
+    /* ─── Vertical Mode Rail (right edge) ───────────────────────────────── */
+    #mode-rail {
+      position: fixed;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 999994;          /* above the panel (999991) and overlays */
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 7px;
+      /* Glassy white theme — pill-rounded top & bottom */
+      background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(244,246,251,0.72) 100%);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      border-radius: 26px;
+      box-shadow:
+        0 14px 40px rgba(30, 41, 89, 0.20),
+        0 2px 8px rgba(30, 41, 89, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    #mode-rail[hidden] { display: none !important; }
+
+    .mode-rail-btn {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      background: transparent;
+      color: #5b6478;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    /* SVG icons inherit button color via currentColor */
+    .mode-rail-btn svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+    /* Extra rounding on the first/last buttons to echo the pill shell */
+    .mode-rail-btn:first-child { border-radius: 18px 18px 14px 14px; }
+    .mode-rail-btn:last-child  { border-radius: 14px 14px 18px 18px; }
+
+    .mode-rail-btn:hover {
+      background: rgba(79, 124, 255, 0.10);
+      color: #1f2740;
+    }
+
+    .mode-rail-btn.active {
+      background: linear-gradient(135deg, #4f7cff 0%, #7c5cff 100%);
+      color: #fff;
+      border-color: transparent;
+      border-radius: 50%;   /* perfect circle when active */
+      box-shadow: 0 4px 12px rgba(79, 124, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    /* ─── Highlight Overlay ─────────────────────────────────────────────── */
+    #scanner-highlight {
+      position: fixed;
+      pointer-events: none;
+      z-index: 999990;
+      outline: 2px solid var(--highlight-color);
+      background: var(--highlight-bg);
+      border-radius: 3px;
+      transition: top 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+                  left 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+                  height 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #scanner-highlight[hidden] { display: none !important; }
+
+    /* ─── Dashed alignment guides (project from the hovered box edges) ──── */
+    #scanner-guides {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999988;   /* below #scanner-highlight (999990) and the panel (999991) */
+    }
+    #scanner-guides[hidden] { display: none !important; }
+
+    .scanner-guide {
+      position: absolute;
+      opacity: 0.7;
+      transition: top 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+                  left 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .guide-h { left: 0; width: 100%;  height: 0; border-top:  1px dashed var(--highlight-color); }
+    .guide-v { top: 0;  height: 100%; width: 0;  border-left: 1px dashed var(--highlight-color); }
+
+    #scanner-highlight-label {
+      position: absolute;
+      bottom: calc(100% + 5px);
+      left: 0;
+      background: var(--highlight-color);
+      color: #0d1117;
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* ─── Selected (pinned) Overlay ─────────────────────────────────────── */
+    #scanner-selected {
+      position: fixed;
+      pointer-events: none;
+      z-index: 999989;
+      outline: 2px solid #a855f7;
+      background: rgba(168, 85, 247, 0.10);
+      border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.45);
+    }
+
+    #scanner-selected[hidden] { display: none !important; }
+
+    #scanner-selected-label {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      background: #a855f7;
+      color: #fff;
+      font-size: 0.66rem;
+      font-weight: 700;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* ─── Inspector Panel ───────────────────────────────────────────────── */
+    /* Light-theme palette — scoped to the panel only (toolbar/overlays stay dark) */
+    #scanner-panel {
+      position: fixed;
+      bottom: 0;
+      right: 64px;            /* clear the right-edge mode rail */
+      width: min(440px, 44vw);
+      height: auto;
+      max-height: calc(100vh - 56px);   /* leave room for the 44px toolbar + margin */
+      z-index: 999991;
+      background: linear-gradient(180deg, #ffffff 0%, #f4f6fb 100%);
+      border: 1px solid #e3e8f2;
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      font-size: 0.78rem;
+      box-shadow: 0 24px 64px rgba(30, 41, 89, 0.18), 0 2px 8px rgba(30, 41, 89, 0.08);
+      color: #2b3245;
+      animation: panelSlideIn 0.22s ease both;
+      overflow: hidden;
+
+      /* Panel-local light syntax palette (overrides the dark :root vars) */
+      --p-bg: #ffffff;
+      --p-border: #e3e8f2;
+      --p-text: #2b3245;
+      --p-muted: #9aa3b2;
+      --p-key: #2563eb;
+      --p-value: #2f6fed;
+      --p-selector: #2563eb;
+      --p-punct: #94a3b8;
+      --p-green: #16a34a;
+      --p-accent: #3b82f6;
+      --p-code-bg: #f5f7fb;
+    }
+
+    #scanner-panel[hidden] { display: none !important; }
+
+    @media (max-width: 768px) {
+      #scanner-panel {
+        width: 100%;
+        right: 0;            /* full-width docking; rail floats above it on mobile */
+      }
+    }
+
+    /* ─── Annotate view (inside #scanner-panel, light theme) ────────────── */
+    #panel-annotate { padding: 12px 16px 16px; }
+    #panel-annotate[hidden] { display: none !important; }
+
+    /* Pin hint info box */
+    .annot-pinhint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      background: #eef4ff;
+      border: 1px solid #cfe0ff;
+      border-radius: 9px;
+      color: #3a4a6b;
+      font-size: 0.74rem;
+      line-height: 1.4;
+      margin-bottom: 14px;
+    }
+    .annot-pinhint-dot {
+      flex-shrink: 0;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--p-accent);
+    }
+
+    /* YOUR NAME field */
+    .annot-name-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; }
+    .annot-name-field label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--p-muted);
+    }
+    #annot-author-input-panel {
+      padding: 8px 11px;
+      background: var(--p-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 8px;
+      color: var(--p-text);
+      font-family: inherit;
+      font-size: 0.8rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #annot-author-input-panel::placeholder { color: var(--p-muted); }
+    #annot-author-input-panel:focus {
+      border-color: var(--p-accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    /* Footer: Review / Share */
+    .annot-panel-footer { display: flex; gap: 8px; }
+    .annot-panel-footer button {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 9px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+    }
+    #panel-review-btn {
+      background: var(--p-code-bg);
+      border: 1px solid var(--p-border);
+      color: var(--p-text);
+    }
+    #panel-review-btn:hover { background: #eef3ff; border-color: #cfe0ff; }
+    #panel-share-btn.primary {
+      border: none;
+      color: #fff;
+      background: linear-gradient(135deg, #4f7cff 0%, #3b6bff 100%);
+      box-shadow: 0 2px 8px rgba(59, 107, 255, 0.35);
+    }
+    #panel-share-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 107, 255, 0.45); }
+
+    /* Author name input — lives in the toolbar (dark theme) */
+    #scanner-toolbar #annot-author-input {
+      width: 150px;
+      padding: 5px 10px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(79, 124, 255, 0.22);
+      color: #2b3245;
+      border-radius: 9px;
+      font-size: 0.72rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    #scanner-toolbar #annot-author-input::placeholder { color: #9aa3b2; }
+    #scanner-toolbar #annot-author-input:focus {
+      border-color: rgba(79, 124, 255, 0.55);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.12);
+    }
+
+    #scanner-review-btn, #scanner-share-btn {
+      background: rgba(79, 124, 255, 0.08); border: 1px solid rgba(79, 124, 255, 0.22);
+      color: #4f5870; cursor: pointer; padding: 5px 11px; border-radius: 9px;
+      font-size: 0.72rem; font-weight: 600; transition: all 0.15s;
+    }
+    #scanner-review-btn:hover, #scanner-share-btn:hover { background: rgba(79, 124, 255, 0.16); color: #1f2740; }
+
+    body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
+
+    /* Panel header */
+    #panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.7);
+      border-bottom: 1px solid var(--p-border);
+      flex-shrink: 0;
+      cursor: move;
+      user-select: none;
+    }
+
+    #scanner-panel.dragging { animation: none; transition: none; }
+    #scanner-panel.dragging #panel-header { cursor: grabbing; }
+
+    /* Gradient logo glyph */
+    .panel-logo {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #4f7cff 0%, #7c5cff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(79, 124, 255, 0.4);
+    }
+
+    /* Breadcrumb — chevron-separated segments, active one is a blue pill */
+    #panel-breadcrumb {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      overflow: hidden;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bc-seg {
+      color: #8a93a6;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 1;
+    }
+    .bc-sep { color: #c2c9d6; flex-shrink: 0; }
+    .bc-seg.active {
+      color: #fff;
+      background: var(--p-accent);
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-weight: 600;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(59, 130, 246, 0.35);
+    }
+
+    #panel-close-btn {
+      background: none;
+      border: none;
+      color: #9aa3b2;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+
+    #panel-close-btn:hover { color: #2b3245; }
+
+    /* Hint that the header reveals more on hover */
+    #panel-header { transition: background 0.15s; }
+    #scanner-panel:not(.dragging) #panel-header:hover { background: rgba(238, 243, 255, 0.9); }
+
+    /* ─── DOM hierarchy tooltip (hover the panel header) ─────────────────── */
+    #panel-hierarchy-tip {
+      position: fixed;
+      z-index: 999993;                 /* above the panel (999991) */
+      max-width: 380px;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: #0d1117;
+      border: 1px solid #2d3561;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.7rem;
+      line-height: 1.6;
+      color: #c9d1d9;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      pointer-events: none;            /* never steal the header's drag/hover */
+      animation: fadeInUp 0.14s ease both;
+    }
+    #panel-hierarchy-tip[hidden] { display: none !important; }
+
+    .hier-title {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #718096;
+      margin-bottom: 8px;
+    }
+
+    .hier-row {
+      white-space: nowrap;
+      padding: 1px 0;
+    }
+    .hier-row.is-target { background: rgba(0, 212, 255, 0.1); border-radius: 3px; }
+
+    .hier-indent { color: #3d4660; }   /* tree connector glyphs */
+    .hier-tag    { color: #79c0ff; }
+    .hier-id     { color: #ffa657; }
+    .hier-class  { color: #d2a8ff; }
+
+    /* Copy feedback state (shared by the Copy CSS button) */
+    .copied { background: #dcfce7 !important; border-color: #16a34a !important; color: #15803d !important; }
+
+    /* Element summary — labeled DIMENSIONS / TYPOGRAPHY columns + round action */
+    #panel-summary {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.55);
+      border-bottom: 1px solid var(--p-border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #panel-summary:empty { display: none; }
+
+    .sum-group { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+    .sum-label {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--p-muted);
+    }
+
+    #panel-dims {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: #2b3245;
+      font-weight: 700;
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+
+    #panel-font {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+    }
+    #panel-font:empty::before { content: '—'; color: var(--p-muted); }
+    #panel-font .font-chip {
+      font-weight: 600;
+      color: var(--p-key);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+      font-size: 0.86rem;
+    }
+    #panel-font .font-size { color: var(--p-muted); white-space: nowrap; font-size: 0.78rem; }
+
+    /* Round decorative action button (far right of the summary row) */
+    .sum-action {
+      margin-left: auto;
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #eef3ff 0%, #dce8ff 100%);
+      color: #4f7cff;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(79, 124, 255, 0.2), inset 0 0 0 1px rgba(79, 124, 255, 0.15);
+      cursor: default;
+    }
+
+    /* Panel content area — all sections shown at once, no inner scroller */
+    #panel-content {
+      padding: 14px 16px 16px;
+      flex: 1 1 auto;
+      min-height: 0;            /* allow the flex child to shrink so it can scroll */
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    /* Stacked inspector sections */
+    .insp-section { margin-bottom: 14px; }
+    .insp-section:last-child { margin-bottom: 0; }
+
+    /* CSS RULES header row: green label · Copy CSS button · source filename */
+    .css-rules-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .css-rules-label {
+      font-size: 0.64rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--p-green);
+      flex-shrink: 0;
+    }
+    .btn-copy-css {
+      margin: 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-family: inherit;
+      color: #fff;
+      background: linear-gradient(135deg, #4f7cff 0%, #3b6bff 100%);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(59, 107, 255, 0.35);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .btn-copy-css:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 107, 255, 0.45); }
+    .css-rules-src {
+      flex-shrink: 0;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.66rem;
+      color: var(--p-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 140px;
+    }
+
+    /* ─── CSS Rules Tab Styles ──────────────────────────────────────────── */
+    .css-rule-entry {
+      background: var(--p-code-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.7;
+    }
+
+    .mq-badge {
+      display: inline-block;
+      background: rgba(234, 88, 12, 0.1);
+      border: 1px solid rgba(234, 88, 12, 0.25);
+      color: #c2410c;
+      font-size: 0.65rem;
+      padding: 1px 7px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+
+    .rule-selector { color: var(--p-selector); }
+    .rule-close    { color: var(--p-selector); }
+
+    .decl-key   { color: var(--p-key); }
+    .decl-value { color: var(--p-value); }
+    .decl-semi  { color: var(--p-punct); }
+    .decl-colon { color: var(--p-punct); margin: 0 2px; }
+
+    .rule-prop-row { padding-left: 16px; }
+
+    /* Inline color swatch shown before color declaration values */
+    .decl-swatch {
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      margin-right: 5px;
+      vertical-align: -1px;
+    }
+
+    /* ─── DevTools-style rule blocks ─────────────────────────────────────── */
+    .rule-block {
+      background: var(--p-code-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.7;
+    }
+    /* State pseudo-class blocks (:hover, :active …) — blue tint */
+    .rule-block.is-state {
+      background: #eef4ff;
+      border-color: #cfe0ff;
+    }
+    /* Pseudo-element blocks (::before, ::after …) — green tint */
+    .rule-block.is-pseudo {
+      background: #ecfaf1;
+      border-color: #c8eed7;
+    }
+    .rule-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .rule-head .rule-selector { font-weight: 600; word-break: break-all; }
+    .rule-src {
+      flex: none;
+      color: var(--p-muted);
+      font-size: 0.62rem;
+      font-style: italic;
+    }
+    .rule-state-badge {
+      display: inline-block;
+      margin-left: 6px;
+      background: rgba(234, 88, 12, 0.1);
+      border: 1px solid rgba(234, 88, 12, 0.25);
+      color: #c2410c;
+      font-size: 0.6rem;
+      padding: 0 6px;
+      border-radius: 4px;
+    }
+    .rule-brace { color: var(--p-punct); }
+
+    .decl-overridden { opacity: 0.45; }
+    .decl-overridden .decl-key,
+    .decl-overridden .decl-value { text-decoration: line-through; }
+
+    .rule-conditional { border-style: dashed; opacity: 0.9; }
+
+    /* Source tag on flat applied rows (Tailwind "Other applied CSS" view) */
+    .decl-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .decl-source {
+      flex: none;
+      color: var(--p-selector);
+      opacity: 0.7;
+      font-size: 0.62rem;
+    }
+
+    .reset-note {
+      color: var(--p-muted);
+      font-size: 0.66rem;
+      font-style: italic;
+      padding: 6px 2px 2px;
+    }
+
+    .specificity-badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      color: var(--p-muted);
+      margin-top: 4px;
+      font-family: inherit;
+    }
+
+    /* Applied-CSS / Tailwind view */
+    .css-section-title {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--p-muted);
+      margin: 14px 0 8px;
+    }
+    .css-section-title:first-child { margin-top: 0; }
+
+    .tw-class-list {
+      margin-bottom: 4px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.7;
+      word-break: break-word;
+    }
+
+    /* Plain-text class names (no badge/box) */
+    .tw-class {
+      color: var(--p-key);
+    }
+    .tw-class:not(:last-child)::after {
+      content: ' ';
+      white-space: pre;
+    }
+
+    .applied-css {
+      background: var(--p-code-bg);
+      border: 1px solid var(--p-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.7;
+    }
+
+    .applied-mq {
+      display: inline-block;
+      background: rgba(234, 88, 12, 0.1);
+      border: 1px solid rgba(234, 88, 12, 0.25);
+      color: #c2410c;
+      font-size: 0.66rem;
+      font-style: italic;
+      padding: 1px 7px;
+      border-radius: 4px;
+      margin: 8px 0 4px;
+    }
+    .applied-mq:first-child { margin-top: 0; }
+
+    .cross-origin-warning {
+      background: rgba(234, 88, 12, 0.08);
+      border-color: rgba(234, 88, 12, 0.25);
+      color: #c2410c;
+      font-family: inherit;
+      font-size: 0.7rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--p-muted);
+      font-size: 0.78rem;
+    }
+
+    .empty-state-icon { font-size: 1.8rem; margin-bottom: 8px; }
+
+    /* ─── Computed Tab ──────────────────────────────────────────────────── */
+    .computed-group { margin-bottom: 10px; }
+
+    .computed-group-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #718096;
+      padding: 4px 0 6px;
+      border-bottom: 1px solid #1e2433;
+      margin-bottom: 6px;
+    }
+
+    .computed-row {
+      display: flex;
+      gap: 8px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .computed-row:hover { background: rgba(255,255,255,0.04); }
+
+    .computed-key {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: var(--key-color);
+      font-size: 0.7rem;
+      flex: 0 0 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .computed-value {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: var(--value-color);
+      font-size: 0.7rem;
+      flex: 1;
+      word-break: break-all;
+    }
+
+    /* ─── Dimensions Tab ────────────────────────────────────────────────── */
+    .dim-box-model {
+      padding: 12px;
+      background: var(--code-bg);
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .dim-box-model-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #718096;
+      margin-bottom: 8px;
+    }
+
+    .box-layer {
+      border: 1px solid;
+      padding: 10px;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .box-margin   { border-color: #f6ad55; }
+    .box-border   { border-color: #fc8181; margin-top: 0; }
+    .box-padding  { border-color: #68d391; }
+    .box-content  { border-color: #63b3ed; text-align: center; padding: 8px 4px; }
+
+    .box-layer-label {
+      position: absolute;
+      top: -8px;
+      left: 6px;
+      font-size: 0.58rem;
+      font-weight: 700;
+      padding: 0 4px;
+      background: var(--code-bg);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .box-margin  .box-layer-label { color: #f6ad55; }
+    .box-border  .box-layer-label { color: #fc8181; }
+    .box-padding .box-layer-label { color: #68d391; }
+    .box-content .box-layer-label { color: #63b3ed; }
+
+    .box-size-value {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #63b3ed;
+    }
+
+    .box-spacing-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-top: 10px;
+    }
+
+    .box-spacing-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 6px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 3px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.65rem;
+    }
+
+    .box-spacing-key { color: #718096; }
+    .box-spacing-val { color: var(--value-color); }
+
+    /* ─── Fonts Tab ─────────────────────────────────────────────────────── */
+    .font-preview-box {
+      background: var(--code-bg);
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .font-preview-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #718096;
+      margin-bottom: 8px;
+    }
+
+    #font-live-preview {
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .font-row {
+      display: flex;
+      gap: 8px;
+      padding: 3px 4px;
+      border-radius: 3px;
+    }
+
+    .font-row:hover { background: rgba(255,255,255,0.04); }
+
+    .font-key {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: var(--key-color);
+      font-size: 0.7rem;
+      flex: 0 0 150px;
+    }
+
+    .font-value {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      color: var(--value-color);
+      font-size: 0.7rem;
+      flex: 1;
+      word-break: break-all;
+    }
+
+    /* ─── Colors Tab ────────────────────────────────────────────────────── */
+    .color-swatch-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 5px;
+      margin-bottom: 4px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .swatch-box {
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .swatch-box:hover { transform: scale(1.1); }
+
+    .swatch-info { flex: 1; min-width: 0; }
+
+    .swatch-prop {
+      display: block;
+      font-size: 0.65rem;
+      color: #718096;
+      margin-bottom: 2px;
+    }
+
+    .swatch-hex {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      color: var(--value-color);
+      font-weight: 600;
+    }
+
+    .swatch-raw {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.62rem;
+      color: #718096;
+      margin-left: 8px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       DEMO CONTENT SECTION
+    ═══════════════════════════════════════════════════════════════════════ */
+
+    .demo-section {
+      padding: 80px 8%;
+      background: #fff;
+    }
+
+    .demo-section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #1a202c;
+      margin-bottom: 8px;
+    }
+
+    .demo-section-sub {
+      color: #718096;
+      font-size: 0.95rem;
+      margin-bottom: 40px;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .demo-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .demo-card-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a0aec0;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .demo-heading-1 { font-size: 2rem; font-weight: 900; color: #1a202c; line-height: 1.2; }
+    .demo-heading-2 { font-size: 1.5rem; font-weight: 700; color: #2d3748; }
+    .demo-heading-3 { font-size: 1.125rem; font-weight: 600; color: #4a5568; }
+
+    .demo-blockquote {
+      border-left: 4px solid #6366f1;
+      padding: 10px 16px;
+      background: #f8f7ff;
+      border-radius: 0 8px 8px 0;
+      font-style: italic;
+      color: #4a5568;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .demo-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #2d3748;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #fff;
+    }
+
+    .demo-input:focus { border-color: #6366f1; }
+
+    .demo-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .demo-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.35); }
+    .demo-btn:active { transform: translateY(0); }
+
+    .demo-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .demo-table th {
+      background: #f7fafc;
+      color: #4a5568;
+      font-weight: 600;
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #e2e8f0;
+    }
+
+    .demo-table td {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      color: #718096;
+    }
+
+    .demo-table tr:nth-child(even) td { background: #f7fafc; }
+
+    .demo-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .demo-badge-green { background: #c6f6d5; color: #276749; }
+    .demo-badge-blue  { background: #bee3f8; color: #2a69ac; }
+    .demo-badge-red   { background: #fed7d7; color: #9b2c2c; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCANNER UI (hidden by default)
+  ═══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- Toolbar -->
+  <div id="scanner-toolbar" hidden>
+    <span id="scanner-badge">
+      <span class="scanner-badge-dot"></span>
+      CSS Scanner Active
+    </span>
+    <span id="scanner-hint">Hover to inspect · Click to freeze · Esc to exit</span>
+    <div id="scanner-toolbar-right">
+      <input id="annot-author-input" type="text" placeholder="Your name (e.g. Alex)" autocomplete="off">
+      <button id="scanner-review-btn" title="Open review sidebar">☰ Review (<span id="annot-count-badge" class="annot-count">0</span>)</button>
+      <button id="scanner-share-btn" title="Share annotations">⤴ Share</button>
+      <button id="scanner-disable-btn">✕ Disable Scanner</button>
+    </div>
+  </div>
+
+  <!-- Highlight overlay (follows hover) -->
+  <div id="scanner-highlight" hidden>
+    <div id="scanner-highlight-label"></div>
+  </div>
+
+  <!-- Dashed alignment guides projecting from the hovered element's edges -->
+  <div id="scanner-guides" hidden>
+    <div class="scanner-guide guide-h" id="guide-top"></div>
+    <div class="scanner-guide guide-h" id="guide-bottom"></div>
+    <div class="scanner-guide guide-v" id="guide-left"></div>
+    <div class="scanner-guide guide-v" id="guide-right"></div>
+  </div>
+
+  <!-- Selected overlay (pinned on the clicked element) -->
+  <div id="scanner-selected" hidden>
+    <div id="scanner-selected-label"></div>
+  </div>
+
+  <!-- Inspector panel -->
+  <div id="scanner-panel" hidden>
+
+    <!-- Header (drag handle): logo · breadcrumb · close -->
+    <div id="panel-header">
+      <span class="panel-logo" aria-hidden="true">⧉</span>
+      <span id="panel-breadcrumb"><span class="bc-seg active">Hover an element</span></span>
+      <button id="panel-close-btn" title="Close scanner">✕</button>
+    </div>
+
+    <!-- Element summary: labeled DIMENSIONS / TYPOGRAPHY columns + round action -->
+    <div id="panel-summary">
+      <div class="sum-group">
+        <span class="sum-label">Dimensions</span>
+        <span id="panel-dims"></span>
+      </div>
+      <div class="sum-group">
+        <span class="sum-label">Typography</span>
+        <span id="panel-font"></span>
+      </div>
+      <button class="sum-action" tabindex="-1" aria-hidden="true">✎</button>
+    </div>
+
+    <!-- Content — CSS rules only, single view (no tabs, no scroller) -->
+    <div id="panel-content">
+      <section class="insp-section">
+        <div class="css-rules-head">
+          <span class="css-rules-label">CSS Rules</span>
+          <button class="btn-copy-css" id="btn-copy-css" title="Copy matched CSS">⧉ Copy CSS</button>
+          <span class="css-rules-src" id="css-rules-src"></span>
+        </div>
+        <div id="pane-css-rules"></div>
+      </section>
+    </div>
+
+    <!-- Annotate view — shown only in annotate mode -->
+    <div id="panel-annotate" hidden>
+      <div class="annot-pinhint"><span class="annot-pinhint-dot"></span>Click any element on the page to drop an annotation pin.</div>
+      <div class="annot-name-field">
+        <label for="annot-author-input-panel">Your name</label>
+        <input id="annot-author-input-panel" type="text" placeholder="Your name (e.g. Alex)" autocomplete="off">
+      </div>
+      <div class="annot-panel-footer">
+        <button id="panel-review-btn">☰ Review (<span class="annot-count">0</span>)</button>
+        <button id="panel-share-btn" class="primary">⤴ Share</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vertical mode rail — fixed to the right edge; switches Inspect / Annotate -->
+  <div id="mode-rail" hidden role="toolbar" aria-label="Scanner mode">
+    <button id="rail-inspect" class="mode-rail-btn active" data-mode="inspect"
+            title="Inspect" aria-label="Inspect">
+      <!-- GoCodescan (react-icons/go) -->
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M8.47 4.97a.75.75 0 0 0 0 1.06L9.94 7.5 8.47 8.97a.75.75 0 1 0 1.06 1.06l2-2a.75.75 0 0 0 0-1.06l-2-2a.75.75 0 0 0-1.06 0ZM6.53 6.03a.75.75 0 0 0-1.06-1.06l-2 2a.75.75 0 0 0 0 1.06l2 2a.75.75 0 1 0 1.06-1.06L5.06 7.5l1.47-1.47Z"/>
+        <path d="M12.246 13.307a7.501 7.501 0 1 1 1.06-1.06l2.474 2.473a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM1.5 7.5a6.002 6.002 0 0 0 3.608 5.504 6.002 6.002 0 0 0 6.486-1.117.748.748 0 0 1 .292-.293A6 6 0 1 0 1.5 7.5Z"/>
+      </svg>
+    </button>
+    <button id="rail-annotate" class="mode-rail-btn" data-mode="annotate"
+            title="Annotate" aria-label="Annotate">
+      <!-- FaPencil (react-icons/fa6) -->
+      <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+        <path d="M410.3 231l11.3-11.3-33.9-33.9-62.1-62.1L291.7 89.8l-11.3 11.3-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L387.7 253.7 410.3 231zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9L59.4 452l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1 0 32c0 8.8 7.2 16 16 16l32 0zM362.7 18.7L348.3 33.2 325.7 55.8 314.3 67.1l33.9 33.9 62.1 62.1 33.9 33.9 11.3-11.3 22.6-22.6 14.5-14.5c25-25 25-65.5 0-90.5L453.3 18.7c-25-25-65.5-25-90.5 0zm-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- DOM hierarchy tooltip — revealed on hover over the panel header -->
+  <div id="panel-hierarchy-tip" hidden></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       HERO SECTION — vanilla CSS + pseudo-elements
+  ═══════════════════════════════════════════════════════════════════════ -->
+
+  <section id="hero" class="hero-section">
+    <div class="hero-content">
+      <span class="hero-badge">CSS Inspector Tool</span>
+
+      <h1 class="hero-title">
+        Inspect Any Element's<br>
+        <span class="hero-highlight">CSS Instantly</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Hover any element on this page to see its CSS rules, computed styles,
+        box model, fonts, and colors — live, without DevTools.
+      </p>
+
+      <button id="cta-btn" class="hero-cta">
+        <span class="hero-cta-icon">⚡</span>
+        Try It Yourself On This Page
+      </button>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-value">5</span>
+          <span class="hero-stat-label">Inspector Views</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value">3</span>
+          <span class="hero-stat-label">Copy Actions</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value">5</span>
+          <span class="hero-stat-label">Pseudo States</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="hero-code-preview">
+        <div class="hcp-header">
+          <span class="hcp-dot"></span>
+          <span class="hcp-dot"></span>
+          <span class="hcp-dot"></span>
+        </div>
+        <div class="hcp-line hcp-mq">@media (max-width: 768px) {</div>
+        <div class="hcp-line hcp-selector" style="padding-left:12px">.hero-section {</div>
+        <div class="hcp-line hcp-prop" style="padding-left:24px"><span class="hcp-key">padding:</span> <span class="hcp-val">80px 5% 160px;</span></div>
+        <div class="hcp-line hcp-close" style="padding-left:12px">}</div>
+        <div class="hcp-line hcp-close">}</div>
+        <div class="hcp-line" style="margin-top:6px"></div>
+        <div class="hcp-line hcp-selector">.hero-cta {</div>
+        <div class="hcp-line hcp-prop hcp-highlight-line"><span class="hcp-key">background:</span> <span class="hcp-val">linear-gradient(…);</span></div>
+        <div class="hcp-line hcp-prop"><span class="hcp-key">border-radius:</span> <span class="hcp-val">10px;</span></div>
+        <div class="hcp-line hcp-prop"><span class="hcp-key">transition:</span> <span class="hcp-val">transform 0.2s;</span></div>
+        <div class="hcp-line hcp-close">}</div>
+        <div class="hcp-line" style="margin-top:6px"></div>
+        <div class="hcp-line hcp-selector">.hero-cta::after {</div>
+        <div class="hcp-line hcp-prop"><span class="hcp-key">content:</span> <span class="hcp-val">"";</span></div>
+        <div class="hcp-line hcp-prop"><span class="hcp-key">animation:</span> <span class="hcp-val">shimmer 2.6s∞;</span></div>
+        <div class="hcp-line hcp-close">}</div>
+        <div class="hcp-line" style="margin-top:8px"></div>
+        <div class="hcp-line hcp-comment">/* Specificity: 0,1,0 */</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECOND SECTION — Tailwind CSS
+  ═══════════════════════════════════════════════════════════════════════ -->
+
+  <section id="features" class="bg-gray-50 py-24">
+    <div class="max-w-6xl mx-auto px-6">
+
+      <div class="text-center mb-16">
+        <span class="inline-block text-xs font-bold tracking-widest text-indigo-500 uppercase mb-3 bg-indigo-50 px-4 py-1 rounded-full border border-indigo-100">How It Works</span>
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">Inspect, copy, ship faster</h2>
+        <p class="text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
+          Three steps to extract CSS from any element on this page — no DevTools, no extension.
+        </p>
+      </div>
+
+      <!-- Step cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+        <div class="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:bg-indigo-100 transition-colors">🎯</div>
+          <div class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">Step 1</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-3">Activate</h3>
+          <p class="text-gray-500 leading-relaxed text-sm">Click the "Try It" button in the hero. A toolbar slides in at the top of the page signaling the scanner is live.</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-sm p-8 border border-indigo-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:bg-blue-200 transition-colors">🖱️</div>
+          <div class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Step 2</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-3">Hover</h3>
+          <p class="text-gray-500 leading-relaxed text-sm">Move your mouse over any element. A cyan outline and a label showing tag, class, and dimensions follows your cursor.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+          <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:bg-purple-100 transition-colors">📋</div>
+          <div class="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2">Step 3</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-3">Inspect</h3>
+          <p class="text-gray-500 leading-relaxed text-sm">Click to pin the inspector panel. Browse CSS rules, computed styles, box model, fonts, and colors — then copy.</p>
+        </div>
+      </div>
+
+      <!-- Feature capability pills -->
+      <div class="text-center mb-8">
+        <h3 class="text-xl font-bold text-gray-800 mb-6">Everything you can extract</h3>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">📄</div>
+          <div class="text-xs font-bold text-gray-700">CSS Rules</div>
+          <div class="text-xs text-gray-400 mt-1">With specificity</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">⚙️</div>
+          <div class="text-xs font-bold text-gray-700">Computed</div>
+          <div class="text-xs text-gray-400 mt-1">Filtered styles</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">📐</div>
+          <div class="text-xs font-bold text-gray-700">Dimensions</div>
+          <div class="text-xs text-gray-400 mt-1">Box model</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">🔤</div>
+          <div class="text-xs font-bold text-gray-700">Fonts</div>
+          <div class="text-xs text-gray-400 mt-1">Live preview</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">🎨</div>
+          <div class="text-xs font-bold text-gray-700">Colors</div>
+          <div class="text-xs text-gray-400 mt-1">Swatches + hex</div>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 text-center hover:border-indigo-300 hover:shadow-md transition-all">
+          <div class="text-2xl mb-2">💨</div>
+          <div class="text-xs font-bold text-gray-700">Tailwind</div>
+          <div class="text-xs text-gray-400 mt-1">Auto-convert</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       DEMO CONTENT SECTION — varied elements for scanner practice
+  ═══════════════════════════════════════════════════════════════════════ -->
+
+  <section id="demo" class="demo-section">
+    <h2 class="demo-section-title">Elements to Inspect</h2>
+    <p class="demo-section-sub">Activate the scanner above and click any of these elements.</p>
+
+    <div class="demo-grid">
+      <!-- Typography -->
+      <div class="demo-card">
+        <div class="demo-card-title">Typography</div>
+        <h1 class="demo-heading-1">Heading 1</h1>
+        <h2 class="demo-heading-2">Heading 2</h2>
+        <h3 class="demo-heading-3">Heading 3</h3>
+      </div>
+
+      <!-- Blockquote -->
+      <div class="demo-card">
+        <div class="demo-card-title">Blockquote</div>
+        <blockquote class="demo-blockquote">
+          "Inspect any element on the page and copy its CSS in one click. Design faster."
+        </blockquote>
+      </div>
+
+      <!-- Form Input -->
+      <div class="demo-card">
+        <div class="demo-card-title">Form Input</div>
+        <input class="demo-input" type="text" placeholder="Click me to inspect...">
+      </div>
+
+      <!-- Button -->
+      <div class="demo-card">
+        <div class="demo-card-title">Styled Button</div>
+        <button class="demo-btn">Hover &amp; Inspect Me</button>
+      </div>
+
+      <!-- Badges -->
+      <div class="demo-card" style="display:flex;flex-direction:column;gap:8px">
+        <div class="demo-card-title">Status Badges</div>
+        <div>
+          <span class="demo-badge demo-badge-green">Active</span>
+          &nbsp;
+          <span class="demo-badge demo-badge-blue">Pending</span>
+          &nbsp;
+          <span class="demo-badge demo-badge-red">Error</span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="demo-card">
+        <div class="demo-card-title">Data Table</div>
+        <table class="demo-table">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>font-size</td><td>0.82rem</td></tr>
+            <tr><td>border</td><td>1px solid</td></tr>
+            <tr><td>padding</td><td>7px 10px</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SVG figure -->
+      <div class="demo-card" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <div class="demo-card-title">SVG Element</div>
+        <svg width="64" height="64" viewBox="0 0 64 64" style="display:block">
+          <circle cx="32" cy="32" r="28" fill="#6366f1" opacity="0.15" stroke="#6366f1" stroke-width="2"/>
+          <circle cx="32" cy="32" r="16" fill="#6366f1" opacity="0.6"/>
+          <circle cx="32" cy="32" r="6"  fill="#fff"/>
+        </svg>
+        <span style="font-size:0.75rem;color:#a0aec0">Try inspecting SVG elements</span>
+      </div>
+
+      <!-- Gradient card -->
+      <div class="demo-card" style="background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff">
+        <div class="demo-card-title" style="color:rgba(255,255,255,0.6)">Gradient Background</div>
+        <p style="font-size:0.85rem;line-height:1.6;opacity:0.85">This card uses a CSS gradient background. Inspect it to see the gradient value in the Colors and Computed tabs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <footer style="background:#0d1117;color:#718096;text-align:center;padding:32px 24px;font-size:0.8rem;border-top:1px solid #21262d">
+    CSS Scanner — Browser Prototype &nbsp;·&nbsp; Built with vanilla JS + Tailwind CSS
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SCANNER JAVASCRIPT
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+  'use strict';
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     STATE
+  ───────────────────────────────────────────────────────────────────────── */
+  const Scanner = {
+    isActive: false,
+    frozen: false,
+    mode: 'inspect',      // 'inspect' (CSS) | 'annotate' (review) — see Annot.Modes
+    hoveredEl: null,
+    selectedEl: null,
+    panelEl: null,        // element currently shown in the panel (for the header hierarchy tooltip)
+    activeTab: 'css-rules',
+    _defaultProbe: null,
+    _hoverRaf: null,
+  };
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     HIGHLIGHT OVERLAY
+  ───────────────────────────────────────────────────────────────────────── */
+  function showHighlight(el) {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+    const h = document.getElementById('scanner-highlight');
+    h.style.top    = rect.top    + 'px';
+    h.style.left   = rect.left   + 'px';
+    h.style.width  = rect.width  + 'px';
+    h.style.height = rect.height + 'px';
+    document.getElementById('scanner-highlight-label').textContent = getElementLabel(el);
+    h.removeAttribute('hidden');
+    showGuides(rect);
+  }
+
+  function hideHighlight() {
+    document.getElementById('scanner-highlight').setAttribute('hidden', '');
+    hideGuides();
+  }
+
+  // Dashed rulers projecting from the hovered box edges across the viewport.
+  function showGuides(rect) {
+    document.getElementById('guide-top').style.top     = rect.top    + 'px';
+    document.getElementById('guide-bottom').style.top  = rect.bottom + 'px';
+    document.getElementById('guide-left').style.left   = rect.left   + 'px';
+    document.getElementById('guide-right').style.left  = rect.right  + 'px';
+    document.getElementById('scanner-guides').removeAttribute('hidden');
+  }
+
+  function hideGuides() {
+    document.getElementById('scanner-guides').setAttribute('hidden', '');
+  }
+
+  function showSelectedHighlight(el) {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const h = document.getElementById('scanner-selected');
+    h.style.top    = rect.top    + 'px';
+    h.style.left   = rect.left   + 'px';
+    h.style.width  = rect.width  + 'px';
+    h.style.height = rect.height + 'px';
+    document.getElementById('scanner-selected-label').textContent = '📌 ' + getElementLabel(el);
+    h.removeAttribute('hidden');
+  }
+
+  function hideSelectedHighlight() {
+    document.getElementById('scanner-selected').setAttribute('hidden', '');
+  }
+
+  function getElementLabel(el) {
+    let label = el.tagName.toLowerCase();
+    if (el.id) label += '#' + el.id;
+    else if (el.classList.length) {
+      const cls = Array.from(el.classList)
+        .filter(c => !c.startsWith('scanner-'))
+        .slice(0, 2)
+        .join('.');
+      if (cls) label += '.' + cls;
+    }
+    const rect = el.getBoundingClientRect();
+    return `${label}  ${Math.round(rect.width)}×${Math.round(rect.height)}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     CSSOM TRAVERSAL
+  ───────────────────────────────────────────────────────────────────────── */
+  // Dynamic state pseudo-classes — these can't be satisfied by element.matches()
+  // at rest (the element isn't being hovered/focused/etc right now), so a selector
+  // that needs one only applies *conditionally*, not as part of the resting style.
+  const STATE_PSEUDO_RE = /:(?:hover|active|focus|focus-within|focus-visible|visited|target|target-within|checked|indeterminate|default|disabled|enabled|read-only|read-write|placeholder-shown|autofill|valid|invalid|required|optional|in-range|out-of-range|user-invalid|user-valid)\b/gi;
+  // Pseudo-elements — styling a sub-box (::before/::after/…), not the element itself.
+  const PSEUDO_EL_RE = /::?(?:before|after|placeholder|selection|first-line|first-letter|marker|backdrop|file-selector-button)\b/gi;
+  // Non-global variant for one-off classification (avoids stateful lastIndex).
+  const PSEUDO_EL_NAME_RE = /(?:before|after|placeholder|selection|first-line|first-letter|marker|backdrop|file-selector-button)\b/i;
+  function stateIsPseudoEl(state) { return !!state && PSEUDO_EL_NAME_RE.test(state); }
+
+  // Classify one comma-separated selector part against the element.
+  //   { matched, state } — state is the pseudo suffix (':hover', '::before', …)
+  //   that had to be removed before the element matched, or '' if it matched as-is.
+  function classifySelectorPart(element, sel) {
+    try { if (element.matches(sel)) return { matched: true, state: '' }; } catch { /* fall through */ }
+    const states = [];
+    const base = sel
+      .replace(STATE_PSEUDO_RE, m => { states.push(m); return ''; })
+      .replace(PSEUDO_EL_RE,    m => { states.push(m); return ''; })
+      .replace(/\(\s*\)/g, '')   // tidy any emptied :not()/:is() shells
+      .trim();
+    if (!base || base === sel) return { matched: false, state: '' };
+    try { if (element.matches(base)) return { matched: true, state: states.join('') }; } catch { /* no */ }
+    return { matched: false, state: '' };
+  }
+
+  // A selector is a UA/framework reset if it targets nothing by class, id, or
+  // attribute — i.e. only tag names / `*` / combinators. (e.g. Tailwind preflight's
+  // `button, input, optgroup, select, textarea { margin: 0 }`.)
+  function isResetSelector(sel) {
+    return !/[.#\[]/.test(sel);
+  }
+
+  function sheetLabel(sheet) {
+    if (!sheet) return '<style>';
+    if (sheet.href) { try { return sheet.href.split('/').pop() || sheet.href; } catch { return sheet.href; } }
+    return '<style>';
+  }
+
+  function getMatchedRules(element) {
+    const results = [];
+    let order = 0;
+    for (const sheet of document.styleSheets) {
+      try {
+        order = traverseRuleList(sheet.cssRules, element, null, sheet, results, order);
+      } catch (e) {
+        results.push({ type: 'cross-origin', href: sheet.href || '(unknown)' });
+      }
+    }
+    return results;
+  }
+
+  function traverseRuleList(ruleList, element, mediaCondition, sheet, results, order) {
+    if (!ruleList) return order;
+    for (const rule of ruleList) {
+      if (rule.type === 1) { // CSSStyleRule
+        const parts = rule.selectorText.split(',').map(s => s.trim());
+        // Evaluate each selector part; keep the matched ones so we can attribute
+        // specificity/state to what actually hit (not the whole comma group).
+        const hits = [];
+        for (const sel of parts) {
+          const { matched, state } = classifySelectorPart(element, sel);
+          if (matched) hits.push({ sel, state });
+        }
+        if (hits.length) {
+          // Prefer a hit with no state (resting) for the rule's effective state.
+          const resting = hits.find(h => !h.state);
+          const chosen  = resting || hits[0];
+          // Display the matched part(s) only — closer to "why this rule applies".
+          const matchedSel = hits.map(h => h.sel).join(', ');
+          results.push({
+            type: 'rule',
+            selector: matchedSel,
+            fullSelector: rule.selectorText,
+            declarations: parseDeclarations(rule.style),
+            cssText: rule.cssText,
+            mediaCondition,
+            mediaActive: mediaCondition ? safeMatchMedia(mediaCondition) : true,
+            state: chosen.state || null,
+            isReset: hits.every(h => isResetSelector(h.sel)),
+            specificity: getSpecificity(chosen.sel),
+            order: order++,
+            source: sheetLabel(sheet),
+          });
+        }
+      } else if (rule.type === 4) { // CSSMediaRule
+        order = traverseRuleList(rule.cssRules, element, rule.conditionText, sheet, results, order);
+      } else if (rule.type === 12) { // CSSSupportsRule
+        order = traverseRuleList(rule.cssRules, element, '@supports ' + rule.conditionText, sheet, results, order);
+      }
+    }
+    return order;
+  }
+
+  function safeMatchMedia(cond) {
+    try { return window.matchMedia(cond).matches; } catch { return true; }
+  }
+
+  function parseDeclarations(style) {
+    // Parse the *serialized* declaration block (style.cssText) rather than
+    // iterating style[i]. Index iteration returns expanded longhand properties
+    // (e.g. `background` becomes background-image/position-x/…: initial), which
+    // floods the panel with noise. cssText collapses longhands back into the
+    // authored shorthands, matching what browser DevTools shows.
+    if (!style || !style.cssText) return [];
+    return collapseBorderLonghands(splitDeclarationBlock(style.cssText));
+  }
+
+  // Chrome serializes `border: none` (and similar) as four longhands —
+  // border-width / border-style / border-color / border-image — because the
+  // `border` shorthand also resets border-image. Recollapse that exact quartet
+  // back into a single authored-looking `border:` line, matching DevTools.
+  function collapseBorderLonghands(decls) {
+    const idx = {};
+    decls.forEach((d, i) => { idx[d.property] = i; });
+    const need = ['border-width', 'border-style', 'border-color', 'border-image'];
+    if (!need.every(p => p in idx)) return decls;
+    const get = p => decls[idx[p]].value;
+    const style = get('border-style');
+    const width = get('border-width');
+    const color = get('border-color');
+    let value;
+    if (style === 'none' || style === 'hidden') {
+      value = style === 'hidden' ? 'hidden' : 'none';
+    } else {
+      value = [width, style, color]
+        .filter(v => v && v !== 'medium' && v !== 'currentcolor')
+        .join(' ') || style;
+    }
+    // Drop the four longhands, insert one `border` at the first's position.
+    const firstPos = Math.min(...need.map(p => idx[p]));
+    const out = decls.filter(d => !need.includes(d.property));
+    out.splice(firstPos, 0, { property: 'border', value });
+    return out;
+  }
+
+  function splitDeclarationBlock(text) {
+    const result = [];
+    let depth = 0;            // parenthesis nesting depth — rgba(), url(), calc()
+    let inString = false;
+    let stringChar = '';
+    let buf = '';
+    const flush = () => {
+      const decl = buf.trim();
+      buf = '';
+      if (!decl) return;
+      const idx = decl.indexOf(':');
+      if (idx === -1) return;
+      const property = decl.slice(0, idx).trim();
+      const value = decl.slice(idx + 1).trim();
+      if (property && value) result.push({ property, value });
+    };
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        buf += ch;
+        if (ch === stringChar && text[i - 1] !== '\\') inString = false;
+        continue;
+      }
+      if (ch === '"' || ch === "'") { inString = true; stringChar = ch; buf += ch; continue; }
+      if (ch === '(') { depth++; buf += ch; continue; }
+      if (ch === ')') { depth = Math.max(0, depth - 1); buf += ch; continue; }
+      if (ch === ';' && depth === 0) { flush(); continue; }
+      buf += ch;
+    }
+    flush();
+    return result;
+  }
+
+  function getSpecificity(selector) {
+    // Strip content inside :not(), :is(), etc. to avoid double-counting
+    const s = selector.replace(/:[\w-]+\([^)]*\)/g, '');
+    const ids      = (s.match(/#[\w-]+/g) || []).length;
+    const classes  = (s.match(/[.:\[][^:{.[#\s>+~*]+/g) || []).length;
+    const tags     = (s.match(/(^|[\s>+~])[\w-]+/g) || []).length;
+    return ids * 100 + classes * 10 + tags;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     STYLE EXTRACTORS
+  ───────────────────────────────────────────────────────────────────────── */
+  const COMPUTED_PROPERTIES = [
+    ['Layout', ['display','position','top','right','bottom','left','z-index','float','clear','overflow','overflow-x','overflow-y','visibility']],
+    ['Flex/Grid', ['flex-direction','flex-wrap','justify-content','align-items','align-self','align-content','flex','flex-grow','flex-shrink','flex-basis','gap','grid-template-columns','grid-template-rows','grid-column','grid-row']],
+    ['Sizing', ['width','height','min-width','max-width','min-height','max-height']],
+    ['Spacing', ['margin','margin-top','margin-right','margin-bottom','margin-left','padding','padding-top','padding-right','padding-bottom','padding-left']],
+    ['Border', ['border','border-radius','border-color','border-style','border-width','border-top','border-right','border-bottom','border-left','outline','box-shadow']],
+    ['Background', ['background','background-color','background-image','background-size','background-position','background-repeat']],
+    ['Typography', ['color','font-family','font-size','font-weight','font-style','line-height','letter-spacing','text-align','text-transform','text-decoration','white-space','word-spacing']],
+    ['Effects', ['opacity','transform','transition','animation','clip-path','backdrop-filter','filter','cursor','pointer-events','user-select']],
+  ];
+
+  function getDefaultProbe() {
+    if (!Scanner._defaultProbe) {
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none;';
+      document.body.appendChild(probe);
+      Scanner._defaultProbe = probe;
+    }
+    return Scanner._defaultProbe;
+  }
+
+  function getFilteredComputedStyles(element) {
+    const computed = window.getComputedStyle(element);
+    const defaults = window.getComputedStyle(getDefaultProbe());
+    const result = [];
+    for (const [group, props] of COMPUTED_PROPERTIES) {
+      const rows = [];
+      for (const prop of props) {
+        try {
+          const val = computed.getPropertyValue(prop).trim();
+          const def = defaults.getPropertyValue(prop).trim();
+          if (val && val !== def) {
+            rows.push({ property: prop, value: val });
+          }
+        } catch { /* skip */ }
+      }
+      if (rows.length) result.push({ group, rows });
+    }
+    return result;
+  }
+
+  function getDimensions(element) {
+    const rect = element.getBoundingClientRect();
+    const c = window.getComputedStyle(element);
+    return {
+      width:         Math.round(rect.width),
+      height:        Math.round(rect.height),
+      viewportTop:   Math.round(rect.top),
+      viewportLeft:  Math.round(rect.left),
+      docTop:        Math.round(rect.top + window.scrollY),
+      docLeft:       Math.round(rect.left + window.scrollX),
+      marginTop:     c.marginTop,
+      marginRight:   c.marginRight,
+      marginBottom:  c.marginBottom,
+      marginLeft:    c.marginLeft,
+      paddingTop:    c.paddingTop,
+      paddingRight:  c.paddingRight,
+      paddingBottom: c.paddingBottom,
+      paddingLeft:   c.paddingLeft,
+      borderTop:     c.borderTopWidth,
+      borderRight:   c.borderRightWidth,
+      borderBottom:  c.borderBottomWidth,
+      borderLeft:    c.borderLeftWidth,
+    };
+  }
+
+  function getFontDetails(element) {
+    const c = window.getComputedStyle(element);
+    return [
+      { key: 'font-family',      value: c.fontFamily },
+      { key: 'font-size',        value: c.fontSize },
+      { key: 'font-weight',      value: c.fontWeight },
+      { key: 'font-style',       value: c.fontStyle },
+      { key: 'line-height',      value: c.lineHeight },
+      { key: 'letter-spacing',   value: c.letterSpacing },
+      { key: 'text-align',       value: c.textAlign },
+      { key: 'text-transform',   value: c.textTransform },
+      { key: 'text-decoration',  value: c.textDecoration },
+      { key: 'white-space',      value: c.whiteSpace },
+      { key: 'color',            value: c.color },
+    ];
+  }
+
+  function getColorDetails(element) {
+    const c = window.getComputedStyle(element);
+    const entries = [
+      { prop: 'color',               raw: c.color },
+      { prop: 'background-color',    raw: c.backgroundColor },
+      { prop: 'border-top-color',    raw: c.borderTopColor },
+      { prop: 'border-right-color',  raw: c.borderRightColor },
+      { prop: 'border-bottom-color', raw: c.borderBottomColor },
+      { prop: 'border-left-color',   raw: c.borderLeftColor },
+      { prop: 'outline-color',       raw: c.outlineColor },
+      { prop: 'fill',                raw: c.fill },
+      { prop: 'stroke',              raw: c.stroke },
+    ];
+    return entries
+      .filter(e => e.raw && e.raw !== 'none' && e.raw !== '' && e.raw !== 'transparent')
+      .map(e => ({ ...e, hex: rgbToHex(e.raw) }));
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb) return null;
+    const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return null;
+    const hex = '#' + [m[1], m[2], m[3]].map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+    if (hex === '#000000' && rgb.includes('rgba') && rgb.match(/,\s*0\s*\)/)) return null; // fully transparent
+    return hex;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     TAILWIND DETECTION + APPLIED-CSS MERGE
+  ───────────────────────────────────────────────────────────────────────── */
+
+  // Utility-class prefixes Tailwind generates. Variant prefixes (md:, hover:, …)
+  // are stripped before matching; arbitrary values (text-[…]) are accepted too.
+  const TW_PREFIX_SET = new Set([
+    'text','bg','from','via','to','decoration','placeholder','caret','accent','fill','stroke',
+    'p','px','py','pt','pb','pl','pr','ps','pe',
+    'm','mx','my','mt','mb','ml','mr','ms','me',
+    'w','h','min','max','min-w','max-w','min-h','max-h','size','basis',
+    'gap','gap-x','gap-y','space','space-x','space-y',
+    'flex','grid','grid-cols','grid-rows','col','row','order','auto-cols','auto-rows',
+    'items','justify','content','self','place','place-items','place-content','place-self',
+    'rounded','border','divide','outline','ring','ring-offset',
+    'font','leading','tracking','indent','align','whitespace','break','list','line-clamp',
+    'z','top','bottom','left','right','inset','translate','scale','rotate','skew','origin',
+    'opacity','shadow','blur','brightness','contrast','grayscale','invert','saturate','sepia','backdrop',
+    'overflow','overscroll','object','aspect',
+    'cursor','select','resize','scroll','snap','touch','will',
+    'transition','duration','delay','ease','animate','gradient','bg-gradient',
+  ]);
+
+  // Standalone (value-less) utilities + Tailwind marker classes.
+  const TW_STANDALONE = new Set([
+    'block','inline-block','inline','flex','inline-flex','grid','inline-grid','table','contents',
+    'flow-root','list-item','hidden','flex-row','flex-col','flex-wrap','flex-nowrap',
+    'static','fixed','absolute','relative','sticky','isolate','container','group','peer',
+    'italic','not-italic','antialiased','uppercase','lowercase','capitalize','normal-case',
+    'underline','overline','line-through','no-underline','truncate','visible','invisible',
+    'collapse','sr-only','not-sr-only','transform','grow','shrink',
+  ]);
+
+  function isTailwindClass(cls) {
+    if (!cls || cls.startsWith('scanner-')) return false;
+    let base = cls;
+    const colon = base.lastIndexOf(':');           // strip variant prefix (md:, hover:, …)
+    if (colon !== -1) base = base.slice(colon + 1);
+    if (base[0] === '-') base = base.slice(1);       // negative utility (-mt-4)
+    if (!base) return false;
+    if (TW_STANDALONE.has(base)) return true;
+    const dash = base.indexOf('-');
+    if (dash === -1) return TW_PREFIX_SET.has(base); // bare utility: border, shadow, rounded
+    const seg1 = base.slice(0, dash);
+    const seg2 = base.split('-').slice(0, 2).join('-');
+    return TW_PREFIX_SET.has(seg1) || TW_PREFIX_SET.has(seg2);
+  }
+
+  function getTailwindClasses(el) {
+    if (!el.classList) return [];
+    return Array.from(el.classList).filter(isTailwindClass);
+  }
+
+  // A matched rule "came from Tailwind" if its selector is a single class that is
+  // itself a Tailwind utility (e.g. `.mb-16`, `.md\:grid-cols-3`).
+  function isRuleTailwind(rule) {
+    const sel = (rule.selector || '').trim();
+    const m = sel.match(/^\.((?:[\w-]|\\.)+)$/);
+    if (!m) return false;
+    const cls = m[1].replace(/\\(.)/g, '$1');        // unescape \: \[ \] \. …
+    return isTailwindClass(cls);
+  }
+
+  // Cascade order: lower specificity first, ties broken by source order, so a
+  // later `.set()` (= higher priority) wins. Returns a fresh sorted array.
+  function cascadeSort(rules) {
+    return rules.slice().sort((a, b) =>
+      (a.specificity - b.specificity) || (a.order - b.order));
+  }
+
+  // Merge matched rules into the declarations actually applied to the element,
+  // recording the source selector for each property. Excludes reset/UA rules,
+  // conditional state rules (:hover, …) and currently-inactive @media rules.
+  // Returns { base: [{property, value, fromTailwind, source}], media: [...] }.
+  function buildAppliedCSS(element, rules) {
+    const baseMap = new Map();   // property -> {value, fromTailwind, source}
+    const mediaGroups = [];
+    const mediaIndex = new Map();
+
+    const applicable = cascadeSort(rules.filter(r =>
+      r.type === 'rule' && !r.isReset && !r.state &&
+      (!r.mediaCondition || r.mediaActive)));
+
+    applicable.forEach(r => {
+      const fromTW = isRuleTailwind(r);
+      if (r.mediaCondition) {
+        let g = mediaIndex.get(r.mediaCondition);
+        if (!g) { g = { condition: r.mediaCondition, map: new Map() }; mediaIndex.set(r.mediaCondition, g); mediaGroups.push(g); }
+        r.declarations.forEach(d => g.map.set(d.property, { value: d.value, fromTailwind: fromTW, source: r.selector }));
+      } else {
+        r.declarations.forEach(d => baseMap.set(d.property, { value: d.value, fromTailwind: fromTW, source: r.selector }));
+      }
+    });
+
+    // Inline styles override everything and are never "from Tailwind".
+    if (element.style && element.style.length) {
+      for (let i = 0; i < element.style.length; i++) {
+        const prop = element.style[i];
+        baseMap.set(prop, { value: element.style.getPropertyValue(prop), fromTailwind: false, source: 'element.style' });
+      }
+    }
+
+    const toArr = (map) => Array.from(map, ([property, v]) => ({ property, value: v.value, fromTailwind: v.fromTailwind, source: v.source }));
+    return {
+      base: toArr(baseMap),
+      media: mediaGroups.map(g => ({ condition: g.condition, decls: toArr(g.map) })),
+    };
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     PANEL RENDERERS
+  ───────────────────────────────────────────────────────────────────────── */
+  // Build a flat block of `property: value;` lines, with media-query groups below.
+  // Each row is annotated with the selector/class the declaration came from.
+  function buildAppliedBlock(decls, mediaGroups) {
+    const declRow = (d, indent) => {
+      const row = document.createElement('div');
+      row.className = 'decl-row';
+      if (indent) row.style.paddingLeft = '12px';
+      const src = d.source ? `<span class="decl-source" title="applied by">${esc(d.source)}</span>` : '';
+      row.innerHTML = `<span class="decl-main"><span class="decl-key">${esc(d.property)}</span><span class="decl-colon">:</span> <span class="decl-value">${esc(d.value)}</span><span class="decl-semi">;</span></span>${src}`;
+      return row;
+    };
+    const box = document.createElement('div');
+    box.className = 'applied-css';
+    decls.forEach(d => box.appendChild(declRow(d, false)));
+    (mediaGroups || []).forEach(g => {
+      const mq = document.createElement('div');
+      mq.className = 'applied-mq';
+      mq.textContent = '@media ' + g.condition;
+      box.appendChild(mq);
+      g.decls.forEach(d => box.appendChild(declRow(d, true)));
+    });
+    return box;
+  }
+
+  // Pull the first CSS color token out of a declaration value so it can be shown
+  // as an inline swatch. Returns a CSS-usable color string, or null if none.
+  function extractSwatchColor(value) {
+    if (!value) return null;
+    const hex = value.match(/#[0-9a-fA-F]{3,8}\b/);
+    if (hex) return hex[0];
+    const fn = value.match(/(?:rgba?|hsla?)\([^)]*\)/i);
+    if (fn) return fn[0];
+    return null;
+  }
+
+  // Render one matched rule as a DevTools-style block:  selector { … }
+  // `seen` tracks properties already won by a higher-priority block so we can
+  // strike-through declarations this rule loses on the cascade. Pass null to
+  // disable striking (e.g. for conditional rules that aren't competing now).
+  // opts: { variant: 'is-state'|'is-pseudo', stateHeading: true } — stateHeading
+  // shows just the pseudo (`:hover`) as the block selector, matching the design.
+  function buildRuleBlock(rule, seen, opts = {}) {
+    const block = document.createElement('div');
+    block.className = 'rule-block';
+    if (opts.variant) block.classList.add(opts.variant);
+
+    const head = document.createElement('div');
+    head.className = 'rule-head';
+    let heading, badge;
+    if (opts.stateHeading && rule.state) {
+      heading = rule.state;          // e.g. ":hover", "::before"
+      badge = '';
+    } else {
+      heading = rule.selector;
+      badge = rule.state ? `<span class="rule-state-badge">${esc(rule.state)}</span>` : '';
+    }
+    head.innerHTML =
+      `<span class="rule-selector">${esc(heading)}</span>${badge}` +
+      `<span class="rule-src">${esc(rule.source || '')}</span>`;
+    block.appendChild(head);
+
+    const open = document.createElement('div');
+    open.className = 'rule-brace';
+    open.textContent = '{';
+    block.appendChild(open);
+
+    rule.declarations.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'rule-prop-row';
+      let overridden = false;
+      if (seen) {
+        if (seen.has(d.property)) overridden = true;
+        else seen.add(d.property);
+      }
+      if (overridden) row.classList.add('decl-overridden');
+      const swatchColor = extractSwatchColor(d.value);
+      const swatch = swatchColor
+        ? `<span class="decl-swatch" style="background:${esc(swatchColor)}"></span>`
+        : '';
+      row.innerHTML =
+        `<span class="decl-key">${esc(d.property)}</span><span class="decl-colon">:</span> ` +
+        `${swatch}<span class="decl-value">${esc(d.value)}</span><span class="decl-semi">;</span>`;
+      block.appendChild(row);
+    });
+
+    const close = document.createElement('div');
+    close.className = 'rule-brace';
+    close.textContent = '}';
+    block.appendChild(close);
+    return block;
+  }
+
+  function sectionTitle(text) {
+    const t = document.createElement('div');
+    t.className = 'css-section-title';
+    t.textContent = text;
+    return t;
+  }
+
+  function renderCSSRulesTab(element) {
+    const frag = document.createDocumentFragment();
+    const rules       = getMatchedRules(element);
+    const twClasses   = getTailwindClasses(element);
+    const crossOrigin = rules.filter(r => r.type === 'cross-origin');
+
+    if (twClasses.length) {
+      // ── Element is styled with Tailwind utilities → list the real classes ──
+      frag.appendChild(sectionTitle('Tailwind classes:'));
+      const list = document.createElement('div');
+      list.className = 'tw-class-list';
+      twClasses.forEach(cls => {
+        const chip = document.createElement('span');
+        chip.className = 'tw-class';
+        chip.textContent = cls;
+        list.appendChild(chip);
+      });
+      frag.appendChild(list);
+
+      // ── Anything applied that isn't expressed by those utilities ──
+      const applied   = buildAppliedCSS(element, rules);
+      const baseOther = applied.base.filter(d => !d.fromTailwind);
+      if (baseOther.length || applied.media.length) {
+        frag.appendChild(sectionTitle('Other applied CSS:'));
+        frag.appendChild(buildAppliedBlock(baseOther, applied.media));
+      }
+    } else {
+      // ── Plain CSS element → DevTools-style rule blocks, highest-priority first.
+      const authorRules = rules.filter(r => r.type === 'rule' && !r.isReset);
+      const appliedRules = cascadeSort(authorRules.filter(r =>
+        !r.state && (!r.mediaCondition || r.mediaActive))).reverse();   // winning rule on top
+      // State pseudo-classes (:hover/:active/…) and pseudo-elements (::before/…)
+      // are grouped separately, matching the design.
+      const stateRules  = authorRules.filter(r => r.state && !stateIsPseudoEl(r.state));
+      const pseudoRules = authorRules.filter(r => stateIsPseudoEl(r.state));
+      const inactiveMedia = authorRules.filter(r =>
+        !r.state && r.mediaCondition && !r.mediaActive);
+      const resetCount = rules.filter(r => r.type === 'rule' && r.isReset).length;
+
+      const hasInline = element.style && element.style.length;
+
+      if (!appliedRules.length && !hasInline && !stateRules.length &&
+          !pseudoRules.length && !inactiveMedia.length && !crossOrigin.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.innerHTML = '<div class="empty-state-icon">🔍</div>No author CSS rules matched for this element.';
+        frag.appendChild(empty);
+      }
+
+      const seen = new Set();   // cascade bookkeeping for strike-through
+
+      // Inline styles win over every rule — show first.
+      if (hasInline) {
+        const inlineDecls = [];
+        for (let i = 0; i < element.style.length; i++) {
+          const prop = element.style[i];
+          inlineDecls.push({ property: prop, value: element.style.getPropertyValue(prop) });
+        }
+        frag.appendChild(buildRuleBlock(
+          { selector: 'element.style', source: 'inline', state: null, declarations: collapseBorderLonghands(inlineDecls) },
+          seen));
+      }
+
+      appliedRules.forEach(r => frag.appendChild(buildRuleBlock(r, seen)));
+
+      // State pseudo-class blocks (:hover, :active, …) — blue-tinted, labeled by
+      // the pseudo only, shown right after the applied rules.
+      stateRules.forEach(r =>
+        frag.appendChild(buildRuleBlock(r, null, { variant: 'is-state', stateHeading: true })));
+
+      // Pseudo-element blocks (::before, ::after, …) — green-tinted, under heading.
+      if (pseudoRules.length) {
+        frag.appendChild(sectionTitle('Pseudo-elements'));
+        pseudoRules.forEach(r =>
+          frag.appendChild(buildRuleBlock(r, null, { variant: 'is-pseudo', stateHeading: true })));
+      }
+
+      // Inactive @media rules — never applied at rest, shown last.
+      if (inactiveMedia.length) {
+        frag.appendChild(sectionTitle('Conditional (inactive @media):'));
+        inactiveMedia.forEach(r => {
+          const block = buildRuleBlock(r, null);
+          block.classList.add('rule-conditional');
+          const mq = document.createElement('div');
+          mq.className = 'applied-mq';
+          mq.textContent = '@media ' + r.mediaCondition + ' (inactive)';
+          block.insertBefore(mq, block.firstChild);
+          frag.appendChild(block);
+        });
+      }
+
+      if (resetCount) {
+        const note = document.createElement('div');
+        note.className = 'reset-note';
+        note.textContent = `+ ${resetCount} base/reset rule${resetCount > 1 ? 's' : ''} hidden (UA / framework preflight)`;
+        frag.appendChild(note);
+      }
+    }
+
+    crossOrigin.forEach(item => {
+      const warn = document.createElement('div');
+      warn.className = 'css-rule-entry cross-origin-warning';
+      warn.textContent = '⚠ Cross-origin stylesheet (rules unreadable): ' + item.href;
+      frag.appendChild(warn);
+    });
+
+    return frag;
+  }
+
+  function renderComputedTab(groups) {
+    const frag = document.createDocumentFragment();
+    if (!groups.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div class="empty-state-icon">⚙️</div>No non-default computed styles found.';
+      frag.appendChild(empty);
+      return frag;
+    }
+    groups.forEach(({ group, rows }) => {
+      const g = document.createElement('div');
+      g.className = 'computed-group';
+      const title = document.createElement('div');
+      title.className = 'computed-group-title';
+      title.textContent = group;
+      g.appendChild(title);
+      rows.forEach(({ property, value }) => {
+        const row = document.createElement('div');
+        row.className = 'computed-row';
+        row.innerHTML = `<span class="computed-key">${esc(property)}</span><span class="computed-value">${esc(value)}</span>`;
+        g.appendChild(row);
+      });
+      frag.appendChild(g);
+    });
+    return frag;
+  }
+
+  function renderDimensionsTab(dims) {
+    const frag = document.createDocumentFragment();
+
+    // Box model
+    const boxWrap = document.createElement('div');
+    boxWrap.className = 'dim-box-model';
+    const boxLabel = document.createElement('div');
+    boxLabel.className = 'dim-box-model-label';
+    boxLabel.textContent = 'Box Model';
+    boxWrap.appendChild(boxLabel);
+
+    const boxInner = document.createElement('div');
+    boxInner.innerHTML = `
+      <div class="box-layer box-margin">
+        <span class="box-layer-label">margin</span>
+        <div class="box-layer box-border">
+          <span class="box-layer-label">border</span>
+          <div class="box-layer box-padding">
+            <span class="box-layer-label">padding</span>
+            <div class="box-layer box-content">
+              <span class="box-layer-label">content</span>
+              <span class="box-size-value">${dims.width} × ${dims.height}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    boxWrap.appendChild(boxInner);
+    frag.appendChild(boxWrap);
+
+    // Spacing table
+    const grid = document.createElement('div');
+    grid.className = 'box-spacing-row';
+    const spacings = [
+      ['margin-top', dims.marginTop], ['margin-right', dims.marginRight],
+      ['margin-bottom', dims.marginBottom], ['margin-left', dims.marginLeft],
+      ['padding-top', dims.paddingTop], ['padding-right', dims.paddingRight],
+      ['padding-bottom', dims.paddingBottom], ['padding-left', dims.paddingLeft],
+      ['border-top', dims.borderTop], ['border-right', dims.borderRight],
+      ['border-bottom', dims.borderBottom], ['border-left', dims.borderLeft],
+      ['pos (viewport)', `${dims.viewportTop}px, ${dims.viewportLeft}px`],
+      ['pos (document)', `${dims.docTop}px, ${dims.docLeft}px`],
+    ];
+    spacings.forEach(([k, v]) => {
+      const item = document.createElement('div');
+      item.className = 'box-spacing-item';
+      item.innerHTML = `<span class="box-spacing-key">${esc(k)}</span><span class="box-spacing-val">${esc(v)}</span>`;
+      grid.appendChild(item);
+    });
+    frag.appendChild(grid);
+
+    return frag;
+  }
+
+  function renderFontsTab(fonts, element) {
+    const frag = document.createDocumentFragment();
+    const c = window.getComputedStyle(element);
+
+    // Live preview
+    const previewBox = document.createElement('div');
+    previewBox.className = 'font-preview-box';
+    const previewLabel = document.createElement('div');
+    previewLabel.className = 'font-preview-label';
+    previewLabel.textContent = 'Live Preview';
+    previewBox.appendChild(previewLabel);
+
+    const preview = document.createElement('div');
+    preview.id = 'font-live-preview';
+    preview.textContent = 'The quick brown fox jumps over the lazy dog';
+    preview.style.fontFamily    = c.fontFamily;
+    preview.style.fontSize      = Math.min(parseFloat(c.fontSize), 18) + 'px';
+    preview.style.fontWeight    = c.fontWeight;
+    preview.style.fontStyle     = c.fontStyle;
+    preview.style.color         = c.color || '#e0e0e0';
+    preview.style.lineHeight    = c.lineHeight;
+    preview.style.letterSpacing = c.letterSpacing;
+    previewBox.appendChild(preview);
+    frag.appendChild(previewBox);
+
+    // Font property rows
+    const rows = document.createElement('div');
+    rows.className = 'font-rows';
+    fonts.forEach(({ key, value }) => {
+      if (!value || value === 'normal' || value === 'none') return;
+      const row = document.createElement('div');
+      row.className = 'font-row';
+      row.innerHTML = `<span class="font-key">${esc(key)}</span><span class="font-value">${esc(value)}</span>`;
+      rows.appendChild(row);
+    });
+    frag.appendChild(rows);
+
+    return frag;
+  }
+
+  function renderColorsTab(colors) {
+    const frag = document.createDocumentFragment();
+    if (!colors.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div class="empty-state-icon">🎨</div>No color values found for this element.';
+      frag.appendChild(empty);
+      return frag;
+    }
+    colors.forEach(({ prop, raw, hex }) => {
+      if (!hex) return;
+      const row = document.createElement('div');
+      row.className = 'color-swatch-row';
+
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch-box';
+      swatch.style.background = raw;
+      swatch.title = 'Click to copy hex';
+      swatch.addEventListener('click', () => copyToClipboard(hex));
+
+      const info = document.createElement('div');
+      info.className = 'swatch-info';
+      info.innerHTML = `<span class="swatch-prop">${esc(prop)}</span><span class="swatch-hex">${esc(hex)}</span><span class="swatch-raw">${esc(raw)}</span>`;
+
+      row.appendChild(swatch);
+      row.appendChild(info);
+      frag.appendChild(row);
+    });
+    return frag;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     PANEL ORCHESTRATION
+  ───────────────────────────────────────────────────────────────────────── */
+  function renderPanel(element) {
+    Scanner.panelEl = element;
+    renderBreadcrumb(element);
+
+    const dims = getDimensions(element);
+    const cs   = window.getComputedStyle(element);
+
+    // Summary row: dimensions + the font family the element actually uses
+    document.getElementById('panel-dims').textContent = `${dims.width} x ${dims.height}`;
+    const family = (cs.fontFamily || '').split(',')[0].replace(/['"]/g, '').trim();
+    document.getElementById('panel-font').innerHTML = family
+      ? `<span class="font-chip" title="${esc(cs.fontFamily)}">${esc(family)}</span><span class="font-size">${esc(cs.fontSize)}</span>`
+      : '';
+
+    // Rebuild the CSS rules pane (only section shown)
+    const paneCSS = document.getElementById('pane-css-rules');
+    paneCSS.innerHTML = '';
+    paneCSS.appendChild(renderCSSRulesTab(element));
+
+    // Source filename of the highest-priority applied rule (illustrative).
+    document.getElementById('css-rules-src').textContent = getPrimarySource(element);
+
+    // Copy button — context-aware: for Tailwind-styled elements it copies the
+    // utility class list (matching the pane), otherwise it copies the CSS text.
+    const copyBtn = document.getElementById('btn-copy-css');
+    const twClasses = getTailwindClasses(element);
+    if (twClasses.length) {
+      copyBtn.textContent = '⧉ Copy Tailwind Classes';
+      copyBtn.title = 'Copy Tailwind classes';
+      copyBtn.onclick = () => copyToClipboard(twClasses.join(' '), copyBtn);
+    } else {
+      copyBtn.textContent = '⧉ Copy CSS';
+      copyBtn.title = 'Copy matched CSS';
+      copyBtn.onclick = () => copyToClipboard(buildCSSText(element), copyBtn);
+    }
+
+    document.getElementById('scanner-panel').removeAttribute('hidden');
+  }
+
+  // Render the breadcrumb as chevron-separated segments; the last (the inspected
+  // element) is highlighted as a blue pill.
+  function renderBreadcrumb(element) {
+    const bc = document.getElementById('panel-breadcrumb');
+    bc.innerHTML = '';
+    const parts = getElementBreadcrumb(element);
+    parts.forEach((part, i) => {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'bc-sep';
+        sep.textContent = '›';
+        bc.appendChild(sep);
+      }
+      const seg = document.createElement('span');
+      seg.className = 'bc-seg' + (i === parts.length - 1 ? ' active' : '');
+      seg.textContent = part;
+      bc.appendChild(seg);
+    });
+  }
+
+  // The source label (stylesheet/file) of the winning applied rule, for display.
+  function getPrimarySource(element) {
+    const rules = getMatchedRules(element).filter(r =>
+      r.type === 'rule' && !r.isReset && !r.state && (!r.mediaCondition || r.mediaActive));
+    if (!rules.length) return '';
+    return cascadeSort(rules).slice(-1)[0].source || '';
+  }
+
+  // Serialize the matched author rules to CSS text for the Copy CSS action.
+  function buildCSSText(element) {
+    const rules = getMatchedRules(element).filter(r => r.type === 'rule' && !r.isReset);
+    return cascadeSort(rules).map(r => {
+      const sel = r.fullSelector || r.selector;
+      if (r.mediaCondition) {
+        const body = r.declarations.map(d => `    ${d.property}: ${d.value};`).join('\n');
+        return `@media ${r.mediaCondition} {\n  ${sel} {\n${body}\n  }\n}`;
+      }
+      const body = r.declarations.map(d => `  ${d.property}: ${d.value};`).join('\n');
+      return `${sel} {\n${body}\n}`;
+    }).join('\n\n');
+  }
+
+  // Float the panel next to an element, clamped to the viewport.
+  function positionPanelNear(el) {
+    if (!el) return;
+    const panel = document.getElementById('scanner-panel');
+    const rect = el.getBoundingClientRect();
+    const pw = panel.offsetWidth, ph = panel.offsetHeight;
+    const gap = 12, margin = 8, toolbarH = 44;
+    const railMargin = 64;                           // keep the panel clear of the right-edge rail
+
+    let left = rect.right + gap;                     // prefer the element's right
+    if (left + pw > window.innerWidth - railMargin) {
+      left = rect.left - gap - pw;                   // fall back to its left
+      if (left < margin) left = Math.max(margin, window.innerWidth - pw - railMargin);
+    }
+    let top = rect.top;
+    top = Math.max(toolbarH + margin, Math.min(top, window.innerHeight - ph - margin));
+
+    panel.style.left   = left + 'px';
+    panel.style.top    = top + 'px';
+    panel.style.right  = 'auto';
+    panel.style.bottom = 'auto';
+  }
+
+  // Returns the breadcrumb as an array of segment labels (root → element).
+  // Stops at <body> (the practical root); adds a leading '…' only when deeper
+  // ancestors were truncated by the 4-segment cap.
+  function getElementBreadcrumb(el) {
+    const parts = [];
+    let cur = el;
+    while (cur && cur.tagName && cur.tagName.toLowerCase() !== 'html') {
+      let p = cur.tagName.toLowerCase();
+      if (cur.id) p += '#' + cur.id;
+      else if (cur.classList.length) {
+        const cls = Array.from(cur.classList).filter(c => !c.startsWith('scanner-')).slice(0, 2).join('.');
+        if (cls) p += '.' + cls;
+      }
+      parts.unshift(p);
+      if (cur.tagName.toLowerCase() === 'body') break;
+      cur = cur.parentElement;
+      if (parts.length >= 4) {
+        const t = cur && cur.tagName && cur.tagName.toLowerCase();
+        if (t && t !== 'body' && t !== 'html') parts.unshift('…');
+        break;
+      }
+    }
+    return parts;
+  }
+
+  // Full, untruncated ancestor chain (html → element) for the header tooltip.
+  // Unlike the breadcrumb it is not capped and shows every non-scanner class.
+  function getFullHierarchy(el) {
+    const chain = [];
+    let cur = el;
+    while (cur && cur.tagName) {
+      chain.unshift(cur);
+      if (cur.tagName.toLowerCase() === 'html') break;
+      cur = cur.parentElement;
+    }
+    return chain;
+  }
+
+  // Render the DOM hierarchy tooltip for the element currently in the panel.
+  function renderHierarchyTip() {
+    const tip = document.getElementById('panel-hierarchy-tip');
+    const el = Scanner.panelEl;
+    if (!el) { tip.innerHTML = ''; return false; }
+
+    const chain = getFullHierarchy(el);
+    let html = '<div class="hier-title">DOM Hierarchy</div>';
+    chain.forEach((node, i) => {
+      const tag = node.tagName.toLowerCase();
+      let seg = `<span class="hier-tag">${esc(tag)}</span>`;
+      if (node.id) seg += `<span class="hier-id">#${esc(node.id)}</span>`;
+      const cls = Array.from(node.classList).filter(c => !c.startsWith('scanner-'));
+      if (cls.length) seg += `<span class="hier-class">.${cls.map(esc).join('.')}</span>`;
+      const indent = i === 0 ? '' : '<span class="hier-indent">' + '  '.repeat(i - 1) + '└ </span>';
+      const isTarget = node === el ? ' is-target' : '';
+      html += `<div class="hier-row${isTarget}">${indent}${seg}</div>`;
+    });
+    tip.innerHTML = html;
+    return true;
+  }
+
+  // Position the tooltip directly under the panel header, clamped to the viewport.
+  function showHierarchyTip() {
+    const tip = document.getElementById('panel-hierarchy-tip');
+    if (!renderHierarchyTip()) return;
+    tip.removeAttribute('hidden');
+    const headerRect = document.getElementById('panel-header').getBoundingClientRect();
+    const margin = 8;
+    let left = headerRect.left;
+    let top  = headerRect.bottom + 6;
+    if (left + tip.offsetWidth > window.innerWidth - margin)
+      left = Math.max(margin, window.innerWidth - tip.offsetWidth - margin);
+    if (top + tip.offsetHeight > window.innerHeight - margin)
+      top = Math.max(margin, headerRect.top - tip.offsetHeight - 6);  // flip above
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  }
+
+  function hideHierarchyTip() {
+    document.getElementById('panel-hierarchy-tip').setAttribute('hidden', '');
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     COPY MANAGER
+  ───────────────────────────────────────────────────────────────────────── */
+  async function copyToClipboard(text, btn) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch {}
+      ta.remove();
+    }
+    if (btn) showCopyFeedback(btn);
+  }
+
+  function showCopyFeedback(btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('copied');
+    }, 1500);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     EVENT HANDLERS
+  ───────────────────────────────────────────────────────────────────────── */
+  function isScannerUI(el) {
+    return el.closest && (
+      el.closest('#scanner-toolbar') ||
+      el.closest('#scanner-panel') ||
+      el.closest('#scanner-highlight') ||
+      el.closest('#mode-rail') ||       // the Inspect/Annotate rail — let its buttons handle their own clicks
+      el.closest('#cta-btn') ||         // the enable/disable control — let its toggle through
+      // Annotation UI surfaces must never be treated as inspectable/annotatable targets.
+      el.closest('#annot-sidebar') ||
+      el.closest('#annot-card') ||
+      el.closest('#annot-share-modal') ||
+      el.closest('#annot-pin-layer') ||
+      (el.classList && el.classList.contains('annot-client-banner'))
+    );
+  }
+
+  // Coalesce rapid hovers to one panel render per animation frame.
+  function scheduleHoverRender(el) {
+    Scanner._pendingHoverEl = el;
+    if (Scanner._hoverRaf) return;
+    Scanner._hoverRaf = requestAnimationFrame(() => {
+      Scanner._hoverRaf = null;
+      const target = Scanner._pendingHoverEl;
+      if (!target || Scanner.frozen || !Scanner.isActive) return;
+      renderPanel(target);
+      positionPanelNear(target);
+    });
+  }
+
+  function handleMouseOver(e) {
+    if (!Scanner.isActive || Scanner.frozen) return;
+    const el = e.target;
+    if (isScannerUI(el)) return;
+    // While a draft/annotation card is open, keep the highlight fixed on its element.
+    if (Scanner.mode === 'annotate' && window.Annot && Annot.Card.isOpen()) return;
+    Scanner.hoveredEl = el;
+    showHighlight(el);          // immediate outline
+    if (Scanner.mode === 'annotate') {
+      // Annotate panel follows the cursor: track breadcrumb + reposition, no CSS render.
+      Scanner.panelEl = el;
+      renderBreadcrumb(el);
+      positionPanelNear(el);
+      return;
+    }
+    scheduleHoverRender(el);    // throttled panel render + reposition
+  }
+
+  function handleMouseOut() {
+    // While live, the highlight simply follows the next hovered element —
+    // nothing to hide here (avoids flicker between elements).
+  }
+
+  function handleClick(e) {
+    if (!Scanner.isActive) return;
+    const el = e.target;
+    if (isScannerUI(el)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Annotate mode: clicking opens the card as an unsaved draft — no pin is dropped
+    // until the user presses Submit on the card (avoids stray pins on every click).
+    if (Scanner.mode === 'annotate' && window.Annot) {
+      Scanner.hoveredEl = el;
+      showHighlight(el);          // fix the highlight on the drafted element
+      Annot.Card.openDraft(el);
+      return;
+    }
+    if (Scanner.frozen && Scanner.selectedEl === el) {
+      unfreeze();
+      return;
+    }
+    // Freeze on the clicked element so the panel can be used.
+    Scanner.frozen = true;
+    Scanner.selectedEl = el;
+    Scanner.hoveredEl = el;
+    renderPanel(el);
+    positionPanelNear(el);
+    hideHighlight();
+    showSelectedHighlight(el);
+    document.getElementById('scanner-hint').textContent = '📌 Frozen · Click again or Esc to resume';
+  }
+
+  function unfreeze() {
+    Scanner.frozen = false;
+    Scanner.selectedEl = null;
+    hideSelectedHighlight();
+    document.getElementById('scanner-hint').textContent = 'Hover to inspect · Click to freeze · Esc to exit';
+    if (Scanner.hoveredEl) {
+      renderPanel(Scanner.hoveredEl);
+      positionPanelNear(Scanner.hoveredEl);
+      showHighlight(Scanner.hoveredEl);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') {
+      if (window.Annot && Annot.Card.isOpen()) { Annot.Card.close(); return; }
+      if (Scanner.frozen) unfreeze();
+      else disableScanner();
+    }
+  }
+
+  function handleScroll() {
+    if (window.Annot) Annot.Pins.reposition();   // keep pins attached to their elements
+    if (Scanner.mode === 'annotate') {
+      // Keep the fixed highlight glued to its element while a card is open.
+      if (window.Annot && Annot.Card.isOpen()) {
+        if (Scanner.hoveredEl) showHighlight(Scanner.hoveredEl);
+      } else if (Scanner.hoveredEl) {
+        // Otherwise keep the highlight + following panel glued to the hovered element.
+        showHighlight(Scanner.hoveredEl);
+        positionPanelNear(Scanner.hoveredEl);
+      }
+      return;
+    }
+    if (Scanner.frozen && Scanner.selectedEl) {
+      showSelectedHighlight(Scanner.selectedEl);
+      positionPanelNear(Scanner.selectedEl);
+    } else if (Scanner.hoveredEl) {
+      showHighlight(Scanner.hoveredEl);
+      positionPanelNear(Scanner.hoveredEl);
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     ENABLE / DISABLE
+  ───────────────────────────────────────────────────────────────────────── */
+  function enableScanner() {
+    Scanner.isActive = true;
+    Scanner.frozen = false;
+    document.getElementById('scanner-toolbar').removeAttribute('hidden');
+    document.getElementById('scanner-hint').textContent = 'Hover to inspect · Click to freeze · Esc to exit';
+    document.body.style.paddingTop = '44px';
+    document.addEventListener('mouseover', handleMouseOver, true);
+    document.addEventListener('mouseout',  handleMouseOut,  true);
+    document.addEventListener('click',     handleClick,     true);
+    document.addEventListener('keydown',   handleKeyDown);
+    window.addEventListener('scroll',      handleScroll, { passive: true });
+    const btn = document.getElementById('cta-btn');
+    btn.innerHTML = '<span class="hero-cta-icon">✓</span> Scanner Active — Click to Disable';
+    btn.classList.add('scanner-active-state');
+    // Annotation layer: mount (idempotent), show pins, and reveal the panel so the
+    // Inspect/Annotate tabs are reachable immediately (default mode stays 'inspect').
+    if (window.Annot) {
+      Annot.init();
+      Annot.Modes.set('inspect');
+      Annot.show();
+      document.getElementById('scanner-panel').removeAttribute('hidden');
+      document.getElementById('mode-rail').removeAttribute('hidden');
+    }
+  }
+
+  function disableScanner() {
+    Scanner.isActive = false;
+    Scanner.frozen = false;
+    Scanner.mode = 'inspect';
+    Scanner.selectedEl = null;
+    Scanner.hoveredEl  = null;
+    Scanner.panelEl    = null;
+    if (Scanner._hoverRaf) { cancelAnimationFrame(Scanner._hoverRaf); Scanner._hoverRaf = null; }
+    // Tear down the annotation overlay (reverts any active preview, closes card/sidebar,
+    // hides pins) but keeps the store intact so re-enabling restores annotations.
+    if (window.Annot) Annot.hide();
+    document.getElementById('scanner-toolbar').setAttribute('hidden', '');
+    hideHierarchyTip();
+    hideHighlight();
+    hideSelectedHighlight();
+    document.getElementById('mode-rail').setAttribute('hidden', '');
+    const panel = document.getElementById('scanner-panel');
+    panel.setAttribute('hidden', '');
+    // Reset any dragged position so it re-docks bottom-right next time
+    panel.style.top = panel.style.left = panel.style.right = panel.style.bottom = '';
+    document.body.style.paddingTop = '';
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('mouseout',  handleMouseOut,  true);
+    document.removeEventListener('click',     handleClick,     true);
+    document.removeEventListener('keydown',   handleKeyDown);
+    window.removeEventListener('scroll',      handleScroll);
+    const btn = document.getElementById('cta-btn');
+    btn.innerHTML = '<span class="hero-cta-icon">⚡</span> Try It Yourself On This Page';
+    btn.classList.remove('scanner-active-state');
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     INIT
+  ───────────────────────────────────────────────────────────────────────── */
+
+  // CTA button
+  document.getElementById('cta-btn').addEventListener('click', () => {
+    if (Scanner.isActive) disableScanner();
+    else enableScanner();
+  });
+
+  // Disable button in toolbar
+  document.getElementById('scanner-disable-btn').addEventListener('click', disableScanner);
+
+  // Close button — disables the scanner entirely
+  document.getElementById('panel-close-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    disableScanner();
+  });
+
+  // ── Make the inspector panel draggable by its header ──
+  (function makePanelDraggable() {
+    const panel  = document.getElementById('scanner-panel');
+    const header = document.getElementById('panel-header');
+    let dragging = false;
+    let offsetX = 0, offsetY = 0;
+
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#panel-close-btn')) return; // don't drag from the close button
+      dragging = true;
+      hideHierarchyTip();                                // tooltip would only get in the way while dragging
+      const rect = panel.getBoundingClientRect();
+      // Switch from bottom/right docking to top/left so we can move freely
+      panel.style.top    = rect.top + 'px';
+      panel.style.left   = rect.left + 'px';
+      panel.style.right  = 'auto';
+      panel.style.bottom = 'auto';
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      panel.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    // Reveal the full DOM hierarchy while hovering the header (but not the close button).
+    header.addEventListener('mouseenter', () => { if (!dragging) showHierarchyTip(); });
+    header.addEventListener('mouseleave', hideHierarchyTip);
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      let newLeft = e.clientX - offsetX;
+      let newTop  = e.clientY - offsetY;
+      // Clamp inside the viewport
+      newLeft = Math.max(0, Math.min(newLeft, window.innerWidth  - panel.offsetWidth));
+      newTop  = Math.max(0, Math.min(newTop,  window.innerHeight - panel.offsetHeight));
+      panel.style.left = newLeft + 'px';
+      panel.style.top  = newTop  + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.classList.remove('dragging');
+    });
+  })();
+
+  // Scroll/resize: keep highlight in sync
+  if (window.ResizeObserver) {
+    const resizeObserver = new ResizeObserver(() => {
+      if (Scanner.selectedEl) showSelectedHighlight(Scanner.selectedEl);
+      if (window.Annot) Annot.Pins.reposition();
+    });
+    resizeObserver.observe(document.body);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     UTILITY
+  ───────────────────────────────────────────────────────────────────────── */
+  function esc(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ANNOTATION & REVIEW SYSTEM  (Annot.*)
+     Component-like namespaces sharing the existing Scanner engine.
+     Built to be portable into a future browser extension: DOM + CSS are
+     injected at runtime and modules talk only through Annot.Store.
+  ═══════════════════════════════════════════════════════════════════════ */
+  (function () {
+    'use strict';
+
+    const STATUSES   = ['Open', 'Resolved'];
+    const CATEGORIES = ['Design', 'Content', 'Development', 'UX', 'Accessibility', 'General'];
+    const STATUS_CLASS = { 'Open': 'open', 'Resolved': 'resolved' };
+    const SHARE_PREFIX = '#anr1=';
+
+    /* ── tiny DOM builder ─────────────────────────────────────────────── */
+    function h(tag, attrs, kids) {
+      const el = document.createElement(tag);
+      if (attrs) for (const k in attrs) {
+        const v = attrs[k];
+        if (v == null || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'text') el.textContent = v;
+        else if (k === 'html') el.innerHTML = v;
+        else if (k.slice(0, 2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2), v);
+        else if (v === true) el.setAttribute(k, '');
+        else el.setAttribute(k, v);
+      }
+      if (kids != null) (Array.isArray(kids) ? kids : [kids]).forEach(c => {
+        if (c == null || c === false) return;
+        el.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c)));
+      });
+      return el;
+    }
+    function show(el, on) { if (!el) return; el.hidden = !on; el.style.display = on ? '' : 'none'; }
+
+    /* ── LZString (compressToEncodedURIComponent) — URL-safe, no deps ──── */
+    const LZ = (function () {
+      const keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$';
+      const baseReverseDic = {};
+      function getBaseValue(alphabet, character) {
+        if (!baseReverseDic[alphabet]) {
+          baseReverseDic[alphabet] = {};
+          for (let i = 0; i < alphabet.length; i++) baseReverseDic[alphabet][alphabet.charAt(i)] = i;
+        }
+        return baseReverseDic[alphabet][character];
+      }
+      function _compress(uncompressed, bitsPerChar, getCharFromInt) {
+        if (uncompressed == null) return '';
+        let i, value, context_dictionary = {}, context_dictionaryToCreate = {}, context_c = '',
+          context_wc = '', context_w = '', context_enlargeIn = 2, context_dictSize = 3,
+          context_numBits = 2, context_data = [], context_data_val = 0, context_data_position = 0, ii;
+        for (ii = 0; ii < uncompressed.length; ii += 1) {
+          context_c = uncompressed.charAt(ii);
+          if (!Object.prototype.hasOwnProperty.call(context_dictionary, context_c)) {
+            context_dictionary[context_c] = context_dictSize++; context_dictionaryToCreate[context_c] = true;
+          }
+          context_wc = context_w + context_c;
+          if (Object.prototype.hasOwnProperty.call(context_dictionary, context_wc)) { context_w = context_wc; }
+          else {
+            if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+              if (context_w.charCodeAt(0) < 256) {
+                for (i = 0; i < context_numBits; i++) {
+                  context_data_val = (context_data_val << 1);
+                  if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                }
+                value = context_w.charCodeAt(0);
+                for (i = 0; i < 8; i++) {
+                  context_data_val = (context_data_val << 1) | (value & 1);
+                  if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                  value = value >> 1;
+                }
+              } else {
+                value = 1;
+                for (i = 0; i < context_numBits; i++) {
+                  context_data_val = (context_data_val << 1) | value;
+                  if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                  value = 0;
+                }
+                value = context_w.charCodeAt(0);
+                for (i = 0; i < 16; i++) {
+                  context_data_val = (context_data_val << 1) | (value & 1);
+                  if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                  value = value >> 1;
+                }
+              }
+              context_enlargeIn--;
+              if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+              delete context_dictionaryToCreate[context_w];
+            } else {
+              value = context_dictionary[context_w];
+              for (i = 0; i < context_numBits; i++) {
+                context_data_val = (context_data_val << 1) | (value & 1);
+                if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                value = value >> 1;
+              }
+            }
+            context_enlargeIn--;
+            if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+            context_dictionary[context_wc] = context_dictSize++; context_w = String(context_c);
+          }
+        }
+        if (context_w !== '') {
+          if (Object.prototype.hasOwnProperty.call(context_dictionaryToCreate, context_w)) {
+            if (context_w.charCodeAt(0) < 256) {
+              for (i = 0; i < context_numBits; i++) {
+                context_data_val = (context_data_val << 1);
+                if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+              }
+              value = context_w.charCodeAt(0);
+              for (i = 0; i < 8; i++) {
+                context_data_val = (context_data_val << 1) | (value & 1);
+                if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                value = value >> 1;
+              }
+            } else {
+              value = 1;
+              for (i = 0; i < context_numBits; i++) {
+                context_data_val = (context_data_val << 1) | value;
+                if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                value = 0;
+              }
+              value = context_w.charCodeAt(0);
+              for (i = 0; i < 16; i++) {
+                context_data_val = (context_data_val << 1) | (value & 1);
+                if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+                value = value >> 1;
+              }
+            }
+            context_enlargeIn--;
+            if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+            delete context_dictionaryToCreate[context_w];
+          } else {
+            value = context_dictionary[context_w];
+            for (i = 0; i < context_numBits; i++) {
+              context_data_val = (context_data_val << 1) | (value & 1);
+              if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+              value = value >> 1;
+            }
+          }
+          context_enlargeIn--;
+          if (context_enlargeIn == 0) { context_enlargeIn = Math.pow(2, context_numBits); context_numBits++; }
+        }
+        value = 2;
+        for (i = 0; i < context_numBits; i++) {
+          context_data_val = (context_data_val << 1) | (value & 1);
+          if (context_data_position == bitsPerChar - 1) { context_data_position = 0; context_data.push(getCharFromInt(context_data_val)); context_data_val = 0; } else context_data_position++;
+          value = value >> 1;
+        }
+        while (true) {
+          context_data_val = (context_data_val << 1);
+          if (context_data_position == bitsPerChar - 1) { context_data.push(getCharFromInt(context_data_val)); break; }
+          else context_data_position++;
+        }
+        return context_data.join('');
+      }
+      function _decompress(length, resetValue, getNextValue) {
+        let dictionary = [], enlargeIn = 4, dictSize = 4, numBits = 3, entry = '', result = [],
+          i, w, bits, resb, maxpower, power, c,
+          data = { val: getNextValue(0), position: resetValue, index: 1 };
+        for (i = 0; i < 3; i += 1) dictionary[i] = i;
+        bits = 0; maxpower = Math.pow(2, 2); power = 1;
+        while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; }
+        switch (bits) {
+          case 0: bits = 0; maxpower = Math.pow(2, 8); power = 1; while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; } c = String.fromCharCode(bits); break;
+          case 1: bits = 0; maxpower = Math.pow(2, 16); power = 1; while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; } c = String.fromCharCode(bits); break;
+          case 2: return '';
+        }
+        dictionary[3] = c; w = c; result.push(c);
+        while (true) {
+          if (data.index > length) return '';
+          bits = 0; maxpower = Math.pow(2, numBits); power = 1;
+          while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; }
+          switch (c = bits) {
+            case 0: bits = 0; maxpower = Math.pow(2, 8); power = 1; while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; } dictionary[dictSize++] = String.fromCharCode(bits); c = dictSize - 1; enlargeIn--; break;
+            case 1: bits = 0; maxpower = Math.pow(2, 16); power = 1; while (power != maxpower) { resb = data.val & data.position; data.position >>= 1; if (data.position == 0) { data.position = resetValue; data.val = getNextValue(data.index++); } bits |= (resb > 0 ? 1 : 0) * power; power <<= 1; } dictionary[dictSize++] = String.fromCharCode(bits); c = dictSize - 1; enlargeIn--; break;
+            case 2: return result.join('');
+          }
+          if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+          if (dictionary[c]) entry = dictionary[c];
+          else { if (c === dictSize) entry = w + w.charAt(0); else return null; }
+          result.push(entry);
+          dictionary[dictSize++] = w + entry.charAt(0);
+          enlargeIn--; w = entry;
+          if (enlargeIn == 0) { enlargeIn = Math.pow(2, numBits); numBits++; }
+        }
+      }
+      return {
+        compressToEncodedURIComponent: function (input) {
+          if (input == null) return '';
+          return _compress(input, 6, function (a) { return keyStr.charAt(a); });
+        },
+        decompressFromEncodedURIComponent: function (input) {
+          if (input == null) return '';
+          if (input === '') return null;
+          input = input.replace(/ /g, '+');
+          return _decompress(input.length, 32, function (index) { return getBaseValue(keyStr, input.charAt(index)); });
+        }
+      };
+    })();
+
+    /* ── SelectorEngine ──────────────────────────────────────────────── */
+    const SelectorEngine = (function () {
+      function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/([^\w-])/g, '\\$1'); }
+      function nth(el) { let i = 1, sib = el; while ((sib = sib.previousElementSibling)) i++; return i; }
+      function stableClasses(el) {
+        return Array.from(el.classList)
+          .filter(c => c.indexOf('scanner-') !== 0 && c.indexOf('annot-') !== 0 && !/[:[\]\/().%#]/.test(c))
+          .slice(0, 2);
+      }
+      function nthPathOf(el) {
+        const parts = []; let cur = el;
+        while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== 'html') {
+          parts.unshift(cur.tagName.toLowerCase() + ':nth-child(' + nth(cur) + ')');
+          if (cur.tagName.toLowerCase() === 'body') break;
+          cur = cur.parentElement;
+        }
+        return parts.join(' > ');
+      }
+      function getUniqueSelector(el) {
+        const tag = el.tagName.toLowerCase();
+        let id = null, primary = null;
+        if (el.id) {
+          try { if (document.querySelectorAll('#' + cssEsc(el.id)).length === 1) { id = el.id; primary = '#' + cssEsc(el.id); } } catch (e) { }
+        }
+        if (!primary) {
+          const segs = []; let cur = el;
+          while (cur && cur.nodeType === 1 && cur.tagName.toLowerCase() !== 'html') {
+            let seg = cur.tagName.toLowerCase();
+            const cls = stableClasses(cur);
+            if (cls.length) seg += '.' + cls.map(cssEsc).join('.');
+            seg += ':nth-child(' + nth(cur) + ')';
+            segs.unshift(seg);
+            if (cur.tagName.toLowerCase() === 'body') break;
+            cur = cur.parentElement;
+          }
+          primary = segs.join(' > ');
+        }
+        const nthPath = nthPathOf(el);
+        try { if (document.querySelectorAll(primary).length !== 1) { /* nthPath is the guaranteed fallback */ } }
+        catch (e) { primary = nthPath; }
+        return { primary: primary, nthPath: nthPath, id: id, tag: tag };
+      }
+      function tryQS(sel) { if (!sel) return null; try { const l = document.querySelectorAll(sel); return l.length ? l[0] : null; } catch (e) { return null; } }
+      function resolve(rec) {
+        if (!rec) return null;
+        if (rec.id) { const e = tryQS('#' + cssEsc(rec.id)); if (e) return e; }
+        let e = tryQS(rec.primary); if (e) return e;
+        e = tryQS(rec.nthPath); if (e) return e;
+        return null;
+      }
+      return { getUniqueSelector: getUniqueSelector, resolve: resolve };
+    })();
+
+    /* ── Store ───────────────────────────────────────────────────────── */
+    const Store = (function () {
+      const PAGE = location.href.split('#')[0];
+      const state = { pageUrl: PAGE, items: [] };
+      let role = 'author';
+      const listeners = new Set();
+      let saveTimer = null;
+
+      function storageKey() { return (role === 'client' ? 'annot:client:' : 'annot:') + PAGE; }
+      function newId() {
+        try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { }
+        return 'a' + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
+      }
+      function now() { return new Date().toISOString(); }
+      function emit() { listeners.forEach(fn => { try { fn(state); } catch (e) { } }); scheduleSave(); }
+      function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+      function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); }
+      function save() { try { localStorage.setItem(storageKey(), JSON.stringify(state.items)); } catch (e) { } }
+      function load() { try { const raw = localStorage.getItem(storageKey()); if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) state.items = arr; } } catch (e) { } }
+      function defaultStyling() {
+        return { fontSize: '14px', fontFamily: 'system-ui', fontWeight: '400', bold: false, italic: false, underline: false, color: '#2b3245', background: 'transparent' };
+      }
+      function add(partial) {
+        if (role !== 'author') return null;
+        partial = partial || {};
+        const ann = {
+          id: newId(), pageUrl: PAGE,
+          selector: partial.selector || null,
+          comment: partial.comment || '',
+          category: partial.category || 'General',
+          status: 'Open',
+          author: partial.author || '',
+          createdAt: now(),
+          styling: partial.styling || defaultStyling(),
+          suggestedChanges: partial.suggestedChanges || {},
+          replies: []
+        };
+        state.items.push(ann); emit(); return ann;
+      }
+      const CLIENT_WRITABLE = { status: true };
+      function update(id, patch) {
+        const ann = get(id); if (!ann) return;
+        if (role === 'client') { Object.keys(patch).forEach(k => { if (CLIENT_WRITABLE[k]) ann[k] = patch[k]; }); }
+        else { Object.assign(ann, patch); }
+        emit();
+      }
+      function setStatus(id, status) { const a = get(id); if (!a || STATUSES.indexOf(status) < 0) return; a.status = status; emit(); }
+      function addReply(id, reply) {
+        const a = get(id); if (!a) return;
+        a.replies = a.replies || [];
+        a.replies.push({ id: newId(), author: (reply.author || 'Anonymous'), message: reply.message || '', createdAt: now() });
+        emit();
+      }
+      function remove(id) { if (role !== 'author') return; const i = state.items.findIndex(a => a.id === id); if (i >= 0) { state.items.splice(i, 1); emit(); } }
+      function get(id) { return state.items.find(a => a.id === id) || null; }
+      function index(id) { return state.items.findIndex(a => a.id === id); }
+      function counts() { let open = 0, resolved = 0; state.items.forEach(a => { if (a.status === 'Resolved') resolved++; else if (a.status === 'Open') open++; }); return { total: state.items.length, open: open, resolved: resolved }; }
+      function setRole(r) { role = r; }
+      function getRole() { return role; }
+      function seedFromShare(items) { state.items = Array.isArray(items) ? items : []; }
+      function applyClientOverlay() {
+        try {
+          const raw = localStorage.getItem('annot:client:' + PAGE);
+          if (!raw) return; const saved = JSON.parse(raw); if (!Array.isArray(saved)) return;
+          const byId = {}; saved.forEach(s => byId[s.id] = s);
+          state.items.forEach(a => { const s = byId[a.id]; if (s) { a.status = s.status || a.status; if (s.replies) a.replies = s.replies; } });
+        } catch (e) { }
+      }
+      return { state, subscribe, load, save, add, update, setStatus, addReply, remove, get, index, counts, setRole, getRole, seedFromShare, applyClientOverlay, defaultStyling, newId };
+    })();
+
+    /* ── ShareCodec — key-minify + LZ + URL fragment ─────────────────── */
+    const ShareCodec = (function () {
+      const A = { id: 'i', selector: 's', comment: 'c', category: 'g', status: 't', author: 'a', createdAt: 'd', styling: 'y', suggestedChanges: 'x', replies: 'r', pageUrl: 'u' };
+      const SEL = { primary: 'p', nthPath: 'n', id: 'i', tag: 't' };
+      const STY = { fontSize: 'fs', fontFamily: 'ff', fontWeight: 'fw', bold: 'b', italic: 'it', underline: 'u', color: 'c', background: 'bg' };
+      const REP = { id: 'i', author: 'a', message: 'm', createdAt: 'd' };
+      function mapObj(obj, map) { const o = {}; for (const k in obj) if (map[k] != null) o[map[k]] = obj[k]; return o; }
+      function invert(map) { const inv = {}; for (const k in map) inv[map[k]] = k; return inv; }
+      function unmapObj(obj, map) { const inv = invert(map), o = {}; for (const k in obj) if (inv[k] != null) o[inv[k]] = obj[k]; return o; }
+      function minify(items) {
+        return items.map(ann => {
+          const m = mapObj(ann, A);
+          if (ann.selector) m[A.selector] = mapObj(ann.selector, SEL);
+          if (ann.styling) m[A.styling] = mapObj(ann.styling, STY);
+          if (ann.replies) m[A.replies] = ann.replies.map(r => mapObj(r, REP));
+          return m;
+        });
+      }
+      function expand(arr) {
+        return arr.map(m => {
+          const ann = unmapObj(m, A);
+          if (m[A.selector]) ann.selector = unmapObj(m[A.selector], SEL);
+          if (m[A.styling]) ann.styling = unmapObj(m[A.styling], STY);
+          ann.replies = m[A.replies] ? m[A.replies].map(r => unmapObj(r, REP)) : [];
+          if (!ann.suggestedChanges) ann.suggestedChanges = {};
+          return ann;
+        });
+      }
+      function encode(items) { return LZ.compressToEncodedURIComponent(JSON.stringify(minify(items))); }
+      function decode(payload) {
+        try { const json = LZ.decompressFromEncodedURIComponent(payload); if (!json) return null; const arr = JSON.parse(json); return Array.isArray(arr) ? expand(arr) : null; }
+        catch (e) { return null; }
+      }
+      return { encode: encode, decode: decode };
+    })();
+
+    /* ── Preview — temporary, reversible style changes on the target ─── */
+    const Preview = (function () {
+      const active = new Map();
+      const PROPS = { fontSize: 'font-size', fontWeight: 'font-weight', fontFamily: 'font-family', color: 'color', background: 'background-color' };
+      function hasChanges(ann) { const sc = ann && ann.suggestedChanges || {}; return Object.keys(PROPS).some(k => sc[k] != null && sc[k] !== ''); }
+      function apply(ann) {
+        const el = SelectorEngine.resolve(ann.selector);
+        if (!el || !el.isConnected) return false;
+        const sc = ann.suggestedChanges || {}, snapshot = {};
+        Object.keys(PROPS).forEach(k => {
+          if (sc[k] != null && sc[k] !== '') { const css = PROPS[k]; snapshot[css] = el.style.getPropertyValue(css); el.style.setProperty(css, sc[k]); }
+        });
+        el.classList.add('annot-previewing');
+        active.set(ann.id, { el: el, snapshot: snapshot });
+        return true;
+      }
+      function revert(id) {
+        const rec = active.get(id); if (!rec) return;
+        Object.keys(rec.snapshot).forEach(css => { if (rec.snapshot[css]) rec.el.style.setProperty(css, rec.snapshot[css]); else rec.el.style.removeProperty(css); });
+        if (rec.el) rec.el.classList.remove('annot-previewing');
+        active.delete(id);
+      }
+      function revertAll() { Array.from(active.keys()).forEach(revert); }
+      function isActive(id) { return active.has(id); }
+      return { apply, revert, revertAll, isActive, hasChanges };
+    })();
+
+    /* ── AI — placeholder architecture only (no network) ─────────────── */
+    const AI = (function () {
+      const INTENTS = ['Improve design', 'Improve readability', 'Improve CTA visibility', 'Improve accessibility', 'Rewrite copy'];
+      function askAI(ann, intent) {
+        return Promise.resolve({
+          ok: true, intent: intent, annotationId: ann ? ann.id : null,
+          suggestion: '[AI placeholder] "' + intent + '" suggestions will appear here once AI integration is connected.'
+        });
+      }
+      return { INTENTS, askAI };
+    })();
+
+    /* ── Pins ────────────────────────────────────────────────────────── */
+    const Pins = (function () {
+      let layer = null, raf = null, activeId = null;
+      function ensure() { if (!layer) layer = document.getElementById('annot-pin-layer'); return layer; }
+      // Dark or light pin number, whichever reads better on the tint.
+      function pinTextColor(hex) {
+        if (typeof hex !== 'string' || hex[0] !== '#' || hex.length !== 7) return '#fff';
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#1f2430' : '#fff';
+      }
+      function focusElement(ann) {
+        const el = SelectorEngine.resolve(ann.selector);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => { showSelectedHighlight(el); setTimeout(() => { if (!Scanner.frozen) hideSelectedHighlight(); }, 1300); }, 280);
+      }
+      function render() {
+        ensure(); if (!layer) return;
+        layer.innerHTML = '';
+        Store.state.items.forEach((ann, idx) => {
+          // Resolved annotations leave the viewport — they live only in the review list
+          // until reopened. (Keeps the canvas focused on outstanding work.)
+          if (ann.status === 'Resolved') return;
+          const pin = h('button', {
+            'class': 'annot-pin ' + (STATUS_CLASS[ann.status] || 'open') + (ann.id === activeId ? ' active' : ''),
+            text: String(idx + 1), title: (ann.comment || 'Annotation ' + (idx + 1)),
+            onclick: (e) => { e.stopPropagation(); Card.open(ann.id); focusElement(ann); },
+            onmouseenter: () => { const el = SelectorEngine.resolve(ann.selector); if (el) showHighlight(el); },
+            onmouseleave: () => { if (!Scanner.frozen) hideHighlight(); }
+          });
+          pin.dataset.id = ann.id;
+          // Marching-ants dashed outline that traces the pin's teardrop shape (SVG so the
+          // dashes travel along the path instead of the whole shape rotating).
+          const SVGNS = 'http://www.w3.org/2000/svg';
+          const ring = document.createElementNS(SVGNS, 'svg');
+          ring.setAttribute('class', 'annot-pin-ring');
+          ring.setAttribute('viewBox', '0 0 36 36');
+          const ringPath = document.createElementNS(SVGNS, 'path');
+          ringPath.setAttribute('d', 'M18,0 A18,18 0 0,1 36,18 A18,18 0 0,1 18,36 H3 A3,3 0 0,1 0,33 V18 A18,18 0 0,1 18,0 Z');
+          ring.appendChild(ringPath);
+          pin.appendChild(ring);
+          // Tint the pin to match the annotation's chosen card color (white = default accent).
+          const c = ann.styling && ann.styling.background;
+          if (c && c !== 'transparent' && c.toLowerCase() !== '#ffffff') {
+            pin.style.background = c;
+            pin.style.color = pinTextColor(c);
+          }
+          layer.appendChild(pin);
+        });
+        reposition();
+      }
+      function reposition() {
+        if (raf) return;
+        ensure(); if (!layer || layer.style.display === 'none') return;
+        raf = requestAnimationFrame(() => {
+          raf = null; if (!layer || layer.style.display === 'none') return;
+          const placed = [];
+          Array.from(layer.children).forEach(pin => {
+            const ann = Store.get(pin.dataset.id);
+            if (!ann) { pin.style.display = 'none'; return; }
+            const el = SelectorEngine.resolve(ann.selector);
+            if (!el || !el.isConnected) { pin.style.display = 'none'; pin.classList.add('orphaned'); return; }
+            pin.style.display = ''; pin.classList.remove('orphaned');
+            const r = el.getBoundingClientRect();
+            let left = r.right - 12, top = r.top - 12;
+            left = Math.max(4, Math.min(left, window.innerWidth - 32));
+            top = Math.max(48, Math.min(top, window.innerHeight - 32));
+            let guard = 0;
+            while (placed.some(p => Math.abs(p.left - left) < 26 && Math.abs(p.top - top) < 26) && guard < 60) {
+              top += 24; if (top > window.innerHeight - 32) { top = 48; left = Math.max(4, left - 24); } guard++;
+            }
+            placed.push({ left, top });
+            pin.style.left = left + 'px'; pin.style.top = top + 'px';
+          });
+        });
+      }
+      function setActive(id) { activeId = id; ensure(); if (layer) Array.from(layer.children).forEach(p => p.classList.toggle('active', p.dataset.id === id)); }
+      function setVisible(on) { ensure(); if (layer) layer.style.display = on ? '' : 'none'; }
+      return { render, reposition, setActive, setVisible, focusElement };
+    })();
+
+    /* ── Card (composer + viewer) ─────────────────────────────────────── */
+    const Card = (function () {
+      let cardEl = null, activeId = null, draftAnn = null;
+      function ensure() { if (!cardEl) cardEl = document.getElementById('annot-card'); return cardEl; }
+      function isOpen() { return activeId != null || draftAnn != null; }
+      function isEmptyComment(ann) { return !(ann && ann.comment && ann.comment.trim()); }
+      function close() {
+        ensure();
+        if (draftAnn) {
+          // Draft was never submitted → discard it (revert any preview it applied). No pin was created.
+          Preview.revert(draftAnn.id); draftAnn = null;
+        } else if (activeId != null && Store.getRole() === 'author') {
+          // Safety net: drop a submitted annotation the user emptied out.
+          const ann = Store.get(activeId);
+          if (ann && isEmptyComment(ann)) { Preview.revert(activeId); Store.remove(activeId); }
+        }
+        if (cardEl) show(cardEl, false); activeId = null; Pins.setActive(null);
+      }
+      function render(ann) { ensure(); cardEl.innerHTML = ''; cardEl.appendChild(build(ann)); applyCardBg(cardColorOf(ann)); show(cardEl, true); position(ann); }
+      function discardDraftPreview() { if (draftAnn) Preview.revert(draftAnn.id); }
+      // Move focus into the comment box so the user can type immediately on open.
+      function focusComment() {
+        if (!cardEl) return;
+        const ta = cardEl.querySelector('.annot-comment-input');
+        if (ta) { ta.focus(); const n = ta.value.length; try { ta.setSelectionRange(n, n); } catch (e) {} }
+      }
+      function open(id, focus) {
+        const ann = Store.get(id); if (!ann) return;
+        discardDraftPreview(); draftAnn = null; activeId = id; render(ann); Pins.setActive(id);
+        if (focus !== false) focusComment();
+      }
+      // Open the card for a brand-new, unsaved annotation. No pin exists until submitDraft().
+      function openDraft(el) {
+        discardDraftPreview();   // drop any preview from a previous unsubmitted draft
+        const ann = {
+          id: Store.newId(), selector: SelectorEngine.getUniqueSelector(el),
+          comment: '', category: 'General', status: 'Open', author: currentAuthor(),
+          styling: Store.defaultStyling(), suggestedChanges: {}, replies: []
+        };
+        draftAnn = ann; activeId = null; render(ann); Pins.setActive(null); focusComment();
+      }
+      // Commit the open draft → the pin appears → close the card automatically.
+      function submitDraft() {
+        if (!draftAnn) return;
+        const d = draftAnn;
+        Preview.revert(d.id);   // clear any draft-id preview before the entry gets its real id
+        const ann = Store.add({
+          selector: d.selector, comment: d.comment, category: d.category,
+          author: d.author, styling: d.styling, suggestedChanges: d.suggestedChanges
+        });
+        draftAnn = null;
+        if (ann) Pins.render();
+        close();
+      }
+      function refresh() { if (activeId) { const a = Store.get(activeId); if (a) open(activeId, false); else close(); } }
+      function position(ann) {
+        const el = SelectorEngine.resolve(ann.selector);
+        cardEl.style.right = 'auto'; cardEl.style.bottom = 'auto';
+        if (el) {
+          const r = el.getBoundingClientRect();
+          let left = r.left, top = r.bottom + 12;
+          left = Math.max(12, Math.min(left, window.innerWidth - cardEl.offsetWidth - 12));
+          top = Math.max(56, Math.min(top, window.innerHeight - cardEl.offsetHeight - 12));
+          cardEl.style.left = left + 'px'; cardEl.style.top = top + 'px';
+        } else { cardEl.style.left = 'auto'; cardEl.style.right = '20px'; cardEl.style.top = '70px'; }
+      }
+      function field(label, control) { return h('div', { 'class': 'annot-field' }, [h('label', { text: label }), control]); }
+
+      // Card surface tints — soft, light palette that keeps dark text readable.
+      const CARD_BGS = ['#ffffff', '#f7a8a0', '#f8cf6b', '#84dda6', '#2f80ff'];
+      function cardColorOf(ann) {
+        const bg = ann && ann.styling && ann.styling.background;
+        return (bg && bg !== 'transparent') ? bg : '#ffffff';
+      }
+      // The swatch dots stay vivid for contrast, but the card surface uses a lightened
+      // version of the chosen color so dark text/elements stay readable on top.
+      function softTint(hex) {
+        if (typeof hex !== 'string' || hex[0] !== '#' || hex.length !== 7) return hex || '#ffffff';
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        const mix = v => Math.round(v + (255 - v) * 0.62);
+        // Translucent so the card's backdrop blur reads as frosted glass.
+        return 'rgba(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ',0.66)';
+      }
+      function applyCardBg(color) { if (cardEl) cardEl.style.background = softTint(color || '#ffffff'); }
+
+      function build(ann) {
+        const ro = Store.getRole() === 'client';
+        const isDraft = (ann === draftAnn);              // unsaved annotation — show Submit, not Delete
+        const num = (isDraft ? Store.counts().total : Store.index(ann.id)) + 1;
+        let draftSubmitBtn = null;                       // enabled once a comment is typed
+        const frag = document.createDocumentFragment();
+
+        // Background swatches — recolor the whole card surface (radio-style).
+        // Rendered as a slim row directly under the header (see body append below).
+        let swatchRow = null;
+        if (!ro) {
+          const current = cardColorOf(ann);
+          const swatches = CARD_BGS.map(color => {
+            const sw = h('button', {
+              'class': 'annot-bg-swatch' + (color.toLowerCase() === current.toLowerCase() ? ' selected' : ''),
+              title: 'Background ' + color
+            });
+            sw.style.background = color;
+            sw.addEventListener('click', () => {
+              ann.styling = ann.styling || Store.defaultStyling();
+              ann.styling.background = color;
+              if (!isDraft) { Store.update(ann.id, { styling: ann.styling }); Pins.render(); }
+              applyCardBg(color);
+              Array.from(swatchRow.children).forEach(c => c.classList.remove('selected'));
+              sw.classList.add('selected');
+            });
+            return sw;
+          });
+          swatchRow = h('div', { 'class': 'annot-bg-swatches' }, swatches);
+        }
+
+        // Header actions (right cluster) — resolve toggle + kebab menu + close.
+        const actions = h('div', { 'class': 'annot-card-actions' });
+
+        // Mark as resolved → icon button with tooltip (existing annotations only).
+        // Outlined check when open; filled check when resolved.
+        if (!isDraft) {
+          const resolved = ann.status === 'Resolved';
+          const resolveBtn = h('button', {
+            'class': 'annot-head-btn annot-resolve-btn' + (resolved ? ' on' : ''),
+            title: resolved ? 'Reopen' : 'Mark as resolved',
+            html: resolved
+              ? '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M8 12.5l2.5 2.5L16 9" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+              : '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12.5l2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          });
+          resolveBtn.addEventListener('click', () => {
+            const next = ann.status === 'Resolved' ? 'Open' : 'Resolved';
+            Store.setStatus(ann.id, next);
+            Pins.render(); Sidebar.update();
+            // Resolving sends the item to the review list and removes its pin —
+            // close the card right away so it doesn't linger over an empty spot.
+            if (next === 'Resolved') { close(); } else { refresh(); }
+          });
+          actions.appendChild(resolveBtn);
+        }
+
+        // Delete → trash icon (author-only, existing annotations).
+        if (!isDraft && !ro) {
+          const del = h('button', {
+            'class': 'annot-head-btn annot-trash-btn',
+            title: 'Delete annotation',
+            html: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9 3a1 1 0 0 0-1 1v1H4v2h1l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13h1V5h-4V4a1 1 0 0 0-1-1H9zm1 2h4v0h-4zm-1.9 4h1.8l.5 10H8.6l-.5-10zm3.9 0h1.8l-.5 10h-.8l-.5-10zm3.9 0h1.8l-.5 10h-1.3l.5-10z"/></svg>'
+          });
+          del.addEventListener('click', () => { Preview.revert(ann.id); Store.remove(ann.id); close(); });
+          actions.appendChild(del);
+        }
+
+        actions.appendChild(h('button', { 'class': 'annot-head-btn annot-card-close', text: '✕', title: 'Close', onclick: close }));
+
+        // Header — swatches sit on the left, actions cluster on the right.
+        if (swatchRow) swatchRow.classList.add('annot-head-swatches');
+        frag.appendChild(h('div', { 'class': 'annot-card-head' }, [
+          h('span', { 'class': 'annot-card-num', text: '#' + num }),
+          h('span', { 'class': 'annot-badge st-' + (STATUS_CLASS[ann.status] || 'open'), text: ann.status }),
+          swatchRow,
+          actions
+        ]));
+
+        const body = h('div', { 'class': 'annot-card-body' });
+
+        // Target
+        const tgtEl = SelectorEngine.resolve(ann.selector);
+        body.appendChild(h('div', { 'class': 'annot-target' + (tgtEl ? '' : ' orphan') },
+          tgtEl ? ('⌖ ' + (ann.selector && ann.selector.tag || 'element')) : '⚠ element not found on this page'));
+
+        // Comment
+        if (ro) {
+          body.appendChild(field('Comment', h('div', { 'class': 'annot-readonly', text: ann.comment || '—' })));
+          body.appendChild(field('Author', h('div', { 'class': 'annot-readonly', text: ann.author || '—' })));
+        } else {
+          const ta = h('textarea', { 'class': 'annot-input annot-comment-input', rows: '4', placeholder: 'Add a comment here…' });
+          ta.value = ann.comment || '';
+          ta.addEventListener('input', () => {
+            ann.comment = ta.value;
+            if (!isDraft) Store.update(ann.id, { comment: ta.value });
+            if (draftSubmitBtn) draftSubmitBtn.disabled = !ta.value.trim();
+          });
+          body.appendChild(ta);
+        }
+
+        // Replies + Ask AI — only meaningful once the annotation actually exists (not a draft).
+        if (!isDraft) {
+          const replies = ann.replies || [];
+          const thread = h('div', { 'class': 'annot-replies' },
+            replies.length ? replies.map(r => h('div', { 'class': 'annot-reply' }, [
+              h('div', { 'class': 'annot-reply-head' }, [h('strong', { text: r.author || 'Anonymous' }), h('span', { 'class': 'annot-reply-date', text: fmtDate(r.createdAt) })]),
+              h('div', { 'class': 'annot-reply-msg', text: r.message })
+            ])) : [h('div', { 'class': 'annot-empty', text: 'No replies yet.' })]);
+          const replyIn = h('textarea', { 'class': 'annot-input annot-reply-ta', rows: '2', placeholder: 'Write a reply…' });
+          const replyBtn = h('button', {
+            'class': 'annot-reply-send',
+            title: 'Send reply',
+            html: '<svg viewBox="0 0 512 512" width="13" height="13" aria-hidden="true" focusable="false"><path fill="currentColor" d="M16 464l480-208L16 48v160l320 48-320 48z"/></svg>'
+          });
+          replyBtn.addEventListener('click', () => {
+            const msg = replyIn.value.trim(); if (!msg) return;
+            Store.addReply(ann.id, { author: Annot.currentAuthor() || (Store.getRole() === 'client' ? 'Client' : 'Author'), message: msg });
+            replyIn.value = ''; refresh();
+          });
+          const replyInput = h('div', { 'class': 'annot-reply-input' }, [replyIn, replyBtn]);
+          body.appendChild(h('details', { 'class': 'annot-section', open: true }, [
+            h('summary', {}, 'Replies (' + replies.length + ')'), thread, replyInput
+          ]));
+        }
+
+        // Footer — draft only: Submit (attach the pin). Resolve/Delete now live in the header.
+        if (!ro && isDraft) {
+          const submit = h('button', {
+            'class': 'annot-submit-btn',
+            title: 'Submit & attach pin',
+            html: '<svg viewBox="0 0 512 512" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M16 464l480-208L16 48v160l320 48-320 48z"/></svg>'
+          });
+          submit.disabled = isEmptyComment(ann);   // require a description before pinning
+          submit.addEventListener('click', submitDraft);
+          draftSubmitBtn = submit;
+          body.appendChild(h('div', { 'class': 'annot-submit-row' }, submit));
+        }
+
+        frag.appendChild(body);
+        return frag;
+      }
+      return { open, openDraft, close, isOpen, refresh, activeId: () => activeId };
+    })();
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    const Sidebar = (function () {
+      let el = null, fStatus = 'Open', search = '';
+      function ensure() { if (!el) el = document.getElementById('annot-sidebar'); return el; }
+      function isOpen() { ensure(); return el && !el.hasAttribute('hidden'); }
+      function open() { ensure(); el.removeAttribute('hidden'); el.classList.add('open'); update(); }
+      function close() { ensure(); el.classList.remove('open'); el.setAttribute('hidden', ''); }
+      function toggle() { isOpen() ? close() : open(); }
+      function update() {
+        ensure(); if (!el || el.hasAttribute('hidden')) return;
+        const c = Store.counts();
+        el.querySelector('#annot-sb-total').textContent = c.total;
+        el.querySelector('#annot-sb-open').textContent = c.open;
+        el.querySelector('#annot-sb-resolved').textContent = c.resolved;
+        renderList();
+      }
+      function matches(ann) {
+        if (fStatus !== 'all' && ann.status !== fStatus) return false;
+        if (search) { const q = search.toLowerCase(); if ((ann.comment || '').toLowerCase().indexOf(q) < 0 && (ann.author || '').toLowerCase().indexOf(q) < 0) return false; }
+        return true;
+      }
+      function renderList() {
+        const list = el.querySelector('#annot-sb-list');
+        const orphans = el.querySelector('#annot-sb-orphans');
+        list.innerHTML = ''; orphans.innerHTML = '';
+        let shown = 0, orphanCount = 0;
+        Store.state.items.forEach((ann, idx) => {
+          if (!matches(ann)) return;
+          const resolved = SelectorEngine.resolve(ann.selector);
+          const item = h('div', { 'class': 'annot-li' + (resolved ? '' : ' orphan'), onclick: () => { Card.open(ann.id); Pins.focusElement(ann); } }, [
+            h('span', { 'class': 'annot-li-num ' + (STATUS_CLASS[ann.status] || 'open'), text: String(idx + 1) }),
+            h('div', { 'class': 'annot-li-body' }, [
+              h('div', { 'class': 'annot-li-comment', text: ann.comment || '(no comment)' }),
+              h('div', { 'class': 'annot-li-meta' }, [
+                h('span', { 'class': 'annot-badge st-' + (STATUS_CLASS[ann.status] || 'open'), text: ann.status }),
+                ann.createdAt ? h('span', { 'class': 'annot-li-date', text: fmtDate(ann.createdAt) }) : null,
+                ann.author ? h('span', { 'class': 'annot-li-author', text: ann.author }) : null,
+                ann.status === 'Resolved' ? h('button', {
+                  'class': 'annot-li-reopen', text: '↩ Reopen', title: 'Reopen — bring the pin back to the page',
+                  onclick: (e) => { e.stopPropagation(); Store.setStatus(ann.id, 'Open'); }
+                }) : null
+              ])
+            ])
+          ]);
+          if (resolved) { list.appendChild(item); shown++; } else { orphans.appendChild(item); orphanCount++; }
+        });
+        if (!shown) list.appendChild(h('div', { 'class': 'annot-empty', text: 'No annotations match.' }));
+        el.querySelector('#annot-sb-orphan-wrap').style.display = orphanCount ? '' : 'none';
+        el.querySelector('#annot-sb-orphan-count').textContent = orphanCount;
+      }
+      function wire() {
+        ensure();
+        el.querySelector('#annot-sb-close').addEventListener('click', close);
+        const s = el.querySelector('#annot-sb-search');
+        s.addEventListener('input', () => { search = s.value; renderList(); });
+        const stSel = el.querySelector('#annot-sb-status');
+        stSel.value = fStatus;   // reflect the default "Open" filter in the dropdown
+        stSel.addEventListener('change', () => { fStatus = stSel.value; renderList(); });
+      }
+      return { open, close, toggle, isOpen, update, wire };
+    })();
+
+    /* ── Share dialog ────────────────────────────────────────────────── */
+    const Share = (function () {
+      let modal = null, input = null, warn = null;
+      function ensure() { if (!modal) { modal = document.getElementById('annot-share-modal'); input = modal.querySelector('#annot-share-url'); warn = modal.querySelector('#annot-share-warn'); } }
+      function open() {
+        ensure();
+        const url = location.href.split('#')[0] + SHARE_PREFIX + ShareCodec.encode(Store.state.items);
+        input.value = url;
+        const n = url.length;
+        warn.textContent = n > 8000 ? ('⚠ Long link (' + n + ' chars) — some apps may truncate it.') : (n + ' characters · opens in client review mode');
+        warn.classList.toggle('over', n > 8000);
+        modal.removeAttribute('hidden'); input.focus(); input.select();
+      }
+      function close() { ensure(); modal.setAttribute('hidden', ''); }
+      function copy() { ensure(); copyToClipboard(input.value, modal.querySelector('#annot-share-copy')); }
+      function wire() {
+        ensure();
+        modal.querySelector('#annot-share-close').addEventListener('click', close);
+        modal.querySelector('#annot-share-copy').addEventListener('click', copy);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+      }
+      return { open, close, wire };
+    })();
+
+    /* ── Modes (Inspect / Annotate) ──────────────────────────────────── */
+    const Modes = (function () {
+      function set(mode) {
+        Scanner.mode = mode;
+        const panel = document.getElementById('scanner-panel');
+        const summary = document.getElementById('panel-summary');
+        const content = document.getElementById('panel-content');
+        const annotBody = document.getElementById('panel-annotate');
+        const railI = document.getElementById('rail-inspect');
+        const railA = document.getElementById('rail-annotate');
+        if (mode === 'annotate') {
+          if (Scanner.frozen && typeof unfreeze === 'function') unfreeze();
+          // Annotate panel stays on screen and follows the cursor — swap the inspector
+          // body for the annotate body (hint + name + Review/Share), keep the header.
+          show(panel, true); show(summary, false); show(content, false); show(annotBody, true);
+          document.body.classList.add('annot-cursor');
+          // Annotation pins belong to annotate mode only — reveal them here.
+          Pins.setVisible(true); Pins.reposition();
+          if (railA) railA.classList.add('active'); if (railI) railI.classList.remove('active');
+          // Dock the panel beside whatever is currently hovered (else its default corner).
+          if (Scanner.hoveredEl) { renderBreadcrumb(Scanner.hoveredEl); positionPanelNear(Scanner.hoveredEl); }
+          // Nudge the user to set their name first.
+          const nameIn = document.getElementById('annot-author-input-panel');
+          if (nameIn) nameIn.focus();
+        } else {
+          // Leaving annotate mode: close any open draft/annotation card.
+          Card.close();
+          Preview.revertAll();
+          show(panel, true); show(summary, true); show(content, true); show(annotBody, false);
+          document.body.classList.remove('annot-cursor');
+          // Hide annotation pins while inspecting.
+          Pins.setVisible(false);
+          if (railI) railI.classList.add('active'); if (railA) railA.classList.remove('active');
+        }
+      }
+      return { set };
+    })();
+
+    /* ── helpers ─────────────────────────────────────────────────────── */
+    function fmtDate(iso) { try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso || ''; } }
+    function toHex(c, fallback) {
+      if (!c || c === 'transparent') return fallback;
+      if (/^#[0-9a-f]{6}$/i.test(c)) return c;
+      const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+      if (m) return '#' + [m[1], m[2], m[3]].map(n => (+n).toString(16).padStart(2, '0')).join('');
+      return fallback;
+    }
+    function updateCountBadge() { const n = Store.counts().total; document.querySelectorAll('.annot-count').forEach(b => b.textContent = n); }
+    function currentAuthor() { const i = document.getElementById('annot-author-input'); return i ? i.value.trim() : ''; }
+
+    /* ── CSS (dark overlay UI, scoped to annot ids/classes) ──────────── */
+    const STYLE = `
+      #annot-pin-layer{position:fixed;inset:0;pointer-events:none;z-index:999990;}
+      #annot-pin-layer,#annot-sidebar,#annot-card,#annot-share-modal{
+        --a-bg:#0b0d12;--a-surface:#14171f;--a-surface2:#1b1f2a;--a-border:#252a37;
+        --a-text:#e6e8ee;--a-muted:#8b93a7;--a-accent:#5b8cff;
+        font-family:system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
+      /* Annotation card uses the light Inspect-panel palette (sidebar/share stay dark) */
+      #annot-card{
+        --a-bg:#ffffff;--a-surface:#f5f7fb;--a-surface2:#eef3ff;--a-border:#e3e8f2;
+        --a-text:#2b3245;--a-muted:#9aa3b2;--a-accent:#3b82f6;
+        box-shadow:0 24px 64px rgba(30,41,89,.22),0 2px 8px rgba(30,41,89,.1);}
+      #annot-card .annot-suggest-row code{color:#2563eb;}
+      #annot-card .annot-badge.st-open{background:rgba(59,130,246,.12);color:#2563eb;}
+      #annot-card .annot-badge.st-review{background:rgba(245,158,11,.14);color:#b45309;}
+      #annot-card .annot-badge.st-approved{background:rgba(16,185,129,.14);color:#047857;}
+      #annot-card .annot-badge.st-resolved{background:rgba(107,114,128,.16);color:#4b5563;}
+      .annot-pin{position:fixed;pointer-events:auto;width:26px;height:26px;border:none;border-radius:50% 50% 50% 3px;
+        background:linear-gradient(135deg,#5b8cff,#7c5cff);color:#fff;font-size:.72rem;font-weight:700;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(91,140,255,.5);
+        transition:transform .28s cubic-bezier(.2,1.1,.4,1),box-shadow .28s,background .35s ease,border-radius .35s ease,color .2s ease,opacity .28s ease;
+        animation:annotPinPop .25s cubic-bezier(.2,1.3,.4,1) both;}
+      .annot-pin:hover{transform:scale(1.18);z-index:1;box-shadow:0 6px 20px rgba(91,140,255,.7);}
+      .annot-pin.active{outline:2px solid #fff;outline-offset:2px;transform:scale(1.12);}
+      /* Resolved: morphs into a calm green circle with a check — reads as "done" at a glance. */
+      .annot-pin-ring{position:absolute;top:-5px;left:-5px;width:36px;height:36px;overflow:visible;pointer-events:none;}
+      .annot-pin-ring path{fill:none;stroke:rgba(255,255,255,.85);stroke-width:2;stroke-dasharray:5 4;stroke-linecap:round;
+        animation:annotDashMarch 1.1s linear infinite;}
+      .annot-pin.resolved{background:linear-gradient(135deg,#34d399,#059669);box-shadow:0 3px 12px rgba(5,150,105,.45);
+        border-radius:50%;opacity:.92;overflow:visible;}
+      .annot-pin.resolved::after{content:"✓";position:absolute;top:-4px;right:-4px;width:14px;height:14px;
+        display:flex;align-items:center;justify-content:center;border-radius:50%;
+        background:#fff;color:#059669;font-size:.62rem;font-weight:900;line-height:1;
+        box-shadow:0 1px 4px rgba(0,0,0,.3);animation:annotCheckPop .32s cubic-bezier(.2,1.4,.4,1) both;}
+      .annot-pin.resolved:hover{opacity:1;box-shadow:0 6px 18px rgba(5,150,105,.6);}
+      .annot-pin.review{background:linear-gradient(135deg,#f59e0b,#d97706);}
+      .annot-pin.approved{background:linear-gradient(135deg,#10b981,#059669);}
+      @keyframes annotPinPop{from{opacity:0;transform:scale(0);}to{opacity:1;transform:scale(1);}}
+      @keyframes annotCheckPop{from{opacity:0;transform:scale(.3) rotate(-20deg);}to{opacity:1;transform:scale(1) rotate(0);}}
+      @keyframes annotDashMarch{to{stroke-dashoffset:-18;}}
+
+      /* Review drawer — light frosted-glass palette (overrides the shared dark vars). */
+      #annot-sidebar{position:fixed;top:0;right:0;width:340px;max-width:92vw;height:100vh;z-index:999991;
+        --a-surface:rgba(255,255,255,.6);--a-surface2:rgba(238,243,255,.7);--a-border:rgba(255,255,255,.7);
+        --a-text:#222a3d;--a-muted:#6b7488;--a-accent:#3b82f6;
+        color:var(--a-text);
+        background:linear-gradient(165deg,rgba(255,255,255,.82),rgba(233,240,255,.74));
+        backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
+        border-left:1px solid rgba(255,255,255,.55);
+        display:flex;flex-direction:column;box-shadow:-18px 0 55px rgba(40,55,110,.18);
+        transform:translateX(8px);opacity:0;transition:transform .22s ease,opacity .22s;}
+      #annot-sidebar .annot-stat{background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.6);}
+      #annot-sidebar .annot-sb-head,#annot-sidebar .annot-sb-orphan-wrap{border-color:rgba(120,140,190,.18);}
+      #annot-sidebar .annot-sb-filters input,#annot-sidebar .annot-sb-filters select{background:rgba(255,255,255,.6);border-color:rgba(120,140,190,.22);}
+      #annot-sidebar .annot-li:hover{background:rgba(255,255,255,.65);border-color:rgba(120,140,190,.22);}
+      #annot-sidebar .annot-badge.st-open{background:rgba(59,130,246,.14);color:#2563eb;}
+      #annot-sidebar .annot-badge.st-resolved{background:rgba(16,150,105,.14);color:#0f7a55;}
+      #annot-sidebar.open{transform:translateX(0);opacity:1;}
+      #annot-sidebar[hidden]{display:none;}
+      .annot-sb-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--a-border);}
+      .annot-sb-title{font-size:.95rem;font-weight:700;letter-spacing:-.01em;}
+      .annot-sb-close{background:none;border:none;color:var(--a-muted);font-size:1.1rem;cursor:pointer;}
+      .annot-sb-close:hover{color:var(--a-text);}
+      .annot-sb-counts{display:flex;gap:8px;padding:12px 16px;}
+      .annot-stat{flex:1;background:var(--a-surface);border:1px solid var(--a-border);border-radius:10px;padding:10px;text-align:center;}
+      .annot-stat b{display:block;font-size:1.2rem;}
+      .annot-stat span{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--a-muted);}
+      .annot-sb-filters{display:flex;flex-direction:column;gap:8px;padding:0 16px 12px;}
+      .annot-sb-filters input,.annot-sb-filters select{background:var(--a-surface);border:1px solid var(--a-border);color:var(--a-text);
+        border-radius:8px;padding:8px 10px;font-size:.78rem;outline:none;width:100%;}
+      .annot-sb-filters .row{display:flex;gap:8px;}
+      .annot-sb-list,.annot-sb-orphan-list{padding:0 12px 12px;overflow-y:auto;}
+      .annot-sb-list{flex:1;}
+      .annot-li{display:flex;gap:10px;padding:11px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .12s,border-color .12s;}
+      .annot-li:hover{background:var(--a-surface);border-color:var(--a-border);}
+      .annot-li.orphan{opacity:.6;}
+      .annot-li-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+        font-size:.66rem;font-weight:700;color:#fff;background:#5b8cff;}
+      .annot-li-num.review{background:#f59e0b;}.annot-li-num.approved{background:#10b981;}.annot-li-num.resolved{background:#6b7280;}
+      .annot-li-body{min-width:0;flex:1;}
+      .annot-li-comment{font-size:.8rem;line-height:1.35;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+      .annot-li-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+      .annot-li-author{font-size:.66rem;color:var(--a-muted);}
+      .annot-li-date{font-size:.64rem;color:var(--a-muted);display:inline-flex;align-items:center;}
+      .annot-li-date::before{content:'🕒';font-size:.6rem;margin-right:3px;opacity:.7;}
+      .annot-li-reopen{margin-left:auto;font-size:.66rem;font-weight:600;cursor:pointer;color:#5b8cff;
+        background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.35);border-radius:999px;
+        padding:2px 9px;line-height:1.3;transition:background .15s,color .15s,transform .12s;}
+      .annot-li-reopen:hover{background:#5b8cff;color:#fff;transform:translateY(-1px);}
+      .annot-li-reopen:active{transform:translateY(0);}
+      .annot-sb-orphan-wrap{border-top:1px solid var(--a-border);padding-top:8px;}
+      .annot-sb-orphan-title{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--a-muted);padding:4px 16px;}
+
+      .annot-badge{font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:.02em;white-space:nowrap;}
+      .annot-badge.st-open{background:rgba(59,130,246,.18);color:#93b4ff;}
+      .annot-badge.st-review{background:rgba(245,158,11,.18);color:#fbbf24;}
+      .annot-badge.st-approved{background:rgba(16,185,129,.18);color:#34d399;}
+      .annot-badge.st-resolved{background:rgba(107,114,128,.22);color:#9ca3af;}
+      .annot-badge.cat{color:#fff;}
+      .cat-design{background:#ec4899;}.cat-content{background:#f59e0b;}.cat-development{background:#3b82f6;}
+      .cat-ux{background:#8b5cf6;}.cat-accessibility{background:#10b981;}.cat-general{background:#6b7280;}
+
+      #annot-card{position:fixed;width:340px;max-width:92vw;max-height:84vh;z-index:999994;
+        background:rgba(255,255,255,.66);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+        border:1px solid rgba(255,255,255,.65);border-radius:16px;color:#1f2430;
+        display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(31,45,80,.22),0 2px 8px rgba(31,45,80,.10);
+        animation:annotPinPop .18s ease both;}
+      #annot-card[hidden]{display:none;}
+      .annot-card-head{display:flex;align-items:center;gap:8px;padding:12px 14px 6px;background:rgba(255,255,255,.45);}
+      .annot-card-num{font-weight:700;font-size:.85rem;}
+      .annot-card-actions{display:flex;align-items:center;gap:2px;margin-left:auto;position:relative;}
+      .annot-head-btn{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;
+        background:none;border:none;color:var(--a-muted);font-size:1rem;line-height:1;cursor:pointer;transition:background .12s,color .12s;}
+      .annot-head-btn:hover{background:var(--a-surface);color:var(--a-text);}
+      .annot-head-btn svg{display:block;}
+      .annot-resolve-btn.on{color:#10b981;}
+      .annot-resolve-btn.on:hover{color:#059669;}
+      .annot-trash-btn:hover{background:rgba(239,68,68,.1);color:#ef4444;}
+      .annot-head-swatches{gap:5px;padding:0;margin-left:6px;}
+      .annot-head-swatches .annot-bg-swatch{width:15px;height:15px;}
+      .annot-target{font-size:.68rem;color:#111827;font-weight:600;padding:2px 0 6px;font-family:'Cascadia Code',monospace;}
+      .annot-target.orphan{color:#fbbf24;}
+      .annot-card-body{padding:4px 14px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;}
+      .annot-field{display:flex;flex-direction:column;gap:4px;}
+      .annot-field>label{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;color:var(--a-muted);font-weight:700;}
+      .annot-input{background:var(--a-surface);border:1px solid var(--a-border);color:var(--a-text);border-radius:8px;
+        padding:8px 10px;font-size:.8rem;outline:none;width:100%;font-family:inherit;resize:vertical;}
+      .annot-input:focus{border-color:var(--a-accent);}
+      .annot-input.sm{padding:6px 8px;font-size:.74rem;}
+      .annot-readonly{font-size:.8rem;line-height:1.4;padding:8px 10px;background:var(--a-surface);border-radius:8px;border:1px solid var(--a-border);white-space:pre-wrap;}
+      .annot-comment-preview{padding:10px 12px;border-radius:8px;border:1px dashed var(--a-border);min-height:34px;line-height:1.4;word-break:break-word;}
+      .annot-section{background:var(--a-surface);border:1px solid var(--a-border);border-radius:10px;padding:4px 11px;}
+      .annot-section>summary{cursor:pointer;font-size:.72rem;font-weight:700;padding:7px 0;list-style:none;color:var(--a-text);}
+      .annot-section>summary::-webkit-details-marker{display:none;}
+      .annot-section>summary::before{content:'▸';color:var(--a-muted);margin-right:6px;font-size:.65rem;}
+      .annot-section[open]>summary::before{content:'▾';}
+      .annot-section>*:not(summary){margin-bottom:9px;}
+      .annot-style-box,.annot-suggest-box{display:flex;flex-direction:column;gap:9px;padding-top:4px;}
+      .annot-style-row{display:flex;gap:9px;}.annot-style-row>*{flex:1;}
+      .annot-toggles{display:flex;gap:5px;}
+      .annot-toggle{flex:1;background:var(--a-surface2);border:1px solid var(--a-border);color:var(--a-muted);border-radius:7px;padding:6px;cursor:pointer;font-weight:700;font-size:.74rem;}
+      .annot-toggle.on{background:var(--a-accent);border-color:var(--a-accent);color:#fff;}
+      .annot-color{width:100%;height:32px;background:var(--a-surface);border:1px solid var(--a-border);border-radius:7px;cursor:pointer;padding:2px;}
+      .annot-bg-row{display:flex;gap:6px;align-items:center;}.annot-bg-row .annot-color{flex:1;}
+      .annot-mini{background:var(--a-surface2);border:1px solid var(--a-border);color:var(--a-text);border-radius:7px;padding:5px 9px;font-size:.68rem;cursor:pointer;}
+      .annot-mini:hover{border-color:var(--a-accent);color:var(--a-accent);}
+      .annot-suggest-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.74rem;border-bottom:1px solid var(--a-border);}
+      .annot-suggest-row code{color:#93b4ff;}
+      .annot-bg-swatches{display:flex;gap:8px;align-items:center;padding:2px 0 2px;}
+      .annot-bg-swatch{width:22px;height:22px;border-radius:50%;border:1px solid rgba(30,41,89,.18);cursor:pointer;padding:0;
+        box-shadow:inset 0 1px 2px rgba(255,255,255,.6),0 1px 2px rgba(30,41,89,.12);transition:transform .12s,box-shadow .12s;}
+      .annot-bg-swatch:hover{transform:scale(1.12);}
+      .annot-bg-swatch.selected{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--a-accent);}
+      .annot-comment-input{min-height:96px;line-height:1.5;}
+      .annot-action-btn{width:100%;background:var(--a-surface2);border:1px solid var(--a-border);color:var(--a-text);border-radius:8px;padding:9px;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .12s;}
+      .annot-action-btn:hover:not(:disabled){border-color:var(--a-accent);color:var(--a-accent);}
+      .annot-action-btn:disabled{opacity:.4;cursor:not-allowed;}
+      .annot-action-btn.on{background:var(--a-accent);border-color:var(--a-accent);color:#fff;}
+      .annot-action-btn.primary{background:var(--a-accent);border-color:var(--a-accent);color:#fff;}
+      .annot-action-btn.danger:hover{border-color:#ef4444;color:#ef4444;}
+      .annot-submit-row{display:flex;justify-content:flex-end;}
+      .annot-submit-btn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;color:#fff;border:none;
+        border-radius:11px;cursor:pointer;background:linear-gradient(135deg,#5aa0ff,#2f6bff);
+        box-shadow:0 6px 16px rgba(47,107,255,.35);transition:filter .12s,transform .12s,box-shadow .12s;}
+      .annot-submit-btn:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 8px 20px rgba(47,107,255,.45);}
+      .annot-submit-btn:active:not(:disabled){transform:translateY(0);box-shadow:0 4px 12px rgba(47,107,255,.35);}
+      .annot-submit-btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+      .annot-submit-btn svg{display:block;}
+      .annot-reply-input{display:flex;flex-direction:column;align-items:flex-end;gap:7px;}
+      .annot-reply-ta{width:100%;}
+      .annot-reply-send{flex:none;width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+        background:linear-gradient(135deg,#5aa0ff,#2f6bff);border:none;border-radius:9px;color:#fff;cursor:pointer;
+        box-shadow:0 4px 12px rgba(47,107,255,.32);transition:filter .12s,transform .12s,box-shadow .12s;}
+      .annot-reply-send:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 6px 16px rgba(47,107,255,.42);}
+      .annot-reply-send:active{transform:translateY(0);}
+      .annot-reply-send svg{display:block;}
+      .annot-replies{display:flex;flex-direction:column;gap:7px;}
+      .annot-reply{background:var(--a-surface2);border-radius:8px;padding:8px 10px;}
+      .annot-reply-head{display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:3px;}
+      .annot-reply-date{color:var(--a-muted);}
+      .annot-reply-msg{font-size:.78rem;line-height:1.4;}
+      .annot-empty{font-size:.74rem;color:var(--a-muted);padding:6px 0;}
+
+      #annot-share-modal{position:fixed;inset:0;z-index:999995;background:rgba(5,7,12,.6);backdrop-filter:blur(3px);
+        display:flex;align-items:center;justify-content:center;animation:annotFade .15s ease;}
+      #annot-share-modal[hidden]{display:none;}
+      @keyframes annotFade{from{opacity:0;}to{opacity:1;}}
+      .annot-share-dialog{width:520px;max-width:92vw;background:var(--a-bg);border:1px solid var(--a-border);border-radius:14px;color:var(--a-text);padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+      .annot-share-dialog h3{font-size:1rem;margin-bottom:6px;}
+      .annot-share-dialog p{font-size:.78rem;color:var(--a-muted);margin-bottom:14px;line-height:1.4;}
+      .annot-share-row{display:flex;gap:8px;}
+      #annot-share-url{flex:1;background:var(--a-surface);border:1px solid var(--a-border);color:var(--a-text);border-radius:8px;padding:9px 11px;font-size:.72rem;font-family:'Cascadia Code',monospace;outline:none;}
+      .annot-share-warn{font-size:.68rem;color:var(--a-muted);margin-top:10px;}
+      .annot-share-warn.over{color:#fbbf24;}
+      .annot-share-head{display:flex;justify-content:space-between;align-items:flex-start;}
+      .annot-share-x{background:none;border:none;color:var(--a-muted);font-size:1.1rem;cursor:pointer;}
+      .annot-client-banner{position:fixed;top:0;left:0;right:0;z-index:999992;background:linear-gradient(90deg,#5b8cff,#7c5cff);color:#fff;
+        font-size:.74rem;font-weight:600;text-align:center;padding:7px;box-shadow:0 2px 12px rgba(0,0,0,.3);}
+      .annot-previewing{outline:2px dashed #5b8cff !important;outline-offset:2px;}
+    `;
+
+    /* ── mountDOM ────────────────────────────────────────────────────── */
+    let mounted = false;
+    function mountDOM() {
+      if (mounted) return; mounted = true;
+      if (!document.getElementById('annot-styles')) {
+        const s = document.createElement('style'); s.id = 'annot-styles'; s.textContent = STYLE; document.head.appendChild(s);
+      }
+      document.body.appendChild(h('div', { id: 'annot-pin-layer' }));
+      document.body.appendChild(h('div', { id: 'annot-card', hidden: true }));
+
+      const sb = h('div', { id: 'annot-sidebar', hidden: true });
+      sb.innerHTML =
+        '<div class="annot-sb-head"><span class="annot-sb-title">Review</span><button id="annot-sb-close" class="annot-sb-close">✕</button></div>' +
+        '<div class="annot-sb-counts">' +
+        '<div class="annot-stat"><b id="annot-sb-total">0</b><span>Total</span></div>' +
+        '<div class="annot-stat"><b id="annot-sb-open">0</b><span>Open</span></div>' +
+        '<div class="annot-stat"><b id="annot-sb-resolved">0</b><span>Resolved</span></div></div>' +
+        '<div class="annot-sb-filters"><input id="annot-sb-search" type="text" placeholder="Search comments…">' +
+        '<select id="annot-sb-status"><option value="all">All statuses</option>' +
+        STATUSES.map(s => '<option value="' + s + '">' + s + '</option>').join('') + '</select></div>' +
+        '<div id="annot-sb-list" class="annot-sb-list"></div>' +
+        '<div id="annot-sb-orphan-wrap" class="annot-sb-orphan-wrap" style="display:none">' +
+        '<div class="annot-sb-orphan-title">Orphaned (<span id="annot-sb-orphan-count">0</span>) — element not found</div>' +
+        '<div id="annot-sb-orphans" class="annot-sb-orphan-list"></div></div>';
+      document.body.appendChild(sb);
+
+      const modal = h('div', { id: 'annot-share-modal', hidden: true });
+      modal.innerHTML =
+        '<div class="annot-share-dialog"><div class="annot-share-head"><h3>Share this review</h3>' +
+        '<button id="annot-share-close" class="annot-share-x">✕</button></div>' +
+        '<p>Anyone with this link can open the page in <b>client review mode</b> — they can reply, change status and preview changes, but cannot edit the original annotations.</p>' +
+        '<div class="annot-share-row"><input id="annot-share-url" type="text" readonly>' +
+        '<button id="annot-share-copy" class="annot-action-btn primary" style="width:auto;white-space:nowrap;">⧉ Copy</button></div>' +
+        '<div id="annot-share-warn" class="annot-share-warn"></div></div>';
+      document.body.appendChild(modal);
+
+      Sidebar.wire(); Share.wire();
+    }
+
+    /* ── init / boot ─────────────────────────────────────────────────── */
+    let inited = false;
+    function init() {
+      mountDOM();
+      if (!inited) {
+        inited = true;
+        Store.subscribe(() => { Pins.render(); Sidebar.update(); updateCountBadge(); });
+        // Vertical mode rail
+        const railI = document.getElementById('rail-inspect'), railA = document.getElementById('rail-annotate');
+        if (railI) railI.addEventListener('click', () => Modes.set('inspect'));
+        if (railA) railA.addEventListener('click', () => Modes.set('annotate'));
+        // Toolbar buttons
+        const rb = document.getElementById('scanner-review-btn'); if (rb) rb.addEventListener('click', () => Sidebar.toggle());
+        const shb = document.getElementById('scanner-share-btn'); if (shb) shb.addEventListener('click', () => Share.open());
+        // Annotate panel: Review/Share reuse the toolbar handlers.
+        const prb = document.getElementById('panel-review-btn'); if (prb) prb.addEventListener('click', () => Sidebar.toggle());
+        const psb = document.getElementById('panel-share-btn'); if (psb) psb.addEventListener('click', () => Share.open());
+        // Two-way mirror between the toolbar name field and the panel name field.
+        const nameTb = document.getElementById('annot-author-input');
+        const namePn = document.getElementById('annot-author-input-panel');
+        if (nameTb && namePn) {
+          namePn.value = nameTb.value;
+          nameTb.addEventListener('input', () => { namePn.value = nameTb.value; });
+          namePn.addEventListener('input', () => { nameTb.value = namePn.value; });
+        }
+        // Keep pins attached even when the scanner is off (client review mode).
+        window.addEventListener('scroll', () => Pins.reposition(), { passive: true });
+        window.addEventListener('resize', () => Pins.reposition());
+      }
+    }
+    function show_() { Pins.render(); Pins.setVisible(Scanner.mode === 'annotate'); updateCountBadge(); }
+    function hide_() { Preview.revertAll(); Card.close(); Sidebar.close(); Pins.setVisible(false); document.body.classList.remove('annot-cursor'); }
+
+    function bootShare() {
+      const hash = location.hash || '';
+      if (hash.indexOf(SHARE_PREFIX) !== 0) return false;
+      const items = ShareCodec.decode(hash.slice(SHARE_PREFIX.length));
+      if (!items) return false;
+      Store.setRole('client');
+      Store.seedFromShare(items);
+      Store.applyClientOverlay();
+      init();
+      document.body.appendChild(h('div', { 'class': 'annot-client-banner', text: '👁 Client Review Mode — reply, set status & preview. Original annotations are read-only.' }));
+      Pins.setVisible(true); Pins.render(); Sidebar.open(); updateCountBadge();
+      return true;
+    }
+
+    /* ── public surface ──────────────────────────────────────────────── */
+    window.Annot = {
+      SelectorEngine, Store, ShareCodec, Pins, Card, Sidebar, Share, Preview, AI, Modes,
+      init, show: show_, hide: hide_, bootShare, currentAuthor, updateCountBadge,
+      STATUSES, CATEGORIES
+    };
+
+    // Client review mode boots immediately on shared links (no scanner needed).
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootShare);
+    else bootShare();
+  })();
+
+  </script>
+</body>
+</html>
