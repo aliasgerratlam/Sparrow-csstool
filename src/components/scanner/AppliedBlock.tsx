@@ -1,17 +1,20 @@
 import { Fragment } from 'react'
 import type { AppliedDeclaration, AppliedMediaGroup } from '@/lib/types'
+import { useColorFormat } from '@/context/color-format'
+import { convertColorTokens } from '@/lib/color'
 
 function DeclRow({ d, indent }: { d: AppliedDeclaration; indent: boolean }) {
+  const format = useColorFormat()
   return (
     <div className="decl-row" style={indent ? { paddingLeft: 12 } : undefined}>
       <span className="decl-main">
         <span className="decl-key">{d.property}</span>
         <span className="decl-colon">:</span>{' '}
-        <span className="decl-value">{d.value}</span>
+        <span className="decl-value">{convertColorTokens(d.value, format)}</span>
         <span className="decl-semi">;</span>
       </span>
       {d.source && (
-        <span className="decl-source" title="applied by">
+        <span className="decl-source" title={`applied by ${d.source}`}>
           {d.source}
         </span>
       )}

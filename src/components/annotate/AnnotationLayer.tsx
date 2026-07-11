@@ -1,21 +1,29 @@
-import { store } from '@/hooks/use-annotations'
+import { useRole } from '@/hooks/use-annotations'
+import { useCollab } from '@/context/collab-context'
 import { PinLayer } from './PinLayer'
+import { CursorLayer } from './CursorLayer'
+import { EditingLayer } from './EditingLayer'
 import { AnnotationCard } from './AnnotationCard'
 import { ReviewSidebar } from './ReviewSidebar'
-import { ShareDialog } from './ShareDialog'
 import { ClientBanner } from './ClientBanner'
+import { SessionEndedBanner } from './SessionEndedBanner'
+import { CollabToasts } from './CollabToasts'
 
-/* Annotation surfaces — mounted at app level so they work both with the
-   scanner active and in standalone client review mode. */
-export function AnnotationLayer({ clientMode }: { clientMode: boolean }) {
-  const isClient = clientMode || store.getRole() === 'client'
+/* Annotation surfaces — mounted at app level so they work with the scanner
+   active and when joining a live session via a share link. */
+export function AnnotationLayer() {
+  const isClient = useRole() === 'client'
+  const { sessionEnded, isHost } = useCollab()
   return (
     <>
-      {isClient && <ClientBanner />}
+      {isClient && !sessionEnded && <ClientBanner />}
+      {sessionEnded && !isHost && <SessionEndedBanner />}
       <PinLayer />
+      <CursorLayer />
+      <EditingLayer />
       <AnnotationCard />
       <ReviewSidebar />
-      <ShareDialog />
+      <CollabToasts />
     </>
   )
 }

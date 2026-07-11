@@ -1,8 +1,10 @@
-/** Copy text to the clipboard, falling back to a hidden textarea + execCommand. */
-export async function copyToClipboard(text: string): Promise<void> {
+/** Copy text to the clipboard, falling back to a hidden textarea + execCommand.
+    Resolves true only when a copy actually succeeded, so callers can show an
+    honest "copied" / "copy failed" state. */
+export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
-    return
+    return true
   } catch {
     /* fall through to legacy path */
   }
@@ -12,10 +14,12 @@ export async function copyToClipboard(text: string): Promise<void> {
   document.body.appendChild(ta)
   ta.focus()
   ta.select()
+  let ok = false
   try {
-    document.execCommand('copy')
+    ok = document.execCommand('copy')
   } catch {
     /* ignore */
   }
   ta.remove()
+  return ok
 }

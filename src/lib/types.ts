@@ -123,6 +123,8 @@ export interface Annotation {
   status: Status
   author: string
   createdAt: string
+  /** Last local mutation time — drives the hydrate merge (newer side wins). */
+  updatedAt?: string
   styling: AnnotationStyling
   suggestedChanges: Record<string, string>
   replies: Reply[]

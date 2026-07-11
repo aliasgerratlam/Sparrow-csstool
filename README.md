@@ -46,5 +46,12 @@ src/
 - **Styling**: shadcn primitives provide behavior/accessibility; the distinctive
   look (glassy chrome, gradient pins, dashed guides) lives in `index.css` as
   *unlayered* CSS, which intentionally overrides Tailwind's layered utilities.
-- **Client review mode**: opening a `#anr1=…` share link boots into a read-only
-  role seeded from the URL payload.
+- **Live sessions**: the author starts a session from the Share menu to mint a
+  unique link (`?session=<id>`). Opening it joins that live room (presence,
+  cursors, real-time edits) in client review mode. Collaboration is only possible
+  through the link; it is invalidated once everyone leaves. Requires Supabase
+  (see `supabase/schema.sql`); without it the app runs localStorage-only.
+- **Auth**: authentication uses **Clerk** and is independent of Supabase. Set
+  `VITE_CLERK_PUBLISHABLE_KEY` (see `.env.example`) and enable Email+Password and
+  the Google connection in the Clerk dashboard; sign-in uses Clerk's hosted modal.
+  Without the key, auth is disabled and everyone is treated as a guest.

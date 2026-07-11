@@ -67,10 +67,24 @@ export function isRuleTailwind(rule: MatchedRule): boolean {
 // Merge matched rules into the declarations actually applied, recording the
 // source selector for each property. Excludes resets, conditional state rules
 // and inactive @media rules.
+const IMPORTANT_RE = /!\s*important\s*$/i
+
 export function buildAppliedCSS(element: Element, rules: RuleResult[]): AppliedCSS {
   const baseMap = new Map<string, AppliedDeclaration>()
   const mediaGroups: { condition: string; map: Map<string, AppliedDeclaration> }[] = []
   const mediaIndex = new Map<string, { condition: string; map: Map<string, AppliedDeclaration> }>()
+
+  // Later writes win (cascade order), EXCEPT an !important declaration can only
+  // be displaced by another !important one.
+  const setDecl = (
+    map: Map<string, AppliedDeclaration>,
+    decl: AppliedDeclaration,
+  ) => {
+    const prev = map.get(decl.property)
+    if (prev && IMPORTANT_RE.test(prev.value) && !IMPORTANT_RE.test(decl.value))
+      return
+    map.set(decl.property, decl)
+  }
 
   const applicable = cascadeSort(
     rules.filter(
@@ -92,7 +106,7 @@ export function buildAppliedCSS(element: Element, rules: RuleResult[]): AppliedC
         mediaGroups.push(g)
       }
       r.declarations.forEach((d) =>
-        g.map.set(d.property, {
+        setDecl(g.map, {
           property: d.property,
           value: d.value,
           fromTailwind: fromTW,
@@ -101,7 +115,7 @@ export function buildAppliedCSS(element: Element, rules: RuleResult[]): AppliedC
       )
     } else {
       r.declarations.forEach((d) =>
-        baseMap.set(d.property, {
+        setDecl(baseMap, {
           property: d.property,
           value: d.value,
           fromTailwind: fromTW,
@@ -111,14 +125,18 @@ export function buildAppliedCSS(element: Element, rules: RuleResult[]): AppliedC
     }
   })
 
-  // Inline styles override everything and are never "from Tailwind".
+  // Inline styles override everything except author !important (which only an
+  // inline !important can beat) and are never "from Tailwind".
   const inlineEl = element as HTMLElement
   if (inlineEl.style && inlineEl.style.length) {
     for (let i = 0; i < inlineEl.style.length; i++) {
       const prop = inlineEl.style[i] as string
-      baseMap.set(prop, {
+      const priority = inlineEl.style.getPropertyPriority(prop)
+      setDecl(baseMap, {
         property: prop,
-        value: inlineEl.style.getPropertyValue(prop),
+        value:
+          inlineEl.style.getPropertyValue(prop) +
+          (priority ? ' !important' : ''),
         fromTailwind: false,
         source: 'element.style',
       })

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import * as store from '@/store/annotations-store'
-import type { Annotation, Counts } from '@/lib/types'
+import type { Annotation, Counts, Role } from '@/lib/types'
 
 /** Live, reactive view of the annotation list (re-renders on any store write). */
 export function useAnnotations(): Annotation[] {
@@ -17,6 +17,11 @@ export function useAnnotationCounts(): Counts {
     else if (a.status === 'Open') open++
   })
   return { total: items.length, open, resolved }
+}
+
+/** Reactive view of the store role (author vs client review mode). */
+export function useRole(): Role {
+  return useSyncExternalStore(store.subscribe, store.getRole)
 }
 
 export { store }

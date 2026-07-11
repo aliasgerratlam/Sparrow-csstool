@@ -2,4 +2,6 @@ node_modules
 dist
 *.tsbuildinfo
 *.local
+.env
+supabase/functions/.env
 .DS_Store

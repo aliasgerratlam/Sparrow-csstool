@@ -16,8 +16,14 @@ export function useElementRect(
     let raf = 0
     const measure = () => {
       raf = 0
+      // A detached element measures as 0×0 at (0,0) — returning it would snap
+      // overlays/panels to the viewport corner. Null keeps consumers hidden.
+      if (!el.isConnected) {
+        setRect(null)
+        return
+      }
       const r = el.getBoundingClientRect()
-      setRect(r)
+      setRect(r.width === 0 && r.height === 0 ? null : r)
     }
     const schedule = () => {
       if (raf) return

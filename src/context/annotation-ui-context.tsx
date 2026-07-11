@@ -7,9 +7,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { toast } from 'sonner'
 import { getUniqueSelector, resolve } from '@/lib/selector-engine'
 import * as preview from '@/lib/preview'
 import { store } from '@/hooks/use-annotations'
+import { goToPricing } from '@/context/subscription-context'
 import type { Annotation } from '@/lib/types'
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -24,6 +26,10 @@ interface AnnotationUIValue {
   draft: Annotation | null
   cardOpen: boolean
   openCard: (id: string) => void
+  // Open a saved annotation's card with the comment editor already active.
+  openCardForEdit: (id: string) => void
+  editIntentId: string | null
+  clearEditIntent: () => void
   openDraft: (el: Element) => void
   updateDraft: (patch: Partial<Annotation>) => void
   submitDraft: () => void
@@ -33,12 +39,14 @@ interface AnnotationUIValue {
   toggleSidebar: () => void
   openSidebar: () => void
   closeSidebar: () => void
-  // Share
-  shareOpen: boolean
-  setShareOpen: (open: boolean) => void
   // Author (mirrored between toolbar + panel name fields)
   author: string
   setAuthor: (v: string) => void
+  // Re-link an orphaned annotation to a freshly-picked element
+  relinkId: string | null
+  startRelink: (id: string) => void
+  cancelRelink: () => void
+  completeRelink: (el: Element) => void
   // Focus/flash an element on the page
   flashEl: Element | null
   focusAnnotation: (ann: Annotation) => void
@@ -51,13 +59,16 @@ const AnnotationUIContext = createContext<AnnotationUIValue | null>(null)
 
 export function AnnotationUIProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [editIntentId, setEditIntentId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Annotation | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
   const [author, setAuthor] = useState('')
   const [flashEl, setFlashEl] = useState<Element | null>(null)
   const [hoverPinEl, setHoverPinEl] = useState<Element | null>(null)
+  const [relinkId, setRelinkId] = useState<string | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const relinkIdRef = useRef(relinkId)
+  relinkIdRef.current = relinkId
   const authorRef = useRef(author)
   authorRef.current = author
   // Refs mirror state so callbacks can run store/preview side effects directly
@@ -87,10 +98,36 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
     const d = draftRef.current
     if (d) preview.revert(d.id)
     setDraft(null)
+    setEditIntentId(null)
     setActiveId(id)
   }, [])
 
+  const openCardForEdit = useCallback((id: string) => {
+    const d = draftRef.current
+    if (d) preview.revert(d.id)
+    setDraft(null)
+    setEditIntentId(id)
+    setActiveId(id)
+  }, [])
+
+  const clearEditIntent = useCallback(() => setEditIntentId(null), [])
+
   const openDraft = useCallback((el: Element) => {
+    // Per-domain / 24h annotation cap (Free 3 / Pro 10 / Max unlimited). Block
+    // starting a new draft when at the cap and nudge to upgrade, rather than
+    // letting the store silently drop it on submit.
+    if (!store.canAddAnnotation()) {
+      const { limit, resetsInMs } = store.annotationQuota()
+      const resetTxt =
+        resetsInMs != null
+          ? ` Resets in ~${Math.max(1, Math.ceil(resetsInMs / 3_600_000))}h.`
+          : ''
+      toast(
+        `You've reached ${limit} annotation${limit === 1 ? '' : 's'} for this site today.${resetTxt}`,
+        { action: { label: 'Upgrade', onClick: goToPricing } },
+      )
+      return
+    }
     const prev = draftRef.current
     if (prev) preview.revert(prev.id)
     setDraft({
@@ -133,14 +170,44 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
   const openSidebar = useCallback(() => setSidebarOpen(true), [])
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
-  const focusAnnotation = useCallback((ann: Annotation) => {
-    const el = resolve(ann.selector)
-    if (!el) return
+  const flashElement = useCallback((el: Element) => {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     if (flashTimer.current) clearTimeout(flashTimer.current)
     setFlashEl(el)
     flashTimer.current = setTimeout(() => setFlashEl(null), 1600)
   }, [])
+
+  const focusAnnotation = useCallback(
+    (ann: Annotation) => {
+      const el = resolve(ann.selector)
+      if (el) flashElement(el)
+    },
+    [flashElement],
+  )
+
+  // Re-link: enter a "pick a new element" mode for an existing annotation, then
+  // rewrite its stored selector to whatever element the user clicks next. Used
+  // to rescue orphaned annotations whose original element moved or changed.
+  const startRelink = useCallback((id: string) => {
+    const d = draftRef.current
+    if (d) preview.revert(d.id)
+    setDraft(null)
+    setActiveId(null)
+    setRelinkId(id)
+  }, [])
+
+  const cancelRelink = useCallback(() => setRelinkId(null), [])
+
+  const completeRelink = useCallback(
+    (el: Element) => {
+      const id = relinkIdRef.current
+      if (!id) return
+      store.update(id, { selector: getUniqueSelector(el) })
+      setRelinkId(null)
+      flashElement(el)
+    },
+    [flashElement],
+  )
 
   const value = useMemo<AnnotationUIValue>(
     () => ({
@@ -148,6 +215,9 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       draft,
       cardOpen: activeId != null || draft != null,
       openCard,
+      openCardForEdit,
+      editIntentId,
+      clearEditIntent,
       openDraft,
       updateDraft,
       submitDraft,
@@ -156,10 +226,12 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       toggleSidebar,
       openSidebar,
       closeSidebar,
-      shareOpen,
-      setShareOpen,
       author,
       setAuthor,
+      relinkId,
+      startRelink,
+      cancelRelink,
+      completeRelink,
       flashEl,
       focusAnnotation,
       hoverPinEl,
@@ -169,6 +241,9 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       activeId,
       draft,
       openCard,
+      openCardForEdit,
+      editIntentId,
+      clearEditIntent,
       openDraft,
       updateDraft,
       submitDraft,
@@ -177,8 +252,11 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       toggleSidebar,
       openSidebar,
       closeSidebar,
-      shareOpen,
       author,
+      relinkId,
+      startRelink,
+      cancelRelink,
+      completeRelink,
       flashEl,
       focusAnnotation,
       hoverPinEl,

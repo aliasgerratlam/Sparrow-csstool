@@ -1,11 +1,13 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { useScanner } from '@/context/scanner-context'
+import { useEntitlements, promptUpgrade } from '@/context/subscription-context'
 import { useDraggable } from '@/hooks/use-draggable'
 import { useElementRect } from '@/hooks/use-element-rect'
 import { buildCSSText, getDimensions } from '@/lib/extractors'
@@ -14,6 +16,9 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { PiCursorLight } from 'react-icons/pi'
 import { IoCopyOutline } from 'react-icons/io5'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ColorFormatContext } from '@/context/color-format'
+import { nextColorFormat, type ColorFormat } from '@/lib/color'
 import { Breadcrumb } from './Breadcrumb'
 import { CssRulesView } from './CssRulesView'
 import { HierarchyTip } from './HierarchyTip'
@@ -27,13 +32,24 @@ export function InspectorPanel() {
   const { panelEl, mode, frozen, disable } = useScanner()
 
   const panelRef = useRef<HTMLDivElement>(null)
-  const { pos: dragPos, dragging, onHandlePointerDown } = useDraggable(panelRef)
+  const {
+    pos: dragPos,
+    dragging,
+    onHandlePointerDown,
+    resetPosition,
+  } = useDraggable(panelRef)
   const [followPos, setFollowPos] = useState<{ top: number; left: number } | null>(
     null,
   )
   const [hierAnchor, setHierAnchor] = useState<DOMRect | null>(null)
 
   const elRect = useElementRect(panelEl)
+
+  // A drag position belongs to the element it was dragged next to — freezing a
+  // DIFFERENT element must re-dock the panel beside it, not keep the old spot.
+  useEffect(() => {
+    resetPosition()
+  }, [panelEl, resetPosition])
 
   // Float the panel beside the inspected element (unless dragged while frozen).
   useLayoutEffect(() => {
@@ -76,6 +92,10 @@ export function InspectorPanel() {
     () => (panelEl ? getTailwindClasses(panelEl) : []),
     [panelEl],
   )
+  // Color notation the CSS rules render in — one button cycles HEX → RGBA → HSL.
+  // The toggle is a paid feature (locked on Free): the view stays pinned to HEX.
+  const { colorFormat: canColorFormat } = useEntitlements()
+  const [colorFormat, setColorFormat] = useState<ColorFormat>('hex')
   const [copied, setCopied] = useState(false)
   const onCopy = useCallback(() => {
     if (!panelEl) return
@@ -160,20 +180,39 @@ export function InspectorPanel() {
                 )}
               </span>
             </div>
-            <Button
-              variant="ghost"
-              className="sum-action"
-              tabIndex={-1}
-              aria-hidden="true"
-            >
-              ✎
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" className="sum-action">
+                  ✎
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Edit feature will be available in a future update
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
         <div id="panel-content">
           <section className="insp-section">
             <div className="css-rules-head">
               <span className="css-rules-label">CSS Rules</span>
+              <Button
+                variant="ghost"
+                className={'btn-color-format' + (canColorFormat ? '' : ' locked')}
+                aria-disabled={canColorFormat ? undefined : true}
+                onClick={() =>
+                  canColorFormat
+                    ? setColorFormat(nextColorFormat)
+                    : promptUpgrade('CSS color-format switching')
+                }
+                title={
+                  canColorFormat
+                    ? 'Switch color format (HEX / RGBA / HSL)'
+                    : 'Upgrade to switch color format'
+                }
+              >
+                {colorFormat.toUpperCase()}
+              </Button>
               <Button
                 variant="ghost"
                 className={'btn-copy-css' + (copied ? ' copied' : '')}
@@ -193,7 +232,9 @@ export function InspectorPanel() {
               </Button>
             </div>
             <div id="pane-css-rules">
-              <CssRulesView element={panelEl} />
+              <ColorFormatContext.Provider value={colorFormat}>
+                <CssRulesView element={panelEl} />
+              </ColorFormatContext.Provider>
             </div>
           </section>
         </div>

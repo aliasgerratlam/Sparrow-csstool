@@ -1,12 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
-import { useAnnotations, useAnnotationCounts, store } from '@/hooks/use-annotations'
+import { useScanner } from '@/context/scanner-context'
+import {
+  useAnnotations,
+  useAnnotationCounts,
+  useRole,
+  store,
+} from '@/hooks/use-annotations'
 import { resolve } from '@/lib/selector-engine'
 import { fmtDate } from '@/lib/format'
 import { STATUSES } from '@/store/annotations-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Check, Filter, MessageSquare, RotateCcw, Search, X } from 'lucide-react'
+import {
+  Check,
+  Filter,
+  Link2,
+  Pencil,
+  RotateCcw,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { Logo } from '@/components/ui/Logo'
 import type { Annotation } from '@/lib/types'
 
 /* Lightweight status filter. Deliberately NOT a Radix Select: Select always
@@ -83,12 +99,32 @@ function StatusFilter({
 
 export function ReviewSidebar() {
   const ui = useAnnotationUI()
+  const scanner = useScanner()
   const items = useAnnotations()
   const counts = useAnnotationCounts()
   const [fStatus, setFStatus] = useState<string>('all')
   const [search, setSearch] = useState('')
 
+  const role = useRole()
+
   if (!ui.sidebarOpen) return null
+
+  const isAuthor = role === 'author'
+
+  // Re-link: drop into annotate-style picking so the next page click rewrites
+  // this annotation's selector. Works whether or not the scanner was active.
+  const beginRelink = (id: string) => {
+    if (!scanner.isActive) scanner.enable()
+    scanner.setMode('annotate')
+    if (scanner.frozen) scanner.unfreeze()
+    ui.startRelink(id)
+  }
+
+  const deleteAnnotation = (id: string) => {
+    if (!window.confirm('Delete this annotation? This cannot be undone.')) return
+    if (ui.activeId === id) ui.closeCard()
+    store.remove(id)
+  }
 
   const matches = (ann: Annotation): boolean => {
     if (fStatus !== 'all' && ann.status !== fStatus) return false
@@ -103,18 +139,22 @@ export function ReviewSidebar() {
     return true
   }
 
+  const numbers = store.displayNumbers(items)
   const rows = items
-    .map((ann, idx) => ({ ann, num: idx + 1 }))
+    .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
     .filter((x) => matches(x.ann))
     .map((x) => ({ ...x, resolved: !!resolve(x.ann.selector) }))
 
   const listed = rows.filter((r) => r.resolved)
   const orphans = rows.filter((r) => !r.resolved)
 
-  const renderItem = ({ ann, num }: { ann: Annotation; num: number }) => (
+  const renderItem = ({ ann, num }: { ann: Annotation; num: number }) => {
+    const missing = !resolve(ann.selector)
+    const editable = store.canEdit(ann, ui.author)
+    return (
     <div
       key={ann.id}
-      className={'annot-li' + (resolve(ann.selector) ? '' : ' orphan')}
+      className={'annot-li' + (missing ? ' orphan' : '')}
       onClick={() => {
         ui.openCard(ann.id)
         ui.focusAnnotation(ann)
@@ -143,45 +183,86 @@ export function ReviewSidebar() {
           {ann.author && <span className="annot-li-author">{ann.author}</span>}
         </div>
       </div>
-      {ann.status === 'Resolved' ? (
-        <Button
-          variant="ghost"
-          className="annot-li-action reopen"
-          title="Reopen — bring the pin back to the page"
-          onClick={(e) => {
-            e.stopPropagation()
-            store.setStatus(ann.id, 'Open')
-          }}
-        >
-          <RotateCcw className="size-3.5" />
-          Reopen
-        </Button>
-      ) : (
-        <Button
-          variant="ghost"
-          className="annot-li-action resolve"
-          title="Resolve — mark this comment as done"
-          onClick={(e) => {
-            e.stopPropagation()
-            store.setStatus(ann.id, 'Resolved')
-          }}
-        >
-          <Check className="size-3.5" />
-          Resolve
-        </Button>
-      )}
+      <div className="annot-li-actions">
+        {editable && !missing && (
+          <Button
+            variant="ghost"
+            className="annot-li-action edit"
+            aria-label="Edit this comment"
+            title="Edit this comment"
+            onClick={(e) => {
+              e.stopPropagation()
+              ui.openCardForEdit(ann.id)
+              ui.focusAnnotation(ann)
+            }}
+          >
+            <Pencil className="size-4" />
+          </Button>
+        )}
+        {missing && isAuthor && (
+          <Button
+            variant="ghost"
+            className="annot-li-action relink"
+            aria-label="Re-link — pick the element this comment should point to"
+            title="Re-link — pick the element this comment should point to"
+            onClick={(e) => {
+              e.stopPropagation()
+              beginRelink(ann.id)
+            }}
+          >
+            <Link2 className="size-4" />
+          </Button>
+        )}
+        {ann.status === 'Resolved' ? (
+          <Button
+            variant="ghost"
+            className="annot-li-action reopen"
+            aria-label="Reopen — bring the pin back to the page"
+            title="Reopen — bring the pin back to the page"
+            onClick={(e) => {
+              e.stopPropagation()
+              store.setStatus(ann.id, 'Open')
+            }}
+          >
+            <RotateCcw className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            className="annot-li-action resolve"
+            aria-label="Resolve — mark this comment as done"
+            title="Resolve — mark this comment as done"
+            onClick={(e) => {
+              e.stopPropagation()
+              store.setStatus(ann.id, 'Resolved')
+            }}
+          >
+            <Check className="size-4" />
+          </Button>
+        )}
+        {isAuthor && (
+          <Button
+            variant="ghost"
+            className="annot-li-del"
+            aria-label="Delete annotation"
+            title="Delete this annotation"
+            onClick={(e) => {
+              e.stopPropagation()
+              deleteAnnotation(ann.id)
+            }}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        )}
+      </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div id="annot-sidebar" className="open">
       <div className="annot-sb-head">
-        <div className="annot-sb-head-left">
-          <span className="annot-sb-icon">
-            <MessageSquare className="size-4" />
-          </span>
-          <span className="annot-sb-title">Review</span>
-        </div>
+        <Logo height={30} title="Sparrow" />
         <Button
           variant="ghost"
           className="annot-sb-close"
@@ -217,6 +298,19 @@ export function ReviewSidebar() {
         </div>
         <StatusFilter value={fStatus} onChange={setFStatus} />
       </div>
+      {ui.relinkId && (
+        <div className="annot-relink-banner">
+          <Link2 className="size-4" />
+          <span>Click an element on the page to re-link · Esc to cancel</span>
+          <button
+            type="button"
+            className="annot-relink-cancel"
+            onClick={ui.cancelRelink}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       <div className="annot-sb-list">
         {listed.length ? (
           listed.map(renderItem)

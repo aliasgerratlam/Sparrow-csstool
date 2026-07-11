@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { XIcon } from 'lucide-react'
 import { cn } from '@/lib/format'
+import { usePortalContainer } from '@/lib/portal-container'
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
@@ -28,13 +29,19 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayStyle,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Inline styles for the backdrop. The extension needs the dim inline: in
+      its shadow root, stylesheet-sourced overlay backgrounds can be dropped
+      by the compositor while inline ones always paint (see SignInGate). */
+  overlayStyle?: React.CSSProperties
 }) {
+  const container = usePortalContainer()
   return (
-    <DialogPortal>
-      <DialogOverlay />
+    <DialogPortal container={container}>
+      <DialogOverlay style={overlayStyle} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

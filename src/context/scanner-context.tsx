@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 
-export type ScannerMode = 'inspect' | 'annotate' | 'ruler' | 'dropper'
+export type ScannerMode = 'inspect' | 'annotate' | 'ruler' | 'dropper' | 'fonts' | 'assets'
 
 interface ScannerContextValue {
   isActive: boolean

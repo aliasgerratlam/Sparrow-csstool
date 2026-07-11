@@ -1,0 +1,19 @@
+# Supabase CLI config. project_id is a local label; the deploy target is chosen
+# by --project-ref / `supabase link`.
+project_id = "css-scanner"
+
+# All Kelviq functions do their OWN auth — the mutating ones verify the Clerk
+# session token; the webhook verifies Kelviq's signature. So the Supabase
+# gateway must NOT enforce a JWT, or it 401s the CORS preflight (browser calls)
+# or the unsigned Kelviq webhook before our handler runs.
+[functions.kelviq-checkout]
+verify_jwt = false
+
+[functions.kelviq-subscription]
+verify_jwt = false
+
+[functions.kelviq-portal]
+verify_jwt = false
+
+[functions.kelviq-webhook]
+verify_jwt = false

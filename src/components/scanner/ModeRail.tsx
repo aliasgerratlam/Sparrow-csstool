@@ -1,10 +1,41 @@
+import { HiMiniEyeDropper } from 'react-icons/hi2'
+import { Images, Type } from 'lucide-react'
 import { useScanner, type ScannerMode } from '@/context/scanner-context'
+import { useAuth } from '@/context/auth-context'
+import { useEntitlements, promptUpgrade } from '@/context/subscription-context'
 import { Button } from '@/components/ui/button'
 
 export function ModeRail() {
   const { mode, frozen, setMode, unfreeze } = useScanner()
+  const { isConfigured, isAuthenticated, loading } = useAuth()
+  const { colorMode, fontMode, assets } = useEntitlements()
+
+  // Annotate is for signed-in users only. While gated the rail button is locked
+  // (dimmed, with a "Sign in to use Annotate" tooltip) rather than entering the
+  // mode — the user signs in via the toolbar's Sign in button. When auth isn't
+  // configured (prototype) nothing is gated.
+  const annotateLocked = isConfigured && !isAuthenticated
+
+  // Paid modes — locked below the required tier. Entitlements are UNGATED in
+  // prototype mode (no Kelviq), so these are all false there and nothing locks.
+  const dropperLocked = !colorMode
+  const fontsLocked = !fontMode
+  const assetsLocked = !assets
+
+  // In the extension the whole rail is sign-in-gated, not just Annotate: it
+  // stays hidden until the user is signed in (and while auth is still loading,
+  // so a signed-in user never sees it flash out). The web app keeps the rail
+  // visible so the demo works signed-out.
+  if (import.meta.env.VITE_IS_EXTENSION && (loading || !isAuthenticated))
+    return null
 
   const select = (m: ScannerMode) => {
+    // Locked Annotate is a no-op — the tooltip tells the user to sign in first.
+    if (m === 'annotate' && annotateLocked) return
+    // Paid modes locked below the plan — nudge to upgrade instead of entering.
+    if (m === 'dropper' && dropperLocked) return promptUpgrade('Color Change mode')
+    if (m === 'fonts' && fontsLocked) return promptUpgrade('Font mode')
+    if (m === 'assets' && assetsLocked) return promptUpgrade('Assets downloader')
     // Switching tools resets any frozen state — a ruler anchor and an inspect
     // selection share the same frozen/selectedEl, so carrying one into another
     // tool leaves you stuck on the previous element.
@@ -31,10 +62,15 @@ export function ModeRail() {
       <Button
         id="rail-annotate"
         variant="ghost"
-        className={'mode-rail-btn' + (mode === 'annotate' ? ' active' : '')}
+        className={
+          'mode-rail-btn' +
+          (mode === 'annotate' ? ' active' : '') +
+          (annotateLocked ? ' locked' : '')
+        }
         data-mode="annotate"
-        data-tooltip="Annotate"
+        data-tooltip={annotateLocked ? 'Sign in to use Annotate' : 'Annotate'}
         aria-label="Annotate"
+        aria-disabled={annotateLocked || undefined}
         onClick={() => select('annotate')}
       >
         <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
@@ -58,18 +94,50 @@ export function ModeRail() {
       <Button
         id="rail-dropper"
         variant="ghost"
-        className={'mode-rail-btn' + (mode === 'dropper' ? ' active' : '')}
+        className={
+          'mode-rail-btn' +
+          (mode === 'dropper' ? ' active' : '') +
+          (dropperLocked ? ' locked' : '')
+        }
         data-mode="dropper"
-        data-tooltip="Color Dropper"
-        aria-label="Color Dropper"
+        data-tooltip={dropperLocked ? 'Upgrade to use Color Change' : 'Colors'}
+        aria-label="Colors"
+        aria-disabled={dropperLocked || undefined}
         onClick={() => select('dropper')}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m12 8 8.4-3.6a2 2 0 0 0-2.8-2.8L14 10" />
-          <path d="M12 8 4.5 15.5a2.5 2.5 0 0 0 0 3.5l.5.5a2.5 2.5 0 0 0 3.5 0L16 12" />
-          <path d="m18.5 2.5 3 3" />
-          <path d="m12 8 4 4" />
-        </svg>
+        <HiMiniEyeDropper size={20} aria-hidden="true" />
+      </Button>
+      <Button
+        id="rail-fonts"
+        variant="ghost"
+        className={
+          'mode-rail-btn' +
+          (mode === 'fonts' ? ' active' : '') +
+          (fontsLocked ? ' locked' : '')
+        }
+        data-mode="fonts"
+        data-tooltip={fontsLocked ? 'Upgrade to use Fonts' : 'Fonts'}
+        aria-label="Fonts"
+        aria-disabled={fontsLocked || undefined}
+        onClick={() => select('fonts')}
+      >
+        <Type size={20} aria-hidden="true" />
+      </Button>
+      <Button
+        id="rail-assets"
+        variant="ghost"
+        className={
+          'mode-rail-btn' +
+          (mode === 'assets' ? ' active' : '') +
+          (assetsLocked ? ' locked' : '')
+        }
+        data-mode="assets"
+        data-tooltip={assetsLocked ? 'Upgrade to download assets' : 'Assets'}
+        aria-label="Assets"
+        aria-disabled={assetsLocked || undefined}
+        onClick={() => select('assets')}
+      >
+        <Images size={20} aria-hidden="true" />
       </Button>
     </div>
   )

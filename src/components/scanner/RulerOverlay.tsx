@@ -3,6 +3,9 @@ import { useElementRect } from '@/hooks/use-element-rect'
 import { measurePair } from '@/lib/extractors'
 
 const TICK = 12 // px length of the end caps on each measurement line
+const LABEL_MARGIN = 10 // keep labels this far inside the viewport edges
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 interface Seg {
   key: string
@@ -79,14 +82,36 @@ export function RulerOverlay({
       if (gap.distance <= 0) continue
       pushLine(segs, `gap-${i}`, gap.line.x1, gap.line.y1, gap.line.x2, gap.line.y2)
 
-      const midX = (gap.line.x1 + gap.line.x2) / 2
-      const midY = (gap.line.y1 + gap.line.y2) / 2
       const horizontal = Math.abs(gap.line.y1 - gap.line.y2) < 0.5
-      // Keep the label clear of the line so it reads at a glance: sit it above a
-      // horizontal line, and just beside a vertical one.
-      const style: CSSProperties = horizontal
-        ? { left: midX, top: midY - 8, transform: 'translate(-50%, -100%)' }
-        : { left: midX + 8, top: midY, transform: 'translateY(-50%)' }
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      // Anchor the label to the midpoint of the line's *visible* span rather than
+      // its geometric midpoint, then clamp inside the viewport. When the target is
+      // far from the anchor one end of the line can sit off-screen, which would
+      // otherwise push the label out of view entirely.
+      let style: CSSProperties
+      if (horizontal) {
+        const loX = Math.max(Math.min(gap.line.x1, gap.line.x2), LABEL_MARGIN)
+        const hiX = Math.min(Math.max(gap.line.x1, gap.line.x2), vw - LABEL_MARGIN)
+        const cx = clamp((loX + hiX) / 2, LABEL_MARGIN, vw - LABEL_MARGIN)
+        // Sit above the line, but drop below it when there's no room up top.
+        const above = gap.line.y1 - 8 > LABEL_MARGIN + 20
+        const cy = clamp(gap.line.y1, LABEL_MARGIN, vh - LABEL_MARGIN)
+        style = above
+          ? { left: cx, top: cy - 8, transform: 'translate(-50%, -100%)' }
+          : { left: cx, top: cy + 8, transform: 'translate(-50%, 0)' }
+      } else {
+        const loY = Math.max(Math.min(gap.line.y1, gap.line.y2), LABEL_MARGIN)
+        const hiY = Math.min(Math.max(gap.line.y1, gap.line.y2), vh - LABEL_MARGIN)
+        const cy = clamp((loY + hiY) / 2, LABEL_MARGIN, vh - LABEL_MARGIN)
+        // Sit beside the line, flipping to its left when hugging the right edge so
+        // the pill (which grows rightward) doesn't get clipped by the viewport.
+        const beside = gap.line.x1 > vw - 120
+        const cx = clamp(beside ? gap.line.x1 - 8 : gap.line.x1 + 8, LABEL_MARGIN, vw - LABEL_MARGIN)
+        style = beside
+          ? { left: cx, top: cy, transform: 'translate(-100%, -50%)' }
+          : { left: cx, top: cy, transform: 'translateY(-50%)' }
+      }
       labels.push({ key: `gap-${i}`, style, text: `${gap.distance} px` })
     }
   }

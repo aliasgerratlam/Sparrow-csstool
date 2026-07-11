@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useScanner } from '@/context/scanner-context'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
-import { useAnnotations } from '@/hooks/use-annotations'
-import { store } from '@/hooks/use-annotations'
+import { useAnnotations, useRole, store } from '@/hooks/use-annotations'
+import { useCollab } from '@/context/collab-context'
 import { resolve } from '@/lib/selector-engine'
+import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Annotation } from '@/lib/types'
 
 const RING_PATH =
@@ -32,11 +34,16 @@ export function PinLayer() {
   const [positions, setPositions] = useState<Record<string, PinPos>>({})
   const raf = useRef(0)
 
-  const visible = (isActive && mode === 'annotate') || store.getRole() === 'client'
+  const role = useRole()
+  const { sessionEnded } = useCollab()
+  const visible =
+    ((isActive && mode === 'annotate') || role === 'client') && !sessionEnded
 
-  // Open annotations only — resolved ones live in the review list.
+  // Open annotations only — resolved ones live in the review list. Numbering is
+  // creation-ordered (displayNumbers) so every collaborator sees the same "#4".
+  const numbers = store.displayNumbers(items)
   const openItems: { ann: Annotation; num: number }[] = items
-    .map((ann, idx) => ({ ann, num: idx + 1 }))
+    .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
     .filter((x) => x.ann.status !== 'Resolved')
 
   const measure = useCallback(() => {
@@ -51,19 +58,24 @@ export function PinLayer() {
       }
       const r = el.getBoundingClientRect()
       let left = r.right - 12
-      let top = r.top - 12
+      const top = r.top - 12
+      // Anchor the pin to its element and let it scroll with the page. Only clamp
+      // horizontally so it can't drift off-screen sideways; vertically it rides
+      // along with the element and is simply hidden once it scrolls out of view —
+      // never pinned to the top/bottom edge of the viewport.
       left = Math.max(4, Math.min(left, window.innerWidth - 32))
-      top = Math.max(48, Math.min(top, window.innerHeight - 32))
+      if (top < 44 || top > window.innerHeight - 28) {
+        next[ann.id] = { left: 0, top: 0, hidden: true }
+        return
+      }
+      // Nudge overlapping pins apart horizontally (staying on the same row) so
+      // they don't get dragged away from the element they belong to.
       let guard = 0
       while (
         placed.some((p) => Math.abs(p.left - left) < 26 && Math.abs(p.top - top) < 26) &&
-        guard < 60
+        guard < 40
       ) {
-        top += 24
-        if (top > window.innerHeight - 32) {
-          top = 48
-          left = Math.max(4, left - 24)
-        }
+        left = Math.max(4, left - 26)
         guard++
       }
       placed.push({ left, top })
@@ -103,29 +115,44 @@ export function PinLayer() {
             ? { background: bg, color: pinTextColor(bg) }
             : undefined
         return (
-          <Button
-            key={ann.id}
-            variant="ghost"
-            className={
-              'annot-pin ' +
-              (ann.status === 'Resolved' ? 'resolved' : 'open') +
-              (ann.id === ui.activeId ? ' active' : '')
-            }
-            title={ann.comment || 'Annotation ' + num}
-            style={{ left: pos.left, top: pos.top, ...tinted }}
-            onClick={(e) => {
-              e.stopPropagation()
-              ui.openCard(ann.id)
-              ui.focusAnnotation(ann)
-            }}
-            onMouseEnter={() => ui.setHoverPinEl(resolve(ann.selector))}
-            onMouseLeave={() => ui.setHoverPinEl(null)}
-          >
-            {num}
-            <svg className="annot-pin-ring" viewBox="0 0 36 36">
-              <path d={RING_PATH} />
-            </svg>
-          </Button>
+          <Tooltip key={ann.id}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={
+                  'annot-pin ' +
+                  (ann.status === 'Resolved' ? 'resolved' : 'open') +
+                  (ann.id === ui.activeId ? ' active' : '')
+                }
+                style={{ left: pos.left, top: pos.top, ...tinted }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  ui.openCard(ann.id)
+                  ui.focusAnnotation(ann)
+                }}
+                onMouseEnter={() => ui.setHoverPinEl(resolve(ann.selector))}
+                onMouseLeave={() => ui.setHoverPinEl(null)}
+              >
+                {num}
+                <svg className="annot-pin-ring" viewBox="0 0 36 36">
+                  <path d={RING_PATH} />
+                </svg>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" light className="max-w-[260px]">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[#6b7280]">
+                  <span className="truncate">{ann.author || 'Unknown'}</span>
+                  {ann.createdAt && (
+                    <span className="shrink-0">{fmtDate(ann.createdAt)}</span>
+                  )}
+                </div>
+                <div className="whitespace-pre-wrap wrap-break-word text-[#1f2430]">
+                  {ann.comment || 'Annotation ' + num}
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         )
       })}
     </div>

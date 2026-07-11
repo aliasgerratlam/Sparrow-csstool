@@ -1,5 +1,7 @@
+import { useSyncExternalStore } from 'react'
 import { useScanner } from '@/context/scanner-context'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
+import { getElementRefontState, subscribeElementRefont } from '@/lib/element-refont'
 import { HighlightOverlay } from './HighlightOverlay'
 import { SelectedOverlay } from './SelectedOverlay'
 import { RulerOverlay } from './RulerOverlay'
@@ -8,21 +10,36 @@ import { RulerOverlay } from './RulerOverlay'
    focus-flash also work in client review mode (scanner inactive). */
 export function Overlays() {
   const { isActive, frozen, mode, hoveredEl, selectedEl } = useScanner()
-  const { hoverPinEl, flashEl } = useAnnotationUI()
+  const { hoverPinEl, flashEl, relinkId } = useAnnotationUI()
+  const { picking } = useSyncExternalStore(subscribeElementRefont, getElementRefontState)
 
   const rulerActive = isActive && mode === 'ruler'
-  // In ruler mode the inspect hover/selected boxes are replaced by the ruler
-  // overlay; in dropper mode the loupe replaces them entirely, so neither the
-  // dashed highlight nor the guides should render.
-  const dropperActive = isActive && mode === 'dropper'
-  const noInspectOverlay = rulerActive || dropperActive
+  // Ruler replaces the hover/selected boxes with its own overlay. Dropper
+  // (Colors), Fonts and Assets are whole-page overviews and don't inspect a
+  // single element — except while the Fonts tool's "select text" pick mode is
+  // armed, which highlights the hovered element exactly like inspect.
+  const noInspectOverlay =
+    rulerActive ||
+    mode === 'dropper' ||
+    mode === 'assets' ||
+    (mode === 'fonts' && !picking)
   const highlightTarget =
     hoverPinEl ?? (isActive && !frozen && !noInspectOverlay ? hoveredEl : null)
   const selectedTarget = frozen && !noInspectOverlay ? selectedEl : flashEl
+  // Annotate shows only the border box (no projected alignment guides).
+  const showGuides = mode !== 'annotate'
+  const solidBorder = false
+  // Re-linking an orphaned annotation: tint the hover highlight red.
+  const relinking = !!relinkId
 
   return (
     <>
-      <HighlightOverlay target={highlightTarget} />
+      <HighlightOverlay
+        target={highlightTarget}
+        guides={showGuides}
+        solid={solidBorder}
+        relink={relinking}
+      />
       <SelectedOverlay target={selectedTarget} pinned={frozen} />
       {rulerActive && <RulerOverlay anchor={selectedEl} hovered={hoveredEl} />}
     </>

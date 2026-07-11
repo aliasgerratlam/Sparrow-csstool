@@ -57,3 +57,69 @@ export function rgbToHsl(
 export function formatHsl(h: number, s: number, l: number): string {
   return `hsl(${h}, ${s}%, ${l}%)`
 }
+
+// ── Color-format toggle (HEX ⇆ RGBA ⇆ HSL) for the inspector's CSS panel ─────
+
+export type ColorFormat = 'hex' | 'rgba' | 'hsl'
+export const COLOR_FORMATS: ColorFormat[] = ['hex', 'rgba', 'hsl']
+
+/** The next format in the HEX → RGBA → HSL → HEX cycle. */
+export function nextColorFormat(f: ColorFormat): ColorFormat {
+  return COLOR_FORMATS[(COLOR_FORMATS.indexOf(f) + 1) % COLOR_FORMATS.length]!
+}
+
+/* Resolve ANY CSS color token to RGBA (0–255) via a 1×1 canvas, so named,
+   hex, rgb/rgba, hsl, oklch, etc. all parse. Solid colors only ever touch this
+   canvas, so it can never be tainted. */
+let convCtx: CanvasRenderingContext2D | null | undefined
+export function parseCssColor(str: string): [number, number, number, number] | null {
+  if (convCtx === undefined) {
+    convCtx = document
+      .createElement('canvas')
+      .getContext('2d', { willReadFrequently: true })
+  }
+  const ctx = convCtx
+  if (!ctx) return null
+  // Validity probe: an invalid color leaves fillStyle unchanged across baselines.
+  ctx.fillStyle = '#000'
+  ctx.fillStyle = str
+  const probe = ctx.fillStyle
+  ctx.fillStyle = '#fff'
+  ctx.fillStyle = str
+  if (ctx.fillStyle !== probe) return null
+  ctx.clearRect(0, 0, 1, 1)
+  ctx.fillRect(0, 0, 1, 1)
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
+  return [r!, g!, b!, a!]
+}
+
+/* Matches color tokens *inside* a value — hex and functional notations. Gradient
+   wrappers like linear-gradient(…) aren't in the alternation, so only their inner
+   color stops are rewritten while the wrapper is left intact. The argument part
+   tolerates ONE level of nested parens (var(), calc(), relative `rgb(from …)`)
+   so such tokens match whole — a partial match could otherwise rewrite an inner
+   fragment and corrupt the value; unresolvable tokens are left untouched. */
+export const COLOR_TOKEN =
+  /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((?:[^()]|\([^()]*\))*\)/gi
+
+/** Rewrite every color token in a CSS value to the chosen format. Tokens that
+    don't resolve to a real color (and non-color text) are left untouched. */
+export function convertColorTokens(value: string, format: ColorFormat): string {
+  if (!value) return value
+  return value.replace(COLOR_TOKEN, (tok) => {
+    const rgba = parseCssColor(tok)
+    if (!rgba) return tok
+    const [r, g, b, a] = rgba
+    if (format === 'rgba') return formatRgba(r, g, b, a)
+    if (format === 'hsl') {
+      const { h, s, l } = rgbToHsl(r, g, b)
+      if (a < 255) {
+        const alpha = Math.round((a / 255) * 100) / 100
+        return `hsla(${h}, ${s}%, ${l}%, ${alpha})`
+      }
+      return formatHsl(h, s, l)
+    }
+    // hex — 8-digit (#rrggbbaa) when translucent so alpha isn't silently dropped.
+    return a < 255 ? formatHex(r, g, b) + hex2(a) : formatHex(r, g, b)
+  })
+}

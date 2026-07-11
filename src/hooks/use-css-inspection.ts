@@ -1,10 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   cascadeSort,
   collapseBorderLonghands,
   getMatchedRules,
   stateIsPseudoEl,
 } from '@/lib/cssom'
+import {
+  ensureCrossOriginLoaded,
+  subscribeCrossOrigin,
+} from '@/lib/cross-origin-css'
 import { buildAppliedCSS, getTailwindClasses } from '@/lib/tailwind'
 import { extractSwatchColor } from '@/lib/extractors'
 import type {
@@ -54,26 +58,17 @@ export interface CssRulesViewModel {
 
 function toDecls(
   decls: { property: string; value: string }[],
-  seen: Set<string> | null,
 ): RenderDecl[] {
-  return decls.map((d) => {
-    let overridden = false
-    if (seen) {
-      if (seen.has(d.property)) overridden = true
-      else seen.add(d.property)
-    }
-    return {
-      property: d.property,
-      value: d.value,
-      overridden,
-      swatch: extractSwatchColor(d.value),
-    }
-  })
+  return decls.map((d) => ({
+    property: d.property,
+    value: d.value,
+    overridden: false,
+    swatch: extractSwatchColor(d.value),
+  }))
 }
 
 function blockFromRule(
   rule: MatchedRule,
-  seen: Set<string> | null,
   variant: RenderBlock['variant'],
   stateHeading: boolean,
   mediaNote: string | null,
@@ -87,13 +82,64 @@ function blockFromRule(
     source: rule.source || '',
     variant,
     mediaNote,
-    decls: toDecls(rule.declarations, seen),
+    decls: toDecls(rule.declarations),
   }
+}
+
+const IMPORTANT_RE = /!\s*important\s*$/i
+
+/* Mark losing declarations across the applied blocks. Blocks arrive in
+   descending cascade order (inline first, then winner-first author rules), and
+   `!important` inverts the plain cascade: author !important beats non-important
+   inline style; inline !important beats everything. Within a rank the first
+   declaration encountered (highest cascade) wins. */
+function markOverridden(appliedBlocks: RenderBlock[]): void {
+  const rankOf = (inline: boolean, important: boolean) =>
+    important ? (inline ? 0 : 1) : inline ? 2 : 3
+  const best = new Map<string, { rank: number; decl: RenderDecl }>()
+  appliedBlocks.forEach((b) => {
+    const inline = b.variant === 'inline'
+    b.decls.forEach((d) => {
+      const rank = rankOf(inline, IMPORTANT_RE.test(d.value))
+      const cur = best.get(d.property)
+      if (!cur || rank < cur.rank) best.set(d.property, { rank, decl: d })
+    })
+  })
+  appliedBlocks.forEach((b) =>
+    b.decls.forEach((d) => {
+      d.overridden = best.get(d.property)?.decl !== d
+    }),
+  )
 }
 
 export function useCssInspection(
   element: Element | null,
 ): CssRulesViewModel | null {
+  // Re-run the inspection when the window is resized across a breakpoint —
+  // the element reference doesn't change, but @media activity does, and a
+  // frozen panel would otherwise keep showing the stale applied/inactive split.
+  const [mediaVersion, setMediaVersion] = useState(0)
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined
+    const onResize = () => {
+      clearTimeout(t)
+      t = setTimeout(() => setMediaVersion((v) => v + 1), 150)
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  // Re-run once cross-origin stylesheets have been re-fetched, so the
+  // "unreadable" cards get replaced by their recovered rules.
+  const [crossVersion, setCrossVersion] = useState(0)
+  useEffect(
+    () => subscribeCrossOrigin(() => setCrossVersion((v) => v + 1)),
+    [],
+  )
+
   return useMemo(() => {
     if (!element) return null
     const rules = getMatchedRules(element)
@@ -101,6 +147,10 @@ export function useCssInspection(
     const crossOrigin = rules.filter(
       (r): r is CrossOriginRule => r.type === 'cross-origin',
     )
+    // Unreadable sheets present — ask the recovery loader to
+    // re-fetch them; it fires `subscribeCrossOrigin` when done, bumping
+    // `crossVersion` and re-running this memo with the recovered rules.
+    if (crossOrigin.length) ensureCrossOriginLoaded()
 
     if (twClasses.length) {
       const applied = buildAppliedCSS(element, rules)
@@ -137,16 +187,18 @@ export function useCssInspection(
     const inlineEl = element as HTMLElement
     const hasInline = !!(inlineEl.style && inlineEl.style.length)
 
-    const seen = new Set<string>()
     const appliedBlocks: RenderBlock[] = []
 
     if (hasInline) {
       const inlineDecls: { property: string; value: string }[] = []
       for (let i = 0; i < inlineEl.style.length; i++) {
         const prop = inlineEl.style[i] as string
+        const priority = inlineEl.style.getPropertyPriority(prop)
         inlineDecls.push({
           property: prop,
-          value: inlineEl.style.getPropertyValue(prop),
+          value:
+            inlineEl.style.getPropertyValue(prop) +
+            (priority ? ' !important' : ''),
         })
       }
       appliedBlocks.push({
@@ -156,24 +208,24 @@ export function useCssInspection(
         source: 'inline',
         variant: 'inline',
         mediaNote: null,
-        decls: toDecls(collapseBorderLonghands(inlineDecls), seen),
+        decls: toDecls(collapseBorderLonghands(inlineDecls)),
       })
     }
 
     appliedRules.forEach((r) =>
-      appliedBlocks.push(blockFromRule(r, seen, 'applied', false, null)),
+      appliedBlocks.push(blockFromRule(r, 'applied', false, null)),
     )
+    markOverridden(appliedBlocks)
 
     const stateBlocks = stateRules.map((r) =>
-      blockFromRule(r, null, 'state', true, null),
+      blockFromRule(r, 'state', true, null),
     )
     const pseudoBlocks = pseudoRules.map((r) =>
-      blockFromRule(r, null, 'pseudo', true, null),
+      blockFromRule(r, 'pseudo', true, null),
     )
     const inactiveBlocks = inactiveMedia.map((r) =>
       blockFromRule(
         r,
-        null,
         'inactive',
         false,
         '@media ' + r.mediaCondition + ' (inactive)',
@@ -199,5 +251,5 @@ export function useCssInspection(
         resetCount,
       },
     }
-  }, [element])
+  }, [element, mediaVersion, crossVersion])
 }

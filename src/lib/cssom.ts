@@ -1,4 +1,5 @@
 import type { Declaration, MatchedRule, RuleResult } from './types'
+import { getReadableSheet } from './cross-origin-css'
 
 /* ─────────────────────────────────────────────────────────────────────────
    CSSOM traversal — find the author rules that match an element, attribute
@@ -62,13 +63,30 @@ export function isResetSelector(sel: string): boolean {
   return !/[.#[]/.test(sel)
 }
 
+// Trim a long content-hashed basename to `head…tail.ext` so it stays readable
+// without blowing out the panel (the full href is still on the tooltip).
+function shortenBasename(name: string): string {
+  if (name.length <= 24) return name
+  const dot = name.lastIndexOf('.')
+  const ext = dot > 0 ? name.slice(dot) : ''
+  const stem = dot > 0 ? name.slice(0, dot) : name
+  if (stem.length <= 16) return name
+  return `${stem.slice(0, 8)}…${stem.slice(-4)}${ext}`
+}
+
 function sheetLabel(sheet: CSSStyleSheet | null): string {
   if (!sheet) return '<style>'
   if (sheet.href) {
     try {
-      return sheet.href.split('/').pop() || sheet.href
+      // Take just the filename — drop the directory, the query string (e.g. a
+      // `?dpl=…` deployment/cache-busting token) and any hash.
+      const url = new URL(sheet.href)
+      const base = url.pathname.split('/').pop() || url.hostname
+      return shortenBasename(base)
     } catch {
-      return sheet.href
+      // Non-absolute or unparseable href — best-effort strip of ?query/#hash.
+      const base = sheet.href.split(/[?#]/)[0]?.split('/').pop()
+      return base ? shortenBasename(base) : sheet.href
     }
   }
   return '<style>'
@@ -254,7 +272,23 @@ export function getMatchedRules(element: Element): RuleResult[] {
         order,
       )
     } catch {
-      results.push({ type: 'cross-origin', href: sheet.href || '(unknown)' })
+      // Cross-origin sheet: the browser won't let us read its rules. In the
+      // extension build a re-fetched, readable copy may exist — traverse that
+      // instead. The recovered sheet is constructable (no href of its own), so
+      // pass a stand-in carrying the original href for source labeling.
+      const recovered = getReadableSheet(sheet.href)
+      if (recovered) {
+        order = traverseRuleList(
+          recovered.cssRules,
+          element,
+          null,
+          { href: sheet.href } as CSSStyleSheet,
+          results,
+          order,
+        )
+      } else {
+        results.push({ type: 'cross-origin', href: sheet.href || '(unknown)' })
+      }
     }
   }
   return results
