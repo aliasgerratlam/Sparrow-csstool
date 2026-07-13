@@ -28,14 +28,14 @@ import {
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined
-// Origin whose Clerk cookies to sync from (dev: http://localhost).
+// Origin whose Clerk cookies to sync from (prod: the web app origin).
 const SYNC_HOST =
   (import.meta.env.VITE_EXT_SYNC_HOST as string | undefined) ||
-  'http://localhost'
-// Full web-app URL opened for sign-in (dev: the Vite dev server).
+  'https://www.trysparrowcss.com'
+// Full web-app URL opened for sign-in (prod: the deployed web app).
 const WEB_APP_URL =
   (import.meta.env.VITE_EXT_WEB_APP_URL as string | undefined) ||
-  'http://localhost:5173'
+  'https://www.trysparrowcss.com'
 // Supabase project — used to reach the kelviq-plan Edge Function, which resolves
 // the signed-in user's CURRENT plan live from Kelviq. Optional: without it, the
 // extension falls back to whatever plan is in Clerk metadata (webhook-mirrored).

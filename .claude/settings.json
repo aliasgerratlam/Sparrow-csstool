@@ -54,7 +54,8 @@
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")",
       "PowerShell(npm run build:ext 2>&1)",
       "Bash(grep -o 'document.body??document.documentElement\\).appendChild\\\\|documentElement\\).appendChild\\(.\\\\{0,3\\\\}\\)' extension/dist/content.js)",
-      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|webp|gif|svg\\)$')"
+      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|webp|gif|svg\\)$')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174/)"
     ]
   }
 }

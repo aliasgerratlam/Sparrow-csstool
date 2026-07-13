@@ -34,9 +34,13 @@ export function Hero() {
         <p className="mx-auto mt-6 text-balance font-abeezee text-lg text-sparrow-ink md:text-xl">
           Inspect CSS, annotate pages, collaborate live, extract colors, fonts and assets—all from one lightweight browser extension built for developers, designers, and agencies.
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        {/* Equal-width CTAs: a 2-col grid gives both buttons the same cell
+            width (sized for the longer label), stacking full-width on mobile.
+            The grid's default justify-items:stretch makes the magnetic button's
+            .magnetic-wrap span fill its cell, so w-full applies through it. */}
+        <div className="mx-auto mt-8 grid w-full max-w-[620px] grid-cols-1 gap-3 md:grid-cols-2">
           {/* No published extension yet — the install CTA runs the in-page demo. */}
-          <ArrowButton variant="blue" onClick={enable}>
+          <ArrowButton variant="blue" onClick={enable} className="w-full">
             Add Sparrow to your browser
           </ArrowButton>
           <ArrowButton
@@ -45,7 +49,7 @@ export function Hero() {
             onClick={toggle}
             sparkle
             magnetic
-            className="scanner-demo-toggle"
+            className="scanner-demo-toggle w-full"
           >
             {isActive ? 'Stop demo' : 'Try the live demo'}
           </ArrowButton>

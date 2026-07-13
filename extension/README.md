@@ -54,8 +54,8 @@ background worker reads that session (same Clerk instance) and mirrors it into
    `VITE_CLERK_PUBLISHABLE_KEY` as the web app, plus:
 
    ```
-   VITE_EXT_SYNC_HOST=http://localhost          # dev; prod: https://clerk.your-domain.com
-   VITE_EXT_WEB_APP_URL=http://localhost:5173    # page opened for sign-in
+   VITE_EXT_SYNC_HOST=https://www.trysparrowcss.com     # prod web app origin (dev: http://localhost)
+   VITE_EXT_WEB_APP_URL=https://www.trysparrowcss.com   # page opened for sign-in
    ```
 
    These are inlined into the background bundle by `npm run build:ext`.

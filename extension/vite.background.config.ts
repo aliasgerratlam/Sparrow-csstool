@@ -13,10 +13,10 @@ export default defineConfig(({ mode }) => {
   // The extension shares the WEB APP's Clerk instance (Sync Host reads its
   // session), so it uses the same VITE_CLERK_PUBLISHABLE_KEY — not a separate
   // extension key. VITE_EXT_SYNC_HOST is the origin whose Clerk cookies to sync
-  // (dev: http://localhost); VITE_EXT_WEB_APP_URL is the page opened for sign-in.
+  // (prod: the web app origin); VITE_EXT_WEB_APP_URL is the page opened for sign-in.
   const clerkKey = env.VITE_CLERK_PUBLISHABLE_KEY || ''
-  const syncHost = env.VITE_EXT_SYNC_HOST || 'http://localhost'
-  const webAppUrl = env.VITE_EXT_WEB_APP_URL || 'http://localhost:5173'
+  const syncHost = env.VITE_EXT_SYNC_HOST || 'https://www.trysparrowcss.com'
+  const webAppUrl = env.VITE_EXT_WEB_APP_URL || 'https://www.trysparrowcss.com'
   // Supabase project — lets the worker reach the kelviq-plan Edge Function to
   // resolve the live subscription plan. Optional (empty → metadata fallback).
   const supabaseUrl = env.VITE_SUPABASE_URL || ''

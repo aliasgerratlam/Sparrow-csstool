@@ -82,8 +82,10 @@ export function LandingHeader() {
             />
           </a>
 
-          {/* Desktop nav */}
-          <ul className="hidden items-center gap-8 md:flex">
+          {/* Desktop nav — revealed at lg; below that the 5 links + Sign-in
+              button don't fit the pill without wrapping, so tablets get the
+              hamburger menu instead. */}
+          <ul className="hidden items-center gap-8 lg:flex">
             {NAV.map((item) => (
               <li key={item.label}>
                 <a
@@ -103,7 +105,7 @@ export function LandingHeader() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 lg:inline-flex"
             >
               <LogOut className="size-4" />
               Sign out
@@ -112,7 +114,7 @@ export function LandingHeader() {
             <ArrowButton
               variant="blue"
               href="/account"
-              className="hidden px-4 py-2 text-sm md:inline-flex [&_svg]:size-4"
+              className="hidden px-4 py-2 text-sm lg:inline-flex [&_svg]:size-4"
             >
               My account
             </ArrowButton>
@@ -120,7 +122,7 @@ export function LandingHeader() {
             <ArrowButton
               variant="blue"
               onClick={openLoginDialog}
-              className="hidden px-4 py-2 text-sm md:inline-flex [&_svg]:size-4"
+              className="hidden px-4 py-2 text-sm lg:inline-flex [&_svg]:size-4"
             >
               Sign in
             </ArrowButton>
@@ -131,7 +133,7 @@ export function LandingHeader() {
             aria-expanded={open}
             aria-controls="landing-mobile-menu"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex size-10 items-center justify-center rounded-[10px] text-sparrow-ink hover:bg-black/5 md:hidden"
+            className="inline-flex size-10 items-center justify-center rounded-[10px] text-sparrow-ink hover:bg-black/5 lg:hidden"
           >
             {open ? <X className="size-6" /> : <Menu className="size-6" />}
           </button>
@@ -142,7 +144,7 @@ export function LandingHeader() {
       <div
         id="landing-mobile-menu"
         className={cn(
-          'mx-auto mt-2 max-w-[1680px] overflow-hidden rounded-[15px] border border-black/5 bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] transition-all md:hidden',
+          'mx-auto mt-2 max-w-[1680px] overflow-hidden rounded-[15px] border border-black/5 bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] transition-all lg:hidden',
           open ? 'max-h-96 opacity-100' : 'pointer-events-none max-h-0 border-transparent opacity-0',
         )}
       >
