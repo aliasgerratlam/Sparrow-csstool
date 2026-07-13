@@ -38,7 +38,23 @@
       "Bash(grep -oE '\\(sandbox|production|environment|baseUrl|Bearer\\)[^;{]{0,80}' node_modules/@kelviq/react-sdk/dist/kelviq-react-sdk.js)",
       "Bash(npx --yes supabase --version)",
       "Bash(npx --yes supabase functions deploy kelviq-subscription --project-ref kxfhtngartcqghtcwwiz)",
-      "Bash(npx --yes supabase secrets list --project-ref kxfhtngartcqghtcwwiz)"
+      "Bash(npx --yes supabase secrets list --project-ref kxfhtngartcqghtcwwiz)",
+      "PowerShell(Remove-Item -Confirm:$false \"d:\\\\cssScan\\\\src\\\\components\\\\landing\\\\HeroReveal.tsx\")",
+      "PowerShell(Set-Location \"C:\\\\Users\\\\ALLIZW~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--cssScan\\\\e90afa8a-c2f3-4c51-9e62-1dd86653beb6\\\\scratchpad\"; if \\(-not \\(Test-Path node_modules/playwright-core\\)\\) { npm init -y | Out-Null; npm install playwright-core | Out-Null }; node -e \"console.log\\(require\\('playwright-core/package.json'\\).version\\)\")",
+      "PowerShell(git -C d:\\\\cssScan status --short -- src/components/landing/ src/index.css)",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Users\\\\ALLIZW~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--cssScan\\\\a516f6bb-eedb-44f7-abf2-ca59832d5e41\\\\scratchpad\\\\node_modules\\\\playwright-core\"\\)\\) { Set-Location \"C:\\\\Users\\\\ALLIZW~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--cssScan\\\\a516f6bb-eedb-44f7-abf2-ca59832d5e41\\\\scratchpad\"; npm init -y | Out-Null; npm install playwright-core --no-audit --no-fund | Out-Null; \"installed\" } else { \"already present\" })",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5173/src/components/landing/Hero.tsx\" -UseBasicParsing -TimeoutSec 10; if \\($r.Content -match 'See how any website is'\\) { \"5173 serves NEW Hero copy\" } elseif \\($r.Content -match 'Everything you need to'\\) { \"5173 serves OLD Hero copy\" } else { \"5173: unrecognized content\" }; $r2 = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 10; if \\($r2.Content -match 'Sparrow — Inspect CSS'\\) { \"5173 serves NEW index.html title\" } else { \"5173 serves OLD index.html title\" })",
+      "PowerShell(Stop-Process -Id 5636 -Force -Confirm:$false)",
+      "PowerShell(\"stopped stale dev server\")",
+      "PowerShell($r = Invoke-WebRequest -Uri \"http://localhost:5173/src/components/landing/Hero.tsx\" -UseBasicParsing -TimeoutSec 15; if \\($r.Content -match 'See how any website is'\\) { \"5173 now serves NEW Hero copy\" } else { \"still old\" }; $r2 = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 15; if \\($r2.Content -match 'Sparrow — Inspect CSS'\\) { \"5173 now serves NEW index.html\" } else { \"still old\" })",
+      "PowerShell($r2 = Invoke-WebRequest -Uri \"http://localhost:5173/\" -UseBasicParsing -TimeoutSec 15; if \\($r2.Content -match 'meta name=\"description\"'\\) { \"index.html: NEW \\(meta description present\\)\" } else { \"index.html: OLD \\(no meta description\\)\" }; $r3 = Invoke-WebRequest -Uri \"http://localhost:5173/src/components/landing/FaqSection.tsx\" -UseBasicParsing -TimeoutSec 15; if \\($r3.Content -match 'What exactly is Sparrow'\\) { \"FaqSection: NEW copy served\" } else { \"FaqSection: OLD copy served\" })",
+      "PowerShell(if \\(-not \\(Test-Path \"C:\\\\Users\\\\ALLIZW~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--cssScan\\\\c5c68455-1dcf-49ce-af69-2381cd1d048b\\\\scratchpad\\\\node_modules\\\\playwright-core\"\\)\\) { Set-Location \"C:\\\\Users\\\\ALLIZW~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--cssScan\\\\c5c68455-1dcf-49ce-af69-2381cd1d048b\\\\scratchpad\"; npm init -y | Out-Null; npm install playwright-core | Out-Null; \"installed\" } else { \"already present\" })",
+      "Bash(node -e \"const s=require\\('fs'\\).readFileSync\\('src/assets/sparrow-logo.png'\\);console.log\\('w',s.readUInt32BE\\(16\\),'h',s.readUInt32BE\\(20\\)\\)\")",
+      "Bash(node drive.mjs)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")",
+      "PowerShell(npm run build:ext 2>&1)",
+      "Bash(grep -o 'document.body??document.documentElement\\).appendChild\\\\|documentElement\\).appendChild\\(.\\\\{0,3\\\\}\\)' extension/dist/content.js)",
+      "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|webp|gif|svg\\)$')"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import logoUrl from '@/assets/sparoww-logo.png'
+import logoUrl from '@/assets/sparrow-logo.png'
 
 type LogoProps = {
   className?: string

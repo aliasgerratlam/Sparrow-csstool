@@ -6,18 +6,21 @@ import iconBrave from '@/assets/image 6.svg'
 import iconOpera from '@/assets/image 7.svg'
 import iconGlobe from '@/assets/image 8.svg'
 import iconCursor from '@/assets/image 9.svg'
+import step2Image from '@/assets/step2.jpg'
+import step3Image from '@/assets/step3.jpg'
 
 type Step = {
   title: string
   description: string
   icons: ReactNode
+  image?: string
 }
 
 const STEPS: Step[] = [
   {
-    title: 'Add it to your browser',
+    title: 'Add Sparrow to your browser',
     description:
-      'Install the extension and pin it to your toolbar for quick access.',
+      'Install the extension in seconds and pin it to your toolbar. You can start inspecting right away no setup, no configuration.',
     icons: (
       <>
         <img src={iconChrome} alt="" className="size-7" />
@@ -30,14 +33,16 @@ const STEPS: Step[] = [
   {
     title: 'Open it on any webpage',
     description:
-      'Click the Sparrow icon in your browser to launch the toolkit whenever you need it on any website.',
+      "Click the Sparrow icon on any site production, staging, or localhost and the full toolkit appears as an overlay.",
     icons: <img src={iconGlobe} alt="" className="size-7" />,
+    image: step2Image,
   },
   {
     title: 'Inspect, annotate & measure',
     description:
-      'Switch between CSS Inspector, Annotations, Color Extractor, and Ruler without leaving the page.',
+      'Switch between Inspect, Annotate, Ruler, Colors, Fonts, and Assets from one rail. Everything happens, so you never lose context.',
     icons: <img src={iconCursor} alt="" className="size-7" />,
+    image: step3Image,
   },
 ]
 
@@ -53,7 +58,7 @@ export function StepsSection() {
           id="how-it-works-heading"
           className="text-center font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-6xl"
         >
-          Install it. Open it. <span className="hl-word text-sparrow-blue">Start inspecting.</span>
+          Install it once. <span className="hl-word text-sparrow-blue">Use it everywhere.</span>
         </h2>
 
         <div className="mt-12 grid gap-8 md:grid-cols-3">
@@ -71,7 +76,15 @@ export function StepsSection() {
                   {step.description}
                 </p>
               </div>
-              <Placeholder className="aspect-square w-full" label="Preview" />
+              {step.image ? (
+                <img
+                  src={step.image}
+                  alt=""
+                  className="aspect-square w-full rounded-b-[20px] object-cover"
+                />
+              ) : (
+                <Placeholder className="aspect-square w-full" label="Preview" />
+              )}
             </article>
           ))}
         </div>

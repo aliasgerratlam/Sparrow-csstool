@@ -34,6 +34,87 @@ export function db() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
+// deno-lint-ignore no-explicit-any
+function pick(obj: any, ...keys: string[]): any {
+  for (const k of keys) {
+    if (obj && obj[k] != null) return obj[k]
+  }
+  return null
+}
+
+function normalizePlanId(v: unknown): 'free' | 'pro' | 'max' {
+  const s = String(v ?? '').toLowerCase()
+  return s === 'pro' || s === 'max' ? s : 'free'
+}
+
+function normalizeCycle(r: unknown): 'monthly' | 'yearly' | null {
+  const s = String(r ?? '').toUpperCase()
+  if (s === 'MONTHLY') return 'monthly'
+  if (s === 'YEARLY') return 'yearly'
+  return null
+}
+
+/** Statuses that still grant access (mirrors the webhook's `activeish`). */
+const ACTIVEISH = new Set(['active', 'trialing', 'past_due'])
+/** Tier ordering so we resolve to the highest active plan if several exist. */
+const TIER_RANK: Record<'free' | 'pro' | 'max', number> = { free: 0, pro: 1, max: 2 }
+
+export interface LivePlan {
+  plan: 'free' | 'pro' | 'max'
+  billingCycle: 'monthly' | 'yearly' | null
+  renewsAt: string | null
+  status: string | null
+}
+
+const NO_PLAN: LivePlan = {
+  plan: 'free',
+  billingCycle: null,
+  renewsAt: null,
+  status: null,
+}
+
+/** Resolve a customer's CURRENT plan from Kelviq's live subscription list — the
+    same source the browser react-sdk reads. Used by the kelviq-plan function so
+    the browser extension reflects purchases immediately, without depending on
+    the webhook having mirrored the plan into Clerk metadata. Fails to Free on
+    any error (fail-closed, matching every other gate). */
+export async function livePlanForCustomer(customerId: string): Promise<LivePlan> {
+  if (!KELVIQ_SERVER_KEY) return NO_PLAN
+  try {
+    const url =
+      `${KELVIQ_API_BASE}/subscriptions/?customer_id=${encodeURIComponent(customerId)}`
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${KELVIQ_SERVER_KEY}`,
+        Accept: 'application/json',
+      },
+    })
+    if (!res.ok) return NO_PLAN
+    const body = await res.json()
+    const results = body?.results ?? body?.data?.results
+    if (!Array.isArray(results)) return NO_PLAN
+
+    let best = NO_PLAN
+    for (const sub of results) {
+      const status = String(pick(sub, 'status') ?? '').toLowerCase()
+      if (!ACTIVEISH.has(status)) continue
+      const plan = normalizePlanId(
+        pick(pick(sub, 'plan') ?? {}, 'identifier') ?? pick(sub, 'planIdentifier'),
+      )
+      if (TIER_RANK[plan] < TIER_RANK[best.plan]) continue
+      best = {
+        plan,
+        billingCycle: normalizeCycle(pick(sub, 'recurrence')),
+        renewsAt: pick(sub, 'billingPeriodEndTime', 'billing_period_end_time'),
+        status,
+      }
+    }
+    return best
+  } catch {
+    return NO_PLAN
+  }
+}
+
 /** Confirm a subscription id belongs to this user. Guards subscription
     mutations so a caller can't act on someone else's subscription id.
 

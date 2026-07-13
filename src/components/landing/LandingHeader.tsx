@@ -1,21 +1,44 @@
 import { useEffect, useState } from 'react'
-import { Menu, X } from 'lucide-react'
-import { Wordmark } from './Wordmark'
+import { LogOut, Menu, X } from 'lucide-react'
+import sparrowLogo from '@/assets/sparrow-logo.png'
 import { ArrowButton } from './parts'
 import { useAuth } from '@/context/auth-context'
 import { cn } from '@/lib/format'
 
 const NAV = [
   { label: 'Home', href: '#home' },
-  { label: 'Features', href: '#features' },
   { label: 'How it works', href: '#how-it-works' },
+  { label: 'Features', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'FAQ', href: '#faq' },
 ]
 
 export function LandingHeader() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const { openLoginDialog, isAuthenticated } = useAuth()
+  const { openLoginDialog, isAuthenticated, signOut } = useAuth()
+
+  // Reused on /account too. There the section anchors (#features …) point at the
+  // landing page, so prefix them with "/"; and the right-side CTA becomes
+  // Sign out (you're already on your account) instead of "My account".
+  const onAccount =
+    typeof window !== 'undefined' &&
+    window.location.pathname.startsWith('/account')
+  const navBase = onAccount ? '/' : ''
+  const handleSignOut = () => void signOut().then(() => (window.location.href = '/'))
+
+  // On the landing page, smooth-scroll to the section without letting the
+  // browser append the "#home"/"#features" hash to the URL. On /account the
+  // anchors must actually navigate to the landing page, so leave them alone.
+  const handleNavClick = (href: string) => (e: React.MouseEvent) => {
+    if (onAccount) return
+    const id = href.slice(1) // drop leading "#"
+    const target = document.getElementById(id)
+    if (!target) return
+    e.preventDefault()
+    setOpen(false)
+    target.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
@@ -37,7 +60,7 @@ export function LandingHeader() {
         className={cn(
           'mx-auto flex items-center justify-between rounded-[15px] backdrop-blur-xl backdrop-saturate-[180%]',
           'transition-[max-width,padding,background-color,box-shadow] duration-300 ease-out',
-          // At the very top the pill blends into the cream page — no white box,
+          // At the very top the pill blends into the hero's sky — no white box,
           // ring, or shadow. Once scrolled it lifts into a frosted white pill so
           // it stays legible over the content passing beneath it.
           scrolled
@@ -46,8 +69,17 @@ export function LandingHeader() {
         )}
       >
         <div className="flex items-center gap-10">
-          <a href="#home" aria-label="Sparrow home">
-            <Wordmark logoHeight={36} />
+          <a
+            href={`${navBase}#home`}
+            onClick={handleNavClick('#home')}
+            aria-label="Sparrow home"
+          >
+            <img
+              src={sparrowLogo}
+              alt="Sparrow"
+              draggable={false}
+              className="h-14 w-auto"
+            />
           </a>
 
           {/* Desktop nav */}
@@ -55,7 +87,8 @@ export function LandingHeader() {
             {NAV.map((item) => (
               <li key={item.label}>
                 <a
-                  href={item.href}
+                  href={`${navBase}${item.href}`}
+                  onClick={handleNavClick(item.href)}
                   className="font-abeezee text-base font-semibold text-sparrow-ink/90 transition-colors hover:text-sparrow-blue"
                 >
                   {item.label}
@@ -66,7 +99,16 @@ export function LandingHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAuthenticated ? (
+          {onAccount && isAuthenticated ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 md:inline-flex"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+          ) : isAuthenticated ? (
             <ArrowButton
               variant="blue"
               href="/account"
@@ -108,8 +150,11 @@ export function LandingHeader() {
           {NAV.map((item) => (
             <li key={item.label}>
               <a
-                href={item.href}
-                onClick={() => setOpen(false)}
+                href={`${navBase}${item.href}`}
+                onClick={(e) => {
+                  setOpen(false)
+                  handleNavClick(item.href)(e)
+                }}
                 className="block rounded-lg px-3 py-2 font-abeezee text-base font-semibold text-sparrow-ink hover:bg-black/5"
               >
                 {item.label}
@@ -117,7 +162,19 @@ export function LandingHeader() {
             </li>
           ))}
           <li>
-            {isAuthenticated ? (
+            {onAccount && isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  handleSignOut()
+                }}
+                className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 font-abeezee text-sm font-semibold text-sparrow-ink ring-1 ring-inset ring-black/10 hover:bg-black/5"
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            ) : isAuthenticated ? (
               <ArrowButton
                 variant="blue"
                 href="/account"

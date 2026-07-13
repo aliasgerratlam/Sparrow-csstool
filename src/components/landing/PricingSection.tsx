@@ -93,7 +93,7 @@ export function PricingSection() {
             id="pricing-heading"
             className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-5xl"
           >
-            Built to save time, not <span className="hl-word text-sparrow-blue">waste money</span>
+            Start free. Upgrade <span className="hl-word text-sparrow-blue">when it pays for itself.</span>
           </h2>
 
           <div

@@ -1,17 +1,55 @@
-import { Container, Placeholder } from './parts'
+import { useEffect, useRef } from 'react'
+import { Container } from './parts'
+import designReviewVideo from '@/assets/design_review.mp4'
+
+/* Autoplays while in view, pauses when scrolled away — matches FeatureRows. */
+function FeedbackVideo() {
+  const ref = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          // play() rejects if interrupted (e.g. element unmounts) — ignore.
+          void el.play().catch(() => {})
+        } else {
+          el.pause()
+        }
+      },
+      { threshold: 0.25 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <video
+      ref={ref}
+      src={designReviewVideo}
+      className="aspect-16/10 w-full rounded-[20px] object-cover"
+      loop
+      muted
+      playsInline
+      preload="metadata"
+      aria-label="Feedback preview"
+    />
+  )
+}
 
 const COLUMNS = [
   {
-    title: 'Client-side feedback',
-    body: 'Review live websites, staging environments, or localhost previews and comment on the exact elements that need attention.',
+    title: 'Comments with coordinates',
+    body: "Every note is anchored to a real element on the real page. No more 'the button on the left, no, the other left' the pin is the location.",
   },
   {
-    title: 'Structured handoff',
-    body: 'Every comment includes page and element context, making it easy to implement changes yourself or pass the request to your team or AI.',
+    title: 'Safe for clients, structured for you',
+    body: "Reviewers join in Client Mode: they can comment, reply, and mark items resolved, but they can't edit or delete your work. You keep a searchable review list with open/resolved counts.",
   },
   {
-    title: 'Built for every environment',
-    body: 'Collect feedback on live websites, staging deployments, or localhost previews without changing your workflow.',
+    title: 'Works where your work lives',
+    body: 'Production sites, staging environments, localhost previews. Sparrow runs on all of them without touching your code or your deploy pipeline.',
   },
 ]
 
@@ -25,15 +63,16 @@ export function FeedbackSection() {
               id="feedback-heading"
               className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-6xl"
             >
-              <span className="hl-word text-sparrow-blue">Feedback</span> without screenshots.
+              <span className="hl-word text-sparrow-blue">Design review</span> without the screenshot circus.
             </h2>
             <p className="mt-6 max-w-xl font-abeezee text-base text-sparrow-ink">
-              Let clients leave feedback directly on your website. They can pin comments
-              to specific elements, describe exactly what needs to change, and share
-              everything with a single link — no screenshots or endless email threads.
+              Send your client one link instead of asking them to describe a bug over
+              email. They click the element, write what's wrong, and you get feedback
+              pinned to the exact spot on the exact page with element context
+              attached, ready to act on or hand to your team.
             </p>
           </div>
-          <Placeholder label="Feedback preview" className="aspect-16/10 w-full rounded-[20px]" />
+          <FeedbackVideo />
         </div>
 
         <div className='divide-x bg-black/10 rounded-full w-full h-[1px] mt-12' />

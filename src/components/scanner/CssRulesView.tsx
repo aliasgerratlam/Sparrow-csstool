@@ -1,10 +1,11 @@
-import { useCssInspection } from '@/hooks/use-css-inspection'
+import type { CssRulesViewModel } from '@/hooks/use-css-inspection'
 import { AppliedBlock } from './AppliedBlock'
 import { RuleBlock } from './RuleBlock'
 
-/* The single inspector view: matched CSS rules (or Tailwind utilities). */
-export function CssRulesView({ element }: { element: Element | null }) {
-  const vm = useCssInspection(element)
+/* The single inspector view: matched CSS rules (or Tailwind utilities). The
+   view model is computed by the parent (InspectorPanel) so the color-format
+   toggle can be shown/hidden from the same data without inspecting twice. */
+export function CssRulesView({ vm }: { vm: CssRulesViewModel | null }) {
   if (!vm) return null
 
   const { tailwind, plain, crossOrigin } = vm

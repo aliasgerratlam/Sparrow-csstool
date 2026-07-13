@@ -5,9 +5,13 @@ import { getFullHierarchy } from '@/lib/extractors'
 export function HierarchyTip({
   element,
   anchorRect,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   element: Element | null
   anchorRect: DOMRect | null
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }) {
   const tipRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number }>({
@@ -40,6 +44,8 @@ export function HierarchyTip({
       id="panel-hierarchy-tip"
       ref={tipRef}
       style={{ left: pos.left, top: pos.top }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className="hier-title">DOM Hierarchy</div>
       {chain.map((node, i) => {

@@ -4,6 +4,7 @@ import { Container } from './parts'
 const NAV = [
   { label: 'Features', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'FAQ', href: '#faq' },
 ]
 
 /* `onInstall` runs the in-page demo when the footer is mounted on a page that
@@ -22,7 +23,7 @@ export function LandingFooter({ onInstall }: { onInstall?: () => void }) {
             <p className="mt-0 font-abeezee text-sm text-white/85">
               Inspect anything.
               <br />
-              Leave nothing to guesswork.
+              Explain everything.
             </p>
           </div>
 
@@ -51,7 +52,7 @@ export function LandingFooter({ onInstall }: { onInstall?: () => void }) {
             </nav>
 
             <p className="font-abeezee text-sm text-white/80">
-              © 2026. All copyright reserved
+              © 2026 Sparrow. All rights reserved.
             </p>
           </div>
         </div>

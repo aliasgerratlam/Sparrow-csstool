@@ -10,11 +10,13 @@ import { useScanner } from '@/context/scanner-context'
 import { useEntitlements, promptUpgrade } from '@/context/subscription-context'
 import { useDraggable } from '@/hooks/use-draggable'
 import { useElementRect } from '@/hooks/use-element-rect'
+import { useCssInspection, viewHasColors } from '@/hooks/use-css-inspection'
 import { buildCSSText, getDimensions } from '@/lib/extractors'
 import { getTailwindClasses } from '@/lib/tailwind'
+import { detectFramework } from '@/lib/framework-detect'
 import { copyToClipboard } from '@/lib/clipboard'
 import { PiCursorLight } from 'react-icons/pi'
-import { IoCopyOutline } from 'react-icons/io5'
+import { IoCopyOutline, IoLockClosed } from 'react-icons/io5'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ColorFormatContext } from '@/context/color-format'
@@ -89,9 +91,17 @@ export function InspectorPanel() {
 
   // Copy action — Tailwind class list or serialized CSS, depending on element.
   const twClasses = useMemo(
-    () => (panelEl ? getTailwindClasses(panelEl) : []),
+    () =>
+      panelEl && detectFramework() === 'tailwind'
+        ? getTailwindClasses(panelEl)
+        : [],
     [panelEl],
   )
+  // The matched-rules view model, computed here so the color-format toggle can
+  // be shown only when the rules actually contain convertible colors.
+  const vm = useCssInspection(panelEl)
+  const hasColors = useMemo(() => viewHasColors(vm), [vm])
+
   // Color notation the CSS rules render in — one button cycles HEX → RGBA → HSL.
   // The toggle is a paid feature (locked on Free): the view stays pinned to HEX.
   const { colorFormat: canColorFormat } = useEntitlements()
@@ -105,12 +115,31 @@ export function InspectorPanel() {
     setTimeout(() => setCopied(false), 1500)
   }, [panelEl, twClasses])
 
+  // The hierarchy tip is anchored under the header but rendered as a sibling, so
+  // moving the pointer from the header into the tip would immediately fire the
+  // header's mouseleave and close it before you could reach it. Defer the hide
+  // and let either the header or the tip itself cancel it — so you can move into
+  // the block to read/scroll it.
+  const hideTimer = useRef<number | null>(null)
+  const cancelHide = useCallback(() => {
+    if (hideTimer.current !== null) {
+      clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
+  }, [])
+  const scheduleHide = useCallback(() => {
+    cancelHide()
+    hideTimer.current = window.setTimeout(() => setHierAnchor(null), 160)
+  }, [cancelHide])
+  useEffect(() => cancelHide, [cancelHide])
+
   const onHeaderEnter = useCallback(() => {
     if (dragging) return
+    cancelHide()
     const header = panelRef.current?.querySelector('#panel-header')
     if (header) setHierAnchor(header.getBoundingClientRect())
-  }, [dragging])
-  const onHeaderLeave = useCallback(() => setHierAnchor(null), [])
+  }, [dragging, cancelHide])
+  const onHeaderLeave = useCallback(() => scheduleHide(), [scheduleHide])
 
   // In annotate mode the floating panel is suppressed — its controls (name,
   // Review, Share) already live in the toolbar, and clicking an element opens
@@ -196,23 +225,34 @@ export function InspectorPanel() {
           <section className="insp-section">
             <div className="css-rules-head">
               <span className="css-rules-label">CSS Rules</span>
-              <Button
-                variant="ghost"
-                className={'btn-color-format' + (canColorFormat ? '' : ' locked')}
-                aria-disabled={canColorFormat ? undefined : true}
-                onClick={() =>
-                  canColorFormat
-                    ? setColorFormat(nextColorFormat)
-                    : promptUpgrade('CSS color-format switching')
-                }
-                title={
-                  canColorFormat
-                    ? 'Switch color format (HEX / RGBA / HSL)'
-                    : 'Upgrade to switch color format'
-                }
-              >
-                {colorFormat.toUpperCase()}
-              </Button>
+              {hasColors &&
+                (canColorFormat ? (
+                <Button
+                  variant="ghost"
+                  className="btn-color-format"
+                  onClick={() => setColorFormat(nextColorFormat)}
+                  title="Switch color format (HEX / RGBA / HSL)"
+                >
+                  {colorFormat.toUpperCase()}
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="btn-color-format locked"
+                      aria-disabled
+                      onClick={() => promptUpgrade('CSS color-format switching')}
+                    >
+                      <IoLockClosed className="btn-color-format-lock" />
+                      {colorFormat.toUpperCase()}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    That feature is not available in the free plan
+                  </TooltipContent>
+                </Tooltip>
+                ))}
               <Button
                 variant="ghost"
                 className={'btn-copy-css' + (copied ? ' copied' : '')}
@@ -233,14 +273,19 @@ export function InspectorPanel() {
             </div>
             <div id="pane-css-rules">
               <ColorFormatContext.Provider value={colorFormat}>
-                <CssRulesView element={panelEl} />
+                <CssRulesView vm={vm} />
               </ColorFormatContext.Provider>
             </div>
           </section>
         </div>
       </div>
 
-      <HierarchyTip element={panelEl} anchorRect={hierAnchor} />
+      <HierarchyTip
+        element={panelEl}
+        anchorRect={hierAnchor}
+        onMouseEnter={cancelHide}
+        onMouseLeave={scheduleHide}
+      />
     </>
   )
 }

@@ -9,9 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Annotation } from '@/lib/types'
 
-const RING_PATH =
-  'M18,0 A18,18 0 0,1 36,18 A18,18 0 0,1 18,36 H3 A3,3 0 0,1 0,33 V18 A18,18 0 0,1 18,0 Z'
-
 // Dark or light pin number, whichever reads better on the tint.
 function pinTextColor(hex: string): string {
   if (typeof hex !== 'string' || hex[0] !== '#' || hex.length !== 7) return '#fff'
@@ -134,9 +131,6 @@ export function PinLayer() {
                 onMouseLeave={() => ui.setHoverPinEl(null)}
               >
                 {num}
-                <svg className="annot-pin-ring" viewBox="0 0 36 36">
-                  <path d={RING_PATH} />
-                </svg>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" light className="max-w-[260px]">

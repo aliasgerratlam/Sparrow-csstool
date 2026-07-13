@@ -4,6 +4,7 @@ import { Hero } from './Hero'
 import { StepsSection } from './StepsSection'
 import { FeatureRows } from './FeatureRows'
 import { FeedbackSection } from './FeedbackSection'
+import { UseCasesSection } from './UseCasesSection'
 import { PricingSection } from './PricingSection'
 import { FaqSection } from './FaqSection'
 import { CtaSection } from './CtaSection'
@@ -23,6 +24,7 @@ export function LandingPage() {
         <StepsSection />
         <FeatureRows />
         <FeedbackSection />
+        <UseCasesSection />
         <PricingSection />
         <FaqSection />
       </main>

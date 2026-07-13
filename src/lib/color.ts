@@ -102,6 +102,16 @@ export function parseCssColor(str: string): [number, number, number, number] | n
 export const COLOR_TOKEN =
   /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((?:[^()]|\([^()]*\))*\)/gi
 
+/** True when a CSS value contains at least one color token the format toggle
+    can actually rewrite — i.e. a hex/functional token that resolves to a real
+    color. Named colors, `currentColor`, `transparent`, etc. aren't matched by
+    COLOR_TOKEN and are never converted, so they don't count. */
+export function hasColorToken(value: string): boolean {
+  if (!value) return false
+  const toks = value.match(COLOR_TOKEN)
+  return toks != null && toks.some((t) => parseCssColor(t) != null)
+}
+
 /** Rewrite every color token in a CSS value to the chosen format. Tokens that
     don't resolve to a real color (and non-color text) are left untouched. */
 export function convertColorTokens(value: string, format: ColorFormat): string {

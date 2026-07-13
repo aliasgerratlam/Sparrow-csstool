@@ -10,7 +10,9 @@ import {
   subscribeCrossOrigin,
 } from '@/lib/cross-origin-css'
 import { buildAppliedCSS, getTailwindClasses } from '@/lib/tailwind'
+import { detectFramework } from '@/lib/framework-detect'
 import { extractSwatchColor } from '@/lib/extractors'
+import { hasColorToken } from '@/lib/color'
 import type {
   AppliedDeclaration,
   AppliedMediaGroup,
@@ -112,6 +114,37 @@ function markOverridden(appliedBlocks: RenderBlock[]): void {
   )
 }
 
+/* True when the inspected view shows at least one color value the HEX/RGBA/HSL
+   toggle can rewrite. Used to hide that toggle for elements whose matched CSS
+   has no colors (e.g. a Bootstrap rule that only sets `padding-right`). Scans
+   the same declaration values the view renders `convertColorTokens` over — in
+   Tailwind mode only the "other applied CSS" is convertible (color utilities
+   show as class chips, not editable values), so the tailwind class list is
+   intentionally not scanned. */
+export function viewHasColors(vm: CssRulesViewModel | null): boolean {
+  if (!vm) return false
+  if (vm.tailwind) {
+    if (vm.tailwind.otherBase.some((d) => hasColorToken(d.value))) return true
+    if (
+      vm.tailwind.otherMedia.some((g) =>
+        g.decls.some((d) => hasColorToken(d.value)),
+      )
+    )
+      return true
+  }
+  if (vm.plain) {
+    const blocks = [
+      ...vm.plain.appliedBlocks,
+      ...vm.plain.stateBlocks,
+      ...vm.plain.pseudoBlocks,
+      ...vm.plain.inactiveBlocks,
+    ]
+    if (blocks.some((b) => b.decls.some((d) => hasColorToken(d.value))))
+      return true
+  }
+  return false
+}
+
 export function useCssInspection(
   element: Element | null,
 ): CssRulesViewModel | null {
@@ -143,7 +176,10 @@ export function useCssInspection(
   return useMemo(() => {
     if (!element) return null
     const rules = getMatchedRules(element)
-    const twClasses = getTailwindClasses(element)
+    // Only treat classes as Tailwind when the *page* is actually Tailwind —
+    // Bootstrap's utility names collide with the name heuristic otherwise.
+    const twClasses =
+      detectFramework() === 'tailwind' ? getTailwindClasses(element) : []
     const crossOrigin = rules.filter(
       (r): r is CrossOriginRule => r.type === 'cross-origin',
     )

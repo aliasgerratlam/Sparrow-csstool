@@ -5,7 +5,7 @@ import { cn } from '@/lib/format'
    mark (sparoww-logo asset) paired with the "Sparrow" wordmark from the Figma. */
 export function Wordmark({
   className,
-  logoHeight = 40,
+  logoHeight = 80,
   dark = false,
 }: {
   className?: string
@@ -17,7 +17,7 @@ export function Wordmark({
       <Logo mark height={logoHeight} title="Sparrow" />
       <span
         className={cn(
-          'font-abeezee text-2xl font-bold tracking-tight',
+          'font-inter text-xl font-semibold tracking-tight',
           dark ? 'text-white' : 'text-sparrow-ink',
         )}
       >

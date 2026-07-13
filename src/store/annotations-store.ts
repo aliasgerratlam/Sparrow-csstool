@@ -414,6 +414,32 @@ export function addReply(
   pushUpsert(next)
 }
 
+/* Rewrite an existing reply's message. Permission (only the reply's own author
+   may edit it) is enforced by the caller — mirrors addReply, which is likewise
+   role-agnostic so a client can edit the reply they wrote. */
+export function updateReply(
+  id: string,
+  replyId: string,
+  patch: { message?: string },
+): void {
+  const ann = get(id)
+  if (!ann) return
+  const replies = ann.replies || []
+  if (!replies.some((r) => r.id === replyId)) return
+  const next: Annotation = {
+    ...ann,
+    updatedAt: now(),
+    replies: replies.map((r) =>
+      r.id === replyId
+        ? { ...r, message: patch.message ?? r.message }
+        : r,
+    ),
+  }
+  items = items.map((a) => (a.id === id ? next : a))
+  emit()
+  pushUpsert(next)
+}
+
 export function remove(id: string): void {
   if (role !== 'author') return
   const i = index(id)

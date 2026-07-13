@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.kelviq-webhook]
 verify_jwt = false
+
+[functions.kelviq-plan]
+verify_jwt = false

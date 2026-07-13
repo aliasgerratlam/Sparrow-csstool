@@ -58,11 +58,20 @@ function TooltipContent({
         {...props}
       >
         {children}
+        {/*
+          Radix's native triangle arrow, sized via props and colored with a
+          single inline `fill`. The previous shadcn styling built a rotated
+          "diamond" out of Tailwind transform utilities (`rotate-45`,
+          `translate-y-[...]`), which rely on Tailwind v4's transform
+          custom-property machinery — that doesn't reliably apply inside the
+          extension's shadow-DOM stylesheet, so the arrow rendered as a raw,
+          detached triangle. An inline `fill` needs no Tailwind at all and works
+          identically in the web app and the shadow-DOM extension.
+        */}
         <TooltipPrimitive.Arrow
-          className={cn(
-            'z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]',
-            light ? 'bg-white fill-white' : 'bg-primary fill-primary',
-          )}
+          width={11}
+          height={5}
+          style={{ fill: light ? '#ffffff' : 'var(--primary)' }}
         />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>

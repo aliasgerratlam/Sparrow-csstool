@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Check, Loader2, LogOut, Settings, Sparkles } from 'lucide-react'
+import { Check, Loader2, Settings, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
-import { Wordmark } from '@/components/landing/Wordmark'
+import { LandingHeader } from '@/components/landing/LandingHeader'
 import { LandingFooter } from '@/components/landing/LandingFooter'
 import { Container, ArrowButton } from '@/components/landing/parts'
 import { useAuth, userDisplayName, userPlan } from '@/context/auth-context'
@@ -31,8 +31,7 @@ function fmtDate(iso: string | null | undefined): string | null {
 }
 
 export function AccountPage() {
-  const { isAuthenticated, isConfigured, loading, signOut, openLoginDialog } =
-    useAuth()
+  const { isAuthenticated, isConfigured, loading, openLoginDialog } = useAuth()
 
   // Landing here signed-out (e.g. deep link) prompts login rather than a blank.
   useEffect(() => {
@@ -41,12 +40,12 @@ export function AccountPage() {
 
   return (
     <div className="min-h-screen bg-sparrow-cream font-abeezee text-sparrow-ink antialiased">
-      <AccountHeader
-        onSignOut={() => void signOut().then(() => (window.location.href = LANDING_URL))}
-        showSignOut={isAuthenticated}
-      />
+      {/* Same header as the marketing site (LandingHeader), which shows a
+          Sign out action while on /account. */}
+      <LandingHeader />
 
-      <main className="pb-24 pt-8 md:pt-12">
+      {/* Clear the fixed header (logo pill sits ~96px tall at the top). */}
+      <main className="pb-24 pt-28 md:pt-32">
         {loading ? (
           <Container>
             <p className="py-24 text-center text-sparrow-ink/50">Loading…</p>
@@ -73,37 +72,6 @@ export function AccountPage() {
         <LandingFooter />
       </div>
     </div>
-  )
-}
-
-function AccountHeader({
-  onSignOut,
-  showSignOut,
-}: {
-  onSignOut: () => void
-  showSignOut: boolean
-}) {
-  return (
-    <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
-      <nav
-        aria-label="Account"
-        className="mx-auto flex max-w-[1280px] items-center justify-between rounded-[15px] bg-sparrow-cream/80 px-5 py-3 backdrop-blur-md md:px-4"
-      >
-        <a href={LANDING_URL} aria-label="Sparrow home">
-          <Wordmark logoHeight={36} />
-        </a>
-        {showSignOut && (
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="inline-flex items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5"
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </button>
-        )}
-      </nav>
-    </header>
   )
 }
 

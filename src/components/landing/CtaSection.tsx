@@ -20,7 +20,7 @@ export function CtaSection() {
             id="cta-heading"
             className="mx-auto max-w-3xl font-abeezee text-3xl font-semibold leading-tight tracking-tight text-sparrow-ink md:text-6xl"
           >
-            Ready to simplify your web workflow?
+            Stop guessing what's on the page. Start knowing.
           </h2>
           <div className="mt-8 flex justify-center">
             {/* No published extension yet — runs the in-page demo. */}
@@ -31,7 +31,7 @@ export function CtaSection() {
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
             >
-              Install Now
+              Add Sparrow — it's free
             </ArrowButton>
           </div>
         </div>

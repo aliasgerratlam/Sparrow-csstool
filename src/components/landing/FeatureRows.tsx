@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { MousePointer2 } from 'lucide-react'
-import { Container, Placeholder } from './parts'
+import { Container } from './parts'
 import { Parallax } from './Parallax'
 import { cn } from '@/lib/format'
+import inspectVideo from '@/assets/inspect_Css.mp4'
+import annotateVideo from '@/assets/annotate_1.mp4'
+import rulerVideo from '@/assets/ruler_css.mp4'
+import colorVideo from '@/assets/color_css_new.mp4'
+import fontVideo from '@/assets/font_css.mp4'
+import assetsVideo from '@/assets/assest_downloader.mp4'
 
 type Feature = {
   heading: ReactNode
   body: string
+  video: string
   checklist?: string[]
 }
 
@@ -14,64 +21,145 @@ const FEATURES: Feature[] = [
   {
     heading: (
       <>
-        Inspect elements.<br/> <span className="hl-word text-sparrow-blue">Make changes.</span>
+        Inspect any element.<br/> <span className="hl-word text-sparrow-blue">Understand every style.</span>
       </>
     ),
-    body: 'Hover over any element to reveal the styles behind it. From typography and colors to spacing and layout, Sparrow gives you a clear, distraction-free view of the CSS that powers every page.',
+    body: 'Hover over anything on a page and Sparrow shows you the CSS that actually shaped it the full css, DevTools-style, with overridden rules struck through and the winning declaration on top. If the site uses Tailwind, Sparrow detects it and shows the utility classes separately, ready to copy.',
+    video: inspectVideo,
     checklist: [
-      'Computed + applied styles side by side',
-      'Complete box-model visualization',
-      'Fonts, colors, spacing, and dimensions at a glance',
-      'One-click copy for CSS properties',
-      'Real-time element highlighting',
+      'The real CSS, media queries, states, and pseudo-elements included',
+      'Tailwind classes detected and copyable in one click',
+      'Dimensions, font, and colors summarized at a glance',
+      'Copy clean, ready-to-paste CSS for any element',
+      'Freeze any selection and browse its full DOM path',
+      'Multiple color formats',
     ],
   },
   {
     heading: (
       <>
-        <span className="hl-word text-sparrow-blue">Annotate</span> it out.<br/> Fix it faster.
+        <span className="hl-word text-sparrow-blue">Feedback</span> that lives<br/> on the page.
       </>
     ),
-    body: 'Drop a pin anywhere on a live webpage to leave feedback, report issues, or capture ideas. Share a single annotated link so everyone sees the conversation in context.',
+    body: "Drop a numbered pin on the exact element you're talking about, write your comment, and share one link. Everyone who opens it sees your notes in context and can reply, resolve, and collaborate live, cursors and all.",
+    video: annotateVideo,
     checklist: [
-      'Pin comments directly on any webpage',
-      'Share a single annotated link',
-      'Keep conversations in context with threaded replies',
-      'Collab with your teammates',
+      'Pin comments to exact elements no screenshots needed',
+      'Threaded replies with Open / Resolved statuses',
+      'One share link puts your whole team on the same page',
+      'Live collabrations show who’s reviewing what',
+      'Client mode lets reviewers comment without touching your notes',
     ],
   },
   {
     heading: (
       <>
-        <span className="hl-word text-sparrow-blue">Measure spacing</span><br/> with confidence
+        <span className="hl-word text-sparrow-blue">Measure spacing</span><br/> to the pixel.
       </>
     ),
-    body: 'Measure the exact spacing between elements with smart snapping guides. Instantly see values in multiples format for faster, more consistent layouts.',
+    body: 'Click any element to anchor it, then hover anywhere else Sparrow draws the exact distance between them, with alignment guides projected across the whole viewport so misaligned layouts have nowhere to hide.',
+    video: rulerVideo,
     checklist: [
-      'Measure spacing between any two elements',
-      'Live different format measurements',
-      'Snap to edges, guides, and baselines',
+      'Measure the gap between any two elements',
+      'Alignment guides reveal what lines up — and what doesn’t',
+      'Visual QA without opening a design file',
     ],
   },
   {
     heading: (
       <>
-        <span className="hl-word text-sparrow-blue">Capture</span> any color
+        Discover every color,<br/> <span className="hl-word text-sparrow-blue">Rebrand any website in seconds.</span>
       </>
     ),
-    body: "Pick any color from any webpage and instantly copy it in the format you need. Whether you're building a design system or matching an existing interface, Sparrow keeps every color just a click away.",
+    body: "Sparrow scans the entire page and lists every color it paints, sorted by how much it's used. Click one to highlight everywhere it appears or swap it site wide to preview a rebrand in seconds. Copy any value as HEX, RGBA, or HSL.",
+    video: colorVideo,
+    checklist: [
+      'The full palette with usage percentages and element counts',
+      'Highlight every element using a given color',
+      'Recolor the whole site live, then reset with one click',
+      'Copy values in HEX, RGBA, or HSL',
+    ],
+  },
+  {
+    heading: (
+      <>
+        Try <span className="hl-word text-sparrow-blue">any font</span><br/> on a live website.
+      </>
+    ),
+    body: 'Audit every typeface a page uses, then preview a replacement instantly pick from about 1,900 Google Fonts or upload your own brand font. Swap the whole site or a single element; sizes, weights, and spacing stay exactly as they were.',
+    video: fontVideo,
+    checklist: [
+      'Every font on the page, with usage stats',
+      'Search the full Google Fonts catalog with live previews',
+      'Upload your own .ttf, .otf, .woff, or .woff2. it never leaves your browser',
+      'Swap site-wide or one element at a time, and reset anytime',
+    ],
+  },
+  {
+    heading: (
+      <>
+        Every asset,<br/> <span className="hl-word text-sparrow-blue">Ready to download.</span>
+      </>
+    ),
+    body: "Sparrow finds every image, SVG, and video a page uses including background images, favicons, and inline SVG that right click can't save. Download a single asset, or grab everything at once as a ZIP.",
+    video: assetsVideo,
+    checklist: [
+      'Finds images, SVGs, and videos even in CSS backgrounds',
+      'Filter by type, see dimensions and usage counts',
+      'Download one file or the whole page as a ZIP',
+    ],
   },
 ]
+
+/* Looping, muted preview clip for one tool — shared by the pinned slider and
+   the stacked fallback. Playback is viewport-gated: an IntersectionObserver
+   plays the clip once it scrolls into view and pauses it when it leaves, so
+   off-screen videos don't burn CPU/battery. `playsInline` keeps it inline on
+   mobile and `preload="metadata"` avoids fetching every clip up front. */
+function FeatureVideo({ feature, className }: { feature: Feature; className?: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          // play() rejects if interrupted (e.g. element unmounts) — ignore.
+          void el.play().catch(() => {})
+        } else {
+          el.pause()
+        }
+      },
+      { threshold: 0.25 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <video
+      ref={ref}
+      src={feature.video}
+      className={cn('object-cover', className)}
+      loop
+      muted
+      playsInline
+      preload="metadata"
+      aria-label="Product preview"
+    />
+  )
+}
 
 /* The copy + checklist for one tool, shared by the pinned slider and the
    stacked fallback so the content never drifts between the two layouts. */
 function FeatureCopy({ feature }: { feature: Feature }) {
   return (
     <>
-      <h3 className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-6xl">
+      <h3 className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-5xl text-left">
         {feature.heading}
       </h3>
-      <p className="mt-5 max-w-xl font-abeezee text-base text-sparrow-ink">
+      <p className="mt-5 max-w-xl font-abeezee text-base text-sparrow-ink text-left">
         {feature.body}
       </p>
       {feature.checklist && (
@@ -79,7 +167,7 @@ function FeatureCopy({ feature }: { feature: Feature }) {
           {feature.checklist.map((item) => (
             <li
               key={item}
-              className="flex items-start gap-2.5 font-abeezee text-base text-sparrow-ink"
+              className="flex items-start gap-2.5 font-abeezee text-base text-sparrow-ink text-left"
             >
               <MousePointer2 className="mt-0.5 size-5 shrink-0 -scale-x-100 fill-sparrow-blue text-sparrow-blue" />
               <span>{item}</span>
@@ -204,7 +292,11 @@ function PinnedTools() {
   }, [])
 
   return (
-    <div ref={trackRef} className="relative h-[420vh]">
+    <div
+      ref={trackRef}
+      className="relative"
+      style={{ height: `${FEATURES.length * 105}vh` }}
+    >
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
         <div className="mx-auto grid h-[64vh] w-full max-w-[1180px] items-center gap-12 px-5 md:px-8 lg:grid-cols-[1fr_1.12fr] lg:gap-[72px]">
           {/* left: stacked copy, crossfaded in place */}
@@ -215,7 +307,7 @@ function PinnedTools() {
                 ref={(el) => {
                   copyRefs.current[i] = el
                 }}
-                className="absolute inset-0 flex flex-col justify-center will-change-[opacity,transform]"
+                className="absolute inset-0 flex flex-col items-start justify-center text-center will-change-[opacity,transform]"
                 style={{ opacity: i === 0 ? 1 : 0 }}
               >
                 <FeatureCopy feature={feature} />
@@ -224,18 +316,18 @@ function PinnedTools() {
           </div>
           {/* right: each preview is its own card that slides through vertically */}
           <div className="relative h-full">
-            {FEATURES.map((_, i) => (
+            {FEATURES.map((feature, i) => (
               <div
                 key={i}
                 ref={(el) => {
                   gifRefs.current[i] = el
                 }}
-                className="absolute inset-0 will-change-[opacity,transform]"
+                className="absolute inset-0 flex flex-col items-center justify-center will-change-[opacity,transform]"
                 style={{ opacity: i === 0 ? 1 : 0 }}
               >
-                <Placeholder
-                  label="Product preview"
-                  className="size-full rounded-[20px]"
+                <FeatureVideo
+                  feature={feature}
+                  className="h-[340px] w-full rounded-[20px]"
                 />
               </div>
             ))}
@@ -269,9 +361,9 @@ function StackedRows() {
               speed={0.16}
               className={cn(imageRight ? 'lg:order-2' : 'lg:order-1')}
             >
-              <Placeholder
-                label="Product preview"
-                className="aspect-16/10 w-full rounded-[20px]"
+              <FeatureVideo
+                feature={feature}
+                className="h-[340px] w-full rounded-[20px]"
               />
             </Parallax>
           </article>

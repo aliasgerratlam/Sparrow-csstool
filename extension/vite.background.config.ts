@@ -17,6 +17,10 @@ export default defineConfig(({ mode }) => {
   const clerkKey = env.VITE_CLERK_PUBLISHABLE_KEY || ''
   const syncHost = env.VITE_EXT_SYNC_HOST || 'http://localhost'
   const webAppUrl = env.VITE_EXT_WEB_APP_URL || 'http://localhost:5173'
+  // Supabase project — lets the worker reach the kelviq-plan Edge Function to
+  // resolve the live subscription plan. Optional (empty → metadata fallback).
+  const supabaseUrl = env.VITE_SUPABASE_URL || ''
+  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || ''
 
   return {
     root: repoRoot,
@@ -31,6 +35,8 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkKey),
       'import.meta.env.VITE_EXT_SYNC_HOST': JSON.stringify(syncHost),
       'import.meta.env.VITE_EXT_WEB_APP_URL': JSON.stringify(webAppUrl),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
       'process.env.NODE_ENV': '"production"',
     },
     build: {

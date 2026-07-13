@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { resetFrameworkCache } from '@/lib/framework-detect'
 
 export type ScannerMode = 'inspect' | 'annotate' | 'ruler' | 'dropper' | 'fonts' | 'assets'
 
@@ -36,6 +37,9 @@ export function ScannerProvider({ children }: { children: ReactNode }) {
   const [selectedEl, setSelectedEl] = useState<Element | null>(null)
 
   const enable = useCallback(() => {
+    // Re-detect the page's framework on each activation (handles SPA route
+    // changes between sessions); the result is memoized for the hover path.
+    resetFrameworkCache()
     setIsActive(true)
     setFrozen(false)
     setModeState('inspect')

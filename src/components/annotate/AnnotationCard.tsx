@@ -4,11 +4,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import {
   useAnnotations,
   useAnnotationCounts,
+  useAnnotationQuota,
   useRole,
   store,
 } from '@/hooks/use-annotations'
@@ -18,13 +20,33 @@ import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Check, Pencil, SendHorizontal, Trash2, X } from 'lucide-react'
-import type { Annotation } from '@/lib/types'
+import type { Annotation, Reply } from '@/lib/types'
 
 const CARD_BGS = ['#ffffff', '#f7a8a0', '#f8cf6b', '#84dda6', '#2f80ff']
 
 function cardColorOf(ann: Annotation): string {
   const bg = ann.styling?.background
   return bg && bg !== 'transparent' ? bg : '#ffffff'
+}
+
+// Keep keystrokes typed into a field from reaching the host page. The scanner is
+// injected over arbitrary pages (Shadow DOM in the extension), and many sites
+// bind document-level keydown handlers — scroll libraries, single-key shortcuts —
+// that hijack Space/arrows, preventDefault(), and scroll the page, swallowing the
+// character before the field inserts it (a space scrolls the page instead of
+// typing). stopPropagation keeps the default action intact (the char is still
+// inserted) while the host never sees the event. Escape still bubbles so the
+// scanner's Esc-to-close handler fires.
+function stopKeyLeak(e: ReactKeyboardEvent) {
+  if (e.key !== 'Escape') e.stopPropagation()
+}
+
+// Coarse "resets in …" label for the quota window — minutes under an hour,
+// rounded-up hours above it (matches the upgrade toast's ~Nh wording).
+function fmtReset(ms: number): string {
+  const mins = Math.max(1, Math.ceil(ms / 60_000))
+  if (mins < 60) return `${mins}m`
+  return `${Math.ceil(ms / 3_600_000)}h`
 }
 
 // The full, exact element address (shown on hover).
@@ -63,9 +85,14 @@ export function AnnotationCard() {
   const ui = useAnnotationUI()
   const items = useAnnotations()
   const counts = useAnnotationCounts()
+  const quota = useAnnotationQuota()
   const cardRef = useRef<HTMLDivElement>(null)
   const commentRef = useRef<HTMLTextAreaElement>(null)
   const [replyText, setReplyText] = useState('')
+  // Which reply (if any) is being rewritten, plus its local draft — kept out of
+  // the store per-keystroke, same rationale as the comment draft above.
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const [editing, setEditing] = useState(false)
   // While editing a SAVED annotation the textarea binds to this local draft, not
@@ -123,6 +150,8 @@ export function AnnotationCard() {
       ui.editIntentId != null && ann != null && ui.editIntentId === ann.id
     setEditing(wantsEdit)
     setCommentDraft(wantsEdit && ann && !isDraft ? ann.comment : null)
+    setEditingReplyId(null)
+    setReplyDraft('')
     if (wantsEdit) ui.clearEditIntent()
     const prevId = ann && !isDraft ? ann.id : null
     return () => commitPendingEdit(prevId)
@@ -191,6 +220,28 @@ export function AnnotationCard() {
   }
 
   const replies = ann.replies || []
+
+  // The identity this user's replies are stamped with (matches sendReply). A
+  // reply may only be rewritten by whoever authored it.
+  const myReplyName = ui.author.trim() || (ro ? 'Client' : 'Author')
+  const canEditReply = (r: Reply) => (r.author || '').trim() === myReplyName
+
+  const startEditReply = (r: Reply) => {
+    setEditingReplyId(r.id)
+    setReplyDraft(r.message)
+  }
+
+  const cancelEditReply = () => {
+    setEditingReplyId(null)
+    setReplyDraft('')
+  }
+
+  const saveEditReply = () => {
+    if (editingReplyId == null) return
+    const msg = replyDraft.trim()
+    if (msg) store.updateReply(ann.id, editingReplyId, { message: msg })
+    cancelEditReply()
+  }
 
   return (
     <div
@@ -318,6 +369,8 @@ export function AnnotationCard() {
               placeholder="Add a comment here…"
               value={isDraft ? ann.comment : (commentDraft ?? ann.comment)}
               onChange={(e) => onComment(e.target.value)}
+              onKeyDown={stopKeyLeak}
+              onKeyUp={stopKeyLeak}
             />
             {editing && (
               <div className="annot-edit-row">
@@ -368,9 +421,56 @@ export function AnnotationCard() {
                   <div key={r.id} className="annot-reply">
                     <div className="annot-reply-head">
                       <strong>{r.author || 'Anonymous'}</strong>
-                      <span className="annot-reply-date">{fmtDate(r.createdAt)}</span>
+                      <div className="annot-reply-meta">
+                        <span className="annot-reply-date">{fmtDate(r.createdAt)}</span>
+                        {editingReplyId !== r.id && canEditReply(r) && (
+                          <Button
+                            variant="ghost"
+                            className="annot-reply-edit"
+                            title="Edit reply"
+                            onClick={() => startEditReply(r)}
+                          >
+                            <Pencil className="size-3" aria-hidden="true" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="annot-reply-msg">{r.message}</div>
+                    {editingReplyId === r.id ? (
+                      <div className="annot-reply-edit-box">
+                        <Textarea
+                          className="annot-input annot-reply-ta"
+                          rows={2}
+                          autoFocus
+                          value={replyDraft}
+                          onChange={(e) => setReplyDraft(e.target.value)}
+                          onKeyDown={stopKeyLeak}
+                          onKeyUp={stopKeyLeak}
+                        />
+                        <div className="annot-reply-edit-actions">
+                          <Button
+                            variant="ghost"
+                            className="annot-reply-cancel"
+                            title="Cancel"
+                            onClick={cancelEditReply}
+                          >
+                            <X className="size-3.5" />
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="annot-edit-done"
+                            title="Save reply"
+                            disabled={!replyDraft.trim()}
+                            onClick={saveEditReply}
+                          >
+                            <Check className="size-3.5" />
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="annot-reply-msg">{r.message}</div>
+                    )}
                   </div>
                 ))
               ) : (
@@ -384,6 +484,8 @@ export function AnnotationCard() {
                 placeholder="Write a reply…"
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={stopKeyLeak}
+                onKeyUp={stopKeyLeak}
               />
               <Button
                 variant="ghost"
@@ -399,6 +501,21 @@ export function AnnotationCard() {
 
         {!ro && isDraft && (
           <div className="annot-submit-row">
+            {Number.isFinite(quota.limit) && (
+              <div
+                className="annot-quota"
+                title="Annotations per site — the limit resets 24h after each one is created. Upgrade for more."
+              >
+                <span className="annot-quota-count">
+                  {quota.used} / {quota.limit} used
+                </span>
+                {quota.resetsInMs != null && (
+                  <span className="annot-quota-reset">
+                    · resets in ~{fmtReset(quota.resetsInMs)}
+                  </span>
+                )}
+              </div>
+            )}
             <Button
               variant="ghost"
               className="annot-submit-btn"

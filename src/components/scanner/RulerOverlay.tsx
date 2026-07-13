@@ -1,6 +1,6 @@
 import { type CSSProperties } from 'react'
 import { useElementRect } from '@/hooks/use-element-rect'
-import { measurePair } from '@/lib/extractors'
+import { getElementLabelParts, measurePair } from '@/lib/extractors'
 
 const TICK = 12 // px length of the end caps on each measurement line
 const LABEL_MARGIN = 10 // keep labels this far inside the viewport edges
@@ -54,6 +54,10 @@ export function RulerOverlay({
   const anchorRect = useElementRect(anchor)
   const hoverRect = useElementRect(hovered)
 
+  // Selector label (tag#id/.class) for the element under the cursor, so you can
+  // tell *what* you're measuring to — the anchor stays unlabeled by design.
+  const targetLabel = hovered ? getElementLabelParts(hovered).name : null
+
   // Pre-anchor state: just highlight + guide the element under the cursor.
   if (!anchor || !anchorRect) {
     if (!hovered || !hoverRect || (hoverRect.width === 0 && hoverRect.height === 0))
@@ -67,7 +71,13 @@ export function RulerOverlay({
         <div
           className="ruler-box ruler-box-target"
           style={{ top: hoverRect.top, left: hoverRect.left, width: hoverRect.width, height: hoverRect.height }}
-        />
+        >
+          {targetLabel && (
+            <span className="ruler-box-label">
+              <span className="scanner-label-name">{targetLabel}</span>
+            </span>
+          )}
+        </div>
       </div>
     )
   }
@@ -135,7 +145,13 @@ export function RulerOverlay({
         <div
           className="ruler-box ruler-box-target"
           style={{ top: hoverRect!.top, left: hoverRect!.left, width: hoverRect!.width, height: hoverRect!.height }}
-        />
+        >
+          {targetLabel && (
+            <span className="ruler-box-label">
+              <span className="scanner-label-name">{targetLabel}</span>
+            </span>
+          )}
+        </div>
       )}
       {segs.map((s) => (
         <div key={s.key} className={s.className} style={s.style} />

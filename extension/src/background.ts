@@ -36,15 +36,38 @@ const SYNC_HOST =
 const WEB_APP_URL =
   (import.meta.env.VITE_EXT_WEB_APP_URL as string | undefined) ||
   'http://localhost:5173'
+// Supabase project — used to reach the kelviq-plan Edge Function, which resolves
+// the signed-in user's CURRENT plan live from Kelviq. Optional: without it, the
+// extension falls back to whatever plan is in Clerk metadata (webhook-mirrored).
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as
+  | string
+  | undefined
 
-// Toolbar click → toggle the scanner (unchanged from the original background.js).
+// Toolbar click → toggle the scanner.
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id) return
+  const tabId = tab.id
   try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'sparrow-toggle' })
+    await chrome.tabs.sendMessage(tabId, { type: 'sparrow-toggle' })
   } catch {
-    // No content script here (chrome:// pages, the Web Store, or a tab loaded
-    // before install — reload it). Nothing to do; fail quietly.
+    // No content script answered. Almost always a tab that was already open
+    // before the extension was installed/reloaded — Chrome only auto-injects
+    // declared content scripts into pages loaded *after* install. Rather than
+    // make the user reload the page, inject the content script on demand and
+    // then toggle. executeScript resolves only after the script has run and
+    // registered its message listener, so the follow-up toggle reaches it.
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['dist/content.js'],
+      })
+      await chrome.tabs.sendMessage(tabId, { type: 'sparrow-toggle' })
+    } catch {
+      // A restricted page where no extension script can run (chrome:// pages,
+      // the Web Store, view-source:, the PDF viewer, etc.). Nothing we can do —
+      // fail quietly.
+    }
   }
 })
 
@@ -74,11 +97,65 @@ async function loadSyncedClerk() {
   }
 }
 
+/* Resolve the signed-in user's CURRENT plan live from Kelviq via the
+   kelviq-plan Edge Function, so the extension reflects a purchase immediately —
+   without waiting on the webhook to mirror the plan into Clerk metadata. Returns
+   the publicMetadata fields to overlay, or null when unavailable (Supabase
+   unconfigured, no token, or any error) — in which case we leave the
+   Clerk-metadata plan untouched. */
+async function fetchLivePlanMetadata(
+  token: string | null,
+): Promise<Record<string, unknown> | null> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !token) return null
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/kelviq-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'x-clerk-token': token,
+      },
+      body: '{}',
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (!data || typeof data.plan !== 'string') return null
+    // Shape it to match what userPlan() reads from publicMetadata.
+    return {
+      plan: data.plan,
+      billing_cycle: data.billingCycle ?? null,
+      plan_renews_at: data.renewsAt ?? null,
+      subscription_status: data.status ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 // Re-read the synced session and mirror it into the snapshot the content script
 // watches. Called on demand (content script) and on Clerk cookie changes.
 async function checkAuth() {
   const clerk = await loadSyncedClerk()
-  await writeAuthSnapshot(snapshotFromClerkUser(clerk?.user ?? null))
+  const snapshot = snapshotFromClerkUser(clerk?.user ?? null)
+
+  // Overlay the live Kelviq plan so gating reflects the real subscription, not a
+  // possibly-stale Clerk metadata mirror. Best-effort: on any failure we keep
+  // the metadata plan already in the snapshot.
+  if (snapshot.isSignedIn && snapshot.user) {
+    let token: string | null = null
+    try {
+      token = (await clerk?.session?.getToken()) ?? null
+    } catch {
+      token = null
+    }
+    const livePlan = await fetchLivePlanMetadata(token)
+    if (livePlan) {
+      snapshot.user.metadata = { ...snapshot.user.metadata, ...livePlan }
+    }
+  }
+
+  await writeAuthSnapshot(snapshot)
 }
 
 async function signOut() {

@@ -74,7 +74,39 @@ function mount() {
   host.style.cssText =
     "position:fixed;top:0;left:0;width:0;height:0;margin:0;padding:0;border:0;z-index:2147483647;font-size:16px;line-height:normal;font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;"
   const shadow = host.attachShadow({ mode: 'open' })
-  document.documentElement.appendChild(host)
+  // Mount inside <body>, not <html>. Radix's modal overlays (Dialog/Popover) use
+  // the `aria-hidden` lib, which defaults its scope to `document.body` and then
+  // resolves our dialog content back to a body descendant via `unwrapHost` — i.e.
+  // up to this shadow host. If the host sits under <html> (sibling of <body>),
+  // `body.contains(host)` is false, so aria-hidden logs "…not contained inside…
+  // Doing nothing" and skips. Homing the host in <body> resolves that and lets
+  // modal a11y (hide the rest of the page while a dialog is open) work correctly.
+  ;(document.body ?? document.documentElement).appendChild(host)
+
+  // Keep keystrokes typed into our UI from leaking to the host page. Because the
+  // scanner lives in an (open) Shadow DOM, keyboard events compose out and bubble
+  // to the host document — and many sites bind document-level keydown handlers
+  // (scroll libraries, single-key shortcuts) that hijack Space/arrows, call
+  // preventDefault(), and scroll the page. That swallows the character before our
+  // textarea can insert it: typing a space in a comment scrolls the page instead
+  // of adding a space. Stopping propagation at the shadow root (still inside the
+  // composed path, before the host document) keeps the default action intact — so
+  // the character is still inserted — while the host never sees the event. Escape
+  // is exempt so the scanner's document-level Esc-to-close handler still fires.
+  const stopKeyLeak = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') return
+    const t = e.target
+    const editable =
+      t instanceof HTMLElement &&
+      (t.tagName === 'INPUT' ||
+        t.tagName === 'TEXTAREA' ||
+        t.tagName === 'SELECT' ||
+        t.isContentEditable)
+    if (editable) e.stopPropagation()
+  }
+  shadow.addEventListener('keydown', stopKeyLeak)
+  shadow.addEventListener('keyup', stopKeyLeak)
+  shadow.addEventListener('keypress', stopKeyLeak)
 
   // Register the UI fonts (bundled woff2) on the document — @font-face inside
   // the shadow stylesheet wouldn't take effect, see ui-fonts.ts.
