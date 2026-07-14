@@ -67,7 +67,8 @@ Without a configured `VITE_CLERK_PUBLISHABLE_KEY`, Annotate stays locked
 
 ## Install (load unpacked)
 
-Works in any Chromium browser: **Chrome, Edge, Brave, Opera, Vivaldi**.
+Works in any Chromium browser (**Chrome, Edge, Brave, Opera, Vivaldi**) and in
+**Firefox** (see the Firefox section below).
 
 1. If the `dist/` folder isn't already here, build it once (see below).
 2. Open the extensions page:
@@ -132,10 +133,47 @@ To regenerate the icons: `node extension/scripts/gen-icons.mjs`.
 
 ### Firefox
 
-This is a Chromium MV3 extension. Firefox needs a `browser_specific_settings`
-key and loads via `about:debugging` → *Load Temporary Add-on* (pick
-`manifest.json`). The code is browser-agnostic, but that packaging step isn't set
-up here yet.
+The same folder loads in **Firefox 140+** — `manifest.json` is cross-browser:
+
+- `background` declares **both** `service_worker` (Chrome) and `scripts`
+  (Firefox); each browser picks its key and ignores the other.
+- `browser_specific_settings.gecko` supplies the add-on id
+  (`sparoww@trysparrowcss.com`), the minimum Firefox version, and the
+  data-collection declaration AMO requires. Chrome logs a harmless
+  "unrecognized key" warning for it (and Firefox does the same for `key` /
+  `minimum_chrome_version`).
+
+**Install (temporary):** open `about:debugging#/runtime/this-firefox` → **Load
+Temporary Add-on…** → pick this folder's `manifest.json`. Temporary add-ons are
+removed when Firefox closes; for a persistent install the extension must be
+signed by AMO (`web-ext sign`, or list it unlisted).
+
+**Host permissions are opt-in on Firefox.** Unlike Chrome, Firefox does not
+grant `<all_urls>` at install. The toolbar button still works everywhere
+(`activeTab` + on-demand injection), and on the first click the extension asks
+for full host access — grant it, or the following stay broken: auto-detecting
+sign-in on the web app (cookie watch), cross-origin stylesheet recovery, and
+auto-opening on `?sparrow-session` share links. You can also grant it manually
+under `about:addons` → Sparoww → **Permissions**.
+
+**Auth caveat.** The Clerk Sync Host flow works in Firefox (the Clerk SDK uses
+the promise-based `browser.*` API via its bundled polyfill), but Clerk validates
+the request `Origin`, and Firefox gives each **install** a random internal UUID
+— so the origin to allowlist is per-machine. After installing, find the UUID on
+`about:debugging` (Internal UUID) and add it to your Clerk instance's
+`allowed_origins`:
+
+```bash
+curl -X PATCH https://api.clerk.com/v1/instance \
+  -H "Authorization: Bearer sk_test_YOUR_SECRET_KEY" \
+  -H "Content-type: application/json" \
+  -d '{"allowed_origins": ["chrome-extension://mkbkmeemombaioeikegphonpbjliljbm", "moz-extension://YOUR-INTERNAL-UUID"]}'
+```
+
+(`allowed_origins` is replaced wholesale — always resend the Chrome origin too.)
+That's workable for a dev/team install; for public AMO distribution every user
+would have a different UUID, so signed-in Annotate isn't practical there yet —
+everything else works signed-out.
 
 ### Notes
 

@@ -44,10 +44,46 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as
   | string
   | undefined
 
+/* Firefox MV3 treats host_permissions as OPT-IN: unlike Chrome, they are not
+   granted at install. Without them the Clerk cookie watcher can't see the sync
+   host, cross-origin CSS re-fetches are CORS-blocked, and content scripts don't
+   auto-inject (so share-link auto-open is dead — only the activeTab toolbar
+   path works). Track the grant and ask for it on toolbar click, the one place
+   we reliably have the user gesture Firefox requires for permissions.request().
+   On Chrome the permission already exists, so the request resolves silently. */
+const HOST_PERMISSIONS = { origins: ['<all_urls>'] }
+let hasHostPermissions = false
+try {
+  chrome.permissions.contains(HOST_PERMISSIONS, (granted) => {
+    void chrome.runtime.lastError
+    hasHostPermissions = !!granted
+  })
+  chrome.permissions.onAdded.addListener(() => {
+    hasHostPermissions = true
+    // Host access just arrived — the worker can finally read the sync host's
+    // Clerk cookies, so refresh the auth snapshot right away.
+    void checkAuth()
+  })
+} catch {
+  // permissions API unavailable — leave the flag false; activeTab still works.
+}
+
 // Toolbar click → toggle the scanner.
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id) return
   const tabId = tab.id
+  // Must run before any `await`: Firefox only honours permissions.request()
+  // while still synchronously inside the user-input handler.
+  if (!hasHostPermissions) {
+    try {
+      chrome.permissions.request(HOST_PERMISSIONS, (granted) => {
+        void chrome.runtime.lastError
+        hasHostPermissions = !!granted
+      })
+    } catch {
+      // Prompt refused to open (or API missing) — proceed with activeTab only.
+    }
+  }
   try {
     await chrome.tabs.sendMessage(tabId, { type: 'sparrow-toggle' })
   } catch {

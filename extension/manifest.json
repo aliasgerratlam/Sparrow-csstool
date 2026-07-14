@@ -7,14 +7,25 @@
   "action": {
     "default_title": "Toggle Sparoww Scanner",
     "default_icon": {
-      "128": "icons/icon128.png"
+      "48": "icons/icon48.png"
     }
   },
   "background": {
-    "service_worker": "dist/background.js"
+    "service_worker": "dist/background.js",
+    "scripts": ["dist/background.js"]
+  },
+  "minimum_chrome_version": "121",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sparoww@trysparrowcss.com",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["authenticationInfo"]
+      }
+    }
   },
   "icons": {
-    "128": "icons/icon128.png"
+    "48": "icons/icon48.png"
   },
   "permissions": ["activeTab", "storage", "cookies", "scripting"],
   "host_permissions": ["<all_urls>"],

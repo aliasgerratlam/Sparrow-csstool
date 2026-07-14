@@ -61,7 +61,11 @@
       "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'vite' -and $_.CommandLine -notmatch 'build' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; \"stopped pid $\\($_.ProcessId\\)\" })",
       "Bash(node signin-test.mjs)",
       "Bash(node signin-shot.mjs)",
-      "Bash(node signin-scanner.mjs)"
+      "Bash(node signin-scanner.mjs)",
+      "PowerShell(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('extension/manifest.json','utf8'\\)\\); console.log\\('manifest JSON OK'\\)\")",
+      "PowerShell(npx --yes addons-linter extension --min-manifest-version 3 2>$null)",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\Mozilla Firefox\\\\firefox.exe\", \"${env:ProgramFiles\\(x86\\)}\\\\Mozilla Firefox\\\\firefox.exe\", \"$env:LOCALAPPDATA\\\\Mozilla Firefox\\\\firefox.exe\"\\); $paths | Where-Object { Test-Path $_ }; try { \\(Get-Command firefox -ErrorAction Stop\\).Source } catch { \"not on PATH\" })",
+      "PowerShell(\\(Get-Item \"C:\\\\Program Files \\(x86\\)\\\\Mozilla Firefox\\\\firefox.exe\"\\).VersionInfo.ProductVersion)"
     ]
   }
 }
