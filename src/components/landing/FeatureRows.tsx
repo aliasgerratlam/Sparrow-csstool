@@ -342,24 +342,28 @@ function PinnedTools() {
    four tools as plain rows with the existing soft parallax, no scroll pin. */
 function StackedRows() {
   return (
-    <Container className="flex flex-col gap-16 md:gap-24">
+    <Container className="flex flex-col gap-6 md:gap-24">
       {FEATURES.map((feature, i) => {
         const imageRight = i % 2 === 0
         return (
           <article
             key={i}
-            className="grid items-center gap-8 lg:grid-cols-2 lg:gap-16"
+            className="grid items-center gap-2 lg:grid-cols-2 lg:gap-16"
           >
+            {/* On the stacked (mobile/tablet) layout the video comes first for
+                every feature (order-1 vs the copy's order-2); at lg the
+                per-row lg:order-* classes restore the alternating desktop
+                arrangement. */}
             <Parallax
               speed={0.1}
               fade
-              className={cn(imageRight ? 'lg:order-1' : 'lg:order-2')}
+              className={cn('order-2', imageRight ? 'lg:order-1' : 'lg:order-2')}
             >
               <FeatureCopy feature={feature} />
             </Parallax>
             <Parallax
               speed={0.16}
-              className={cn(imageRight ? 'lg:order-2' : 'lg:order-1')}
+              className={cn('order-1', imageRight ? 'lg:order-2' : 'lg:order-1')}
             >
               <FeatureVideo
                 feature={feature}

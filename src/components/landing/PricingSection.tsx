@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ArrowButton, Container } from './parts'
@@ -25,6 +26,7 @@ export function PricingSection() {
   const [activePlan, setActivePlan] = useState<PlanId | null>(null)
   const { isConfigured, isAuthenticated, openLoginDialog, getToken } = useAuth()
   const { planId: currentPlan, subscription } = useEntitlements()
+  const navigate = useNavigate()
 
   const goDemo = () =>
     document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' })
@@ -41,7 +43,7 @@ export function PricingSection() {
 
     // Free tier — no payment.
     if (id === 'free') {
-      if (isAuthenticated) window.location.href = '/account'
+      if (isAuthenticated) navigate('/account')
       else if (isConfigured) openLoginDialog()
       else goDemo()
       return
@@ -57,7 +59,7 @@ export function PricingSection() {
 
     // Paid tier, signed in, but no billing backend — manage on the account page.
     if (!isKelviqConfigured) {
-      window.location.href = '/account'
+      navigate('/account')
       return
     }
 
@@ -78,7 +80,7 @@ export function PricingSection() {
     }
     if (result.status === 'ok') {
       toast.success('Plan updated.')
-      window.location.href = '/account'
+      navigate('/account')
       return
     }
     toast.error(result.message || 'Something went wrong. Please try again.')
@@ -120,7 +122,10 @@ export function PricingSection() {
           </div>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        {/* Same iPad/mobile treatment as the steps section: a horizontal
+            scroll-snap slider below lg (each card peeks the next), reverting to
+            the static 3-column grid at lg+. */}
+        <div className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:pb-0">
           {PLAN_IDS.map((id) => {
             const plan = PLAN_DISPLAY[id]
             const isCurrent = isAuthenticated && currentPlan === id
@@ -128,7 +133,7 @@ export function PricingSection() {
             return (
               <article
                 key={plan.id}
-                className="relative flex flex-col overflow-hidden rounded-[20px] bg-white p-12 shadow-sm ring-1 ring-black/5"
+                className="relative flex shrink-0 basis-[82%] snap-start flex-col overflow-hidden rounded-[20px] bg-white p-12 shadow-sm ring-1 ring-black/5 sm:basis-[56%] md:basis-[44%] lg:basis-auto"
               >
                 <h3 className="font-abeezee text-2xl font-semibold text-sparrow-ink">
                   {plan.name}

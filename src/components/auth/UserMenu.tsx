@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { LogOut, User as UserIcon } from 'lucide-react'
 import { useAuth, userDisplayName } from '@/context/auth-context'
+import { useAppNavigate } from '@/context/navigation-context'
 import { initials } from '@/lib/collab-identity'
 
 /* Signed-in toolbar chip: an avatar bubble that opens a small popover with the
@@ -9,6 +10,7 @@ import { initials } from '@/lib/collab-identity'
    already whitelisted in ScannerController's isScannerUI, so clicks are safe. */
 export function UserMenu() {
   const { user, signOut } = useAuth()
+  const appNavigate = useAppNavigate()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -61,6 +63,21 @@ export function UserMenu() {
             className="auth-user-logout"
             role="menuitem"
             href="/account"
+            onClick={(e) => {
+              // Client-side on the web (no reload); the extension has no router,
+              // so useAppNavigate falls back to a full navigation there.
+              if (
+                e.button !== 0 ||
+                e.metaKey ||
+                e.ctrlKey ||
+                e.shiftKey ||
+                e.altKey
+              )
+                return
+              e.preventDefault()
+              setOpen(false)
+              appNavigate('/account')
+            }}
           >
             <UserIcon size={14} strokeWidth={2} />
             Account

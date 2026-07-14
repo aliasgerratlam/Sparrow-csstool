@@ -35,6 +35,13 @@ const SCANNER_UI_SELECTORS = [
   // marketing page: its click must reach React (toggle the scanner) instead of
   // being swallowed as an inspect/freeze.
   '.scanner-demo-toggle',
+  // The fixed landing header sits on top of the page while the demo inspects it.
+  // Whitelist its interactive controls (Sign in / My account / nav links / the
+  // hamburger) so their clicks reach React instead of being swallowed — the rest
+  // of the header (and page) stays inspectable. Scoped to a/button so it doesn't
+  // block inspecting the header's layout itself.
+  '#landing-header a',
+  '#landing-header button',
   '#annot-sidebar',
   '#annot-card',
   '#annot-pin-layer',

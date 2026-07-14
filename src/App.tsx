@@ -1,4 +1,11 @@
 import { useEffect, useRef } from 'react'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { ScannerProvider, useScanner } from '@/context/scanner-context'
 import {
   AnnotationUIProvider,
@@ -7,6 +14,7 @@ import {
 import { CollabProvider } from '@/context/collab-context'
 import { AuthProvider, useAuth, userDisplayName } from '@/context/auth-context'
 import { SubscriptionProvider } from '@/context/kelviq-provider'
+import { NavigationProvider } from '@/context/navigation-context'
 import { AnnotationLimitSync } from '@/context/subscription-context'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { AccountPage } from '@/components/account/AccountPage'
@@ -22,14 +30,15 @@ import { bootStore } from '@/boot'
 // Runs once, before first render, so the store is seeded synchronously.
 const boot = bootStore()
 
-// Routing (no router lib — the app parses the URL directly). The Sparrow
-// marketing site is the index ("/"); the account page lives at "/account".
-// Any other path falls through to the landing page, which also hosts the
-// scanner/annotation chrome and handles ?sparrow-session=<id> collab links
-// (BootEffects). Note: static hosting must rewrite unknown paths to index.html
-// (SPA fallback) so "/account" resolves on a hard refresh.
-const path = window.location.pathname.replace(/\/+$/, '')
-const isAccountPage = path === '/account'
+// Routing (React Router). The Sparrow marketing site is the index ("/"); the
+// account page lives at "/account"; any other path falls through to the landing
+// page (which also hosts the scanner/annotation chrome and handles
+// ?sparrow-session=<id> collab links via BootEffects). The providers below are
+// hoisted ABOVE <Routes>, so Auth (Clerk) and subscriptions stay mounted across
+// route changes — switching between "/" and "/account" is a client-side
+// transition with no full-page reload. Note: static hosting must rewrite
+// unknown paths to index.html (SPA fallback — see vercel.json) so "/account"
+// resolves on a hard refresh.
 
 function BootEffects({ sessionId }: { sessionId: string | null }) {
   const { openSidebar } = useAnnotationUI()
@@ -100,17 +109,16 @@ function AuthPromptEffect() {
   return null
 }
 
-// Annotations are gated behind sign-in when auth is configured: load them from
-// storage once the user authenticates, and clear the in-memory list (keeping
-// the localStorage copy) on sign-out — so a signed-out user never sees a stale
-// review count. In prototype mode (auth not configured) boot already loaded.
+// The website is a free live demo — annotations are NOT sign-in gated here
+// (unlike the extension, which keeps its own gated copy of this effect). Keep
+// the store loaded regardless of auth so a signed-out visitor's demo pins
+// persist; boot already loaded them, so this just re-syncs once auth settles.
 function AnnotationAuthSync() {
-  const { isConfigured, isAuthenticated, loading } = useAuth()
+  const { isConfigured, loading } = useAuth()
   useEffect(() => {
     if (!isConfigured || loading) return
-    if (isAuthenticated) store.reloadFromStorage()
-    else store.unload()
-  }, [isConfigured, isAuthenticated, loading])
+    store.reloadFromStorage()
+  }, [isConfigured, loading])
   return null
 }
 
@@ -126,41 +134,69 @@ function AuthAuthorSync() {
   return null
 }
 
+// Bridges react-router's navigate into the router-agnostic NavigationProvider,
+// so shared components (ArrowButton, UserMenu) that also run in the extension
+// can navigate client-side here while falling back to a full navigation there.
+// Also scrolls to a #hash on arrival (e.g. "/#pricing" from the account page),
+// which the router doesn't do on its own.
+function RouterBridge({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (!hash) return
+    // Wait a frame for the target route/section to mount before scrolling.
+    const id = hash.slice(1)
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [pathname, hash])
+  return <NavigationProvider navigate={navigate}>{children}</NavigationProvider>
+}
+
+// Account page ("/account") — Clerk profile + subscription management, rendered
+// alone (no scanner/annotation chrome).
+function AccountRoute() {
+  return <AccountPage />
+}
+
+// Index ("/") and any unmatched path — the Sparrow landing page. It carries the
+// scanner/annotation chrome so the hero "Try Demo" CTA can run the inspector on
+// this page in place, and BootEffects auto-joins a ?sparrow-session=<id> link.
+function IndexRoute() {
+  return (
+    <ScannerProvider>
+      <AnnotationUIProvider>
+        <CollabProvider>
+          <BootEffects sessionId={boot.sessionId} />
+          <AuthPromptEffect />
+          <AnnotationAuthSync />
+          <AuthAuthorSync />
+          <AnnotationLimitSync />
+          <LandingPage />
+          <Scanner />
+          <Overlays />
+          <AnnotationLayer />
+        </CollabProvider>
+      </AnnotationUIProvider>
+    </ScannerProvider>
+  )
+}
+
 export default function App() {
-  if (isAccountPage) {
-    return (
+  return (
+    <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <AccountPage />
-          <Toaster />
+          <RouterBridge>
+            <Routes>
+              <Route path="/account" element={<AccountRoute />} />
+              <Route path="*" element={<IndexRoute />} />
+            </Routes>
+            <Toaster />
+          </RouterBridge>
         </SubscriptionProvider>
       </AuthProvider>
-    )
-  }
-
-  // Index ("/") — the Sparrow landing page. It carries the scanner/annotation
-  // chrome so the hero "Try Demo" CTA can run the inspector on this page in
-  // place, and BootEffects auto-joins a ?sparrow-session=<id> collab link.
-  return (
-    <AuthProvider>
-      <SubscriptionProvider>
-        <ScannerProvider>
-          <AnnotationUIProvider>
-            <CollabProvider>
-              <BootEffects sessionId={boot.sessionId} />
-              <AuthPromptEffect />
-              <AnnotationAuthSync />
-              <AuthAuthorSync />
-              <AnnotationLimitSync />
-              <LandingPage />
-              <Scanner />
-              <Overlays />
-              <AnnotationLayer />
-              <Toaster />
-            </CollabProvider>
-          </AnnotationUIProvider>
-        </ScannerProvider>
-      </SubscriptionProvider>
-    </AuthProvider>
+    </BrowserRouter>
   )
 }

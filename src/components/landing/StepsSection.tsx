@@ -51,7 +51,7 @@ export function StepsSection() {
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-heading"
-      className="py-16 md:py-24"
+      className="md:py-16 py-5 md:py-24"
     >
       <Container>
         <h2
@@ -61,11 +61,15 @@ export function StepsSection() {
           Install it once. <span className="hl-word text-sparrow-blue">Use it everywhere.</span>
         </h2>
 
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
+        {/* On iPad/mobile the three cards become a horizontal, scroll-snap
+            slider (each card is a bit narrower than the viewport so the next
+            one peeks in, signalling it's swipeable). At lg+ it reverts to the
+            static 3-column grid. Scrollbar hidden for a clean carousel look. */}
+        <div className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:snap-none lg:grid-cols-3 lg:gap-8 lg:overflow-visible lg:pb-0">
           {STEPS.map((step) => (
             <article
               key={step.title}
-              className="flex flex-col rounded-[20px] bg-white "
+              className="flex shrink-0 basis-[82%] snap-start flex-col rounded-[20px] bg-white sm:basis-[56%] md:basis-[44%] lg:basis-auto"
             >
               <div className='px-6 py-10'>
                 <div className="flex items-center gap-3">{step.icons}</div>

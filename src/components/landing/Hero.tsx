@@ -14,7 +14,7 @@ export function Hero() {
   return (
     <section
       id="home"
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden py-24"
+      className="relative flex lg:min-h-screen min-h-[80vh] flex-col items-center justify-center overflow-hidden py-24"
     >
       <div aria-hidden className="hero-sky">
         <HeroSky />
@@ -34,25 +34,33 @@ export function Hero() {
         <p className="mx-auto mt-6 text-balance font-abeezee text-lg text-sparrow-ink md:text-xl">
           Inspect CSS, annotate pages, collaborate live, extract colors, fonts and assets—all from one lightweight browser extension built for developers, designers, and agencies.
         </p>
-        {/* Equal-width CTAs: a 2-col grid gives both buttons the same cell
-            width (sized for the longer label), stacking full-width on mobile.
-            The grid's default justify-items:stretch makes the magnetic button's
-            .magnetic-wrap span fill its cell, so w-full applies through it. */}
-        <div className="mx-auto mt-8 grid w-full max-w-[620px] grid-cols-1 gap-3 md:grid-cols-2">
+        {/* CTAs. Below 992px only the install button shows, full-width (the
+            live-demo scanner relies on hover, so it's hidden on touch/narrow
+            viewports). At >=992px both sit side by side at their natural
+            widths. The demo button is wrapped in a div so the whole magnetic
+            unit toggles with `hidden` (ArrowButton's className reaches only the
+            inner button, not the .magnetic-wrap). */}
+        <div className="mx-auto mt-8 flex w-full max-w-md flex-col items-center justify-center gap-3 min-[992px]:max-w-none min-[992px]:flex-row">
           {/* No published extension yet — the install CTA runs the in-page demo. */}
-          <ArrowButton variant="blue" onClick={enable} className="w-full">
+          <ArrowButton
+            variant="blue"
+            onClick={enable}
+            className="w-full min-[992px]:w-auto"
+          >
             Add Sparrow to your browser
           </ArrowButton>
-          <ArrowButton
-            variant="dark"
-            arrow={false}
-            onClick={toggle}
-            sparkle
-            magnetic
-            className="scanner-demo-toggle w-full"
-          >
-            {isActive ? 'Stop demo' : 'Try the live demo'}
-          </ArrowButton>
+          <div className="hidden min-[992px]:block">
+            <ArrowButton
+              variant="dark"
+              arrow={false}
+              onClick={toggle}
+              sparkle
+              magnetic
+              className="scanner-demo-toggle"
+            >
+              {isActive ? 'Stop demo' : 'Try the live demo'}
+            </ArrowButton>
+          </div>
         </div>
       </Container>
     </section>

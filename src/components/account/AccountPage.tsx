@@ -179,7 +179,7 @@ function SubscriptionCard() {
   if (isLoading) return <SubscriptionCardSkeleton />
 
   return (
-    <section className="flex flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5">
+    <section className="flex min-w-0 flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-sparrow-ink">Subscription</h2>
         <span
@@ -265,7 +265,7 @@ function SubscriptionCardSkeleton() {
     <section
       aria-busy="true"
       aria-label="Loading subscription"
-      className="flex flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5"
+      className="flex min-w-0 flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5"
     >
       <div className="flex animate-pulse items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-sparrow-ink">Subscription</h2>
@@ -320,7 +320,7 @@ function ProfileCard() {
   const lastSignIn = fmtDate(user?.lastSignInAt)
 
   return (
-    <section className="flex flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5">
+    <section className="flex min-w-0 flex-col rounded-[20px] bg-white p-8 shadow-sm ring-1 ring-black/5">
       <h2 className="text-lg font-semibold text-sparrow-ink">Profile</h2>
       <dl className="mt-6 space-y-3 text-sm">
         <Row label="Full name">{userDisplayName(user)}</Row>
@@ -347,7 +347,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="flex items-start justify-between gap-6 border-b border-black/5 pb-3 last:border-0 last:pb-0">
       <dt className="shrink-0 text-sparrow-ink/50">{label}</dt>
-      <dd className="text-right font-medium text-sparrow-ink">{children}</dd>
+      <dd className="min-w-0 text-right font-medium text-sparrow-ink [overflow-wrap:anywhere]">
+        {children}
+      </dd>
     </div>
   )
 }

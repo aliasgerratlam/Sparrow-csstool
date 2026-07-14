@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { LogOut, Menu, X } from 'lucide-react'
 import sparrowLogo from '@/assets/sparrow-logo.png'
 import { ArrowButton } from './parts'
@@ -13,31 +14,34 @@ const NAV = [
   { label: 'FAQ', href: '#faq' },
 ]
 
+const CONTACT_EMAIL = 'hello@trysparrowcss.com'
+
 export function LandingHeader() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { openLoginDialog, isAuthenticated, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   // Reused on /account too. There the section anchors (#features …) point at the
   // landing page, so prefix them with "/"; and the right-side CTA becomes
   // Sign out (you're already on your account) instead of "My account".
-  const onAccount =
-    typeof window !== 'undefined' &&
-    window.location.pathname.startsWith('/account')
+  const onAccount = pathname.startsWith('/account')
   const navBase = onAccount ? '/' : ''
-  const handleSignOut = () => void signOut().then(() => (window.location.href = '/'))
+  const handleSignOut = () => void signOut().then(() => navigate('/'))
 
   // On the landing page, smooth-scroll to the section without letting the
   // browser append the "#home"/"#features" hash to the URL. On /account the
-  // anchors must actually navigate to the landing page, so leave them alone.
+  // anchors navigate client-side to the landing page, where RouterBridge
+  // scrolls to the target section once it mounts.
   const handleNavClick = (href: string) => (e: React.MouseEvent) => {
-    if (onAccount) return
-    const id = href.slice(1) // drop leading "#"
-    const target = document.getElementById(id)
-    if (!target) return
     e.preventDefault()
     setOpen(false)
-    target.scrollIntoView({ behavior: 'smooth' })
+    if (onAccount) {
+      navigate(`/${href}`) // e.g. "/#features"
+      return
+    }
+    document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export function LandingHeader() {
 
   return (
     <header
+      id="landing-header"
       className={cn(
         'fixed inset-x-0 top-0 z-50 px-4 md:px-8',
         'transition-[padding] duration-300 ease-out',
@@ -97,6 +102,14 @@ export function LandingHeader() {
                 </a>
               </li>
             ))}
+            <li>
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="font-abeezee text-base font-semibold text-sparrow-ink/90 transition-colors hover:text-sparrow-blue"
+              >
+                Contact
+              </a>
+            </li>
           </ul>
         </div>
 
@@ -105,7 +118,7 @@ export function LandingHeader() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 lg:inline-flex"
+              className="cursor-pointer hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 lg:inline-flex"
             >
               <LogOut className="size-4" />
               Sign out
@@ -164,6 +177,15 @@ export function LandingHeader() {
             </li>
           ))}
           <li>
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              onClick={() => setOpen(false)}
+              className="block rounded-lg px-3 py-2 font-abeezee text-base font-semibold text-sparrow-ink hover:bg-black/5"
+            >
+              Contact
+            </a>
+          </li>
+          <li>
             {onAccount && isAuthenticated ? (
               <button
                 type="button"
@@ -171,7 +193,7 @@ export function LandingHeader() {
                   setOpen(false)
                   handleSignOut()
                 }}
-                className="mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 font-abeezee text-sm font-semibold text-sparrow-ink ring-1 ring-inset ring-black/10 hover:bg-black/5"
+                className="cursor-pointer mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 font-abeezee text-sm font-semibold text-sparrow-ink ring-1 ring-inset ring-black/10 hover:bg-black/5"
               >
                 <LogOut className="size-4" />
                 Sign out

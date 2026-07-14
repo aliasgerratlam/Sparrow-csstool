@@ -1,7 +1,21 @@
 import type { ReactNode } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { cn } from '@/lib/format'
+import { useAppNavigate } from '@/context/navigation-context'
 import { Magnetic } from './Magnetic'
+
+// A plain left-click we can intercept for client-side routing (no modifier
+// keys, no middle/right button) — modified clicks fall through to the browser
+// so "open in new tab" etc. keep working on the real <a href>.
+function isPlainClick(e: React.MouseEvent) {
+  return (
+    e.button === 0 &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.shiftKey &&
+    !e.altKey
+  )
+}
 
 /* Shared building blocks for the Sparrow landing sections. */
 
@@ -41,6 +55,10 @@ export function ArrowButton({
   className?: string
   onClick?: () => void
 }) {
+  const appNavigate = useAppNavigate()
+  // In-app destinations ("/account", "/#pricing") route client-side; external
+  // links, mailto:, and bare "#" anchors stay native.
+  const isInternal = href.startsWith('/')
   const classes = cn(
     'group cursor-pointer inline-flex items-center justify-center gap-1.5 rounded-[10px] px-6 py-3 font-abeezee text-base font-semibold text-white',
     'btn-3d',
@@ -81,7 +99,19 @@ export function ArrowButton({
       {inner}
     </button>
   ) : (
-    <a href={href} className={classes}>
+    <a
+      href={href}
+      onClick={
+        isInternal
+          ? (e) => {
+              if (!isPlainClick(e)) return
+              e.preventDefault()
+              appNavigate(href)
+            }
+          : undefined
+      }
+      className={classes}
+    >
       {inner}
     </a>
   )

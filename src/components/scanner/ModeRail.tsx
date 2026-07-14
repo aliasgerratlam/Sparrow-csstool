@@ -10,11 +10,13 @@ export function ModeRail() {
   const { isConfigured, isAuthenticated, loading } = useAuth()
   const { colorMode, fontMode, assets } = useEntitlements()
 
-  // Annotate is for signed-in users only. While gated the rail button is locked
-  // (dimmed, with a "Sign in to use Annotate" tooltip) rather than entering the
-  // mode — the user signs in via the toolbar's Sign in button. When auth isn't
-  // configured (prototype) nothing is gated.
-  const annotateLocked = isConfigured && !isAuthenticated
+  // Annotate is sign-in-gated in the EXTENSION only. On the website it's part of
+  // the free live demo, so visitors can annotate without signing in. (In the
+  // extension the whole rail is hidden while signed out anyway — see below — so
+  // this stays effectively unchanged there.) When auth isn't configured
+  // (prototype) nothing is gated either.
+  const annotateLocked =
+    !!import.meta.env.VITE_IS_EXTENSION && isConfigured && !isAuthenticated
 
   // Paid modes — locked below the required tier. Entitlements are UNGATED in
   // prototype mode (no Kelviq), so these are all false there and nothing locks.

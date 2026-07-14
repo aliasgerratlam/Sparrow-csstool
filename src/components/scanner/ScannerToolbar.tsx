@@ -47,11 +47,13 @@ export function ScannerToolbar() {
     openLoginDialog()
   }
 
-  // Review/Share are annotate features — signed-in users only. Normally the
-  // mode itself is gated (ModeRail), but a sign-out mid-session can leave
-  // annotate mode active while unauthenticated; route those clicks to login.
+  // Review/Share are annotate features. In the EXTENSION they're signed-in only
+  // (a sign-out mid-session can leave annotate active while unauthenticated —
+  // route those clicks to login). On the website they're part of the free live
+  // demo, so visitors use them without signing in.
   const requireAuth = (action: () => void) => () => {
-    if (isConfigured && !isAuthenticated) onSignIn()
+    if (import.meta.env.VITE_IS_EXTENSION && isConfigured && !isAuthenticated)
+      onSignIn()
     else action()
   }
 

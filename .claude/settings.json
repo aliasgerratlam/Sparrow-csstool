@@ -55,7 +55,13 @@
       "PowerShell(npm run build:ext 2>&1)",
       "Bash(grep -o 'document.body??document.documentElement\\).appendChild\\\\|documentElement\\).appendChild\\(.\\\\{0,3\\\\}\\)' extension/dist/content.js)",
       "Bash(grep -iE '\\\\.\\(png|jpg|jpeg|webp|gif|svg\\)$')",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://www.trysparrowcss.com/)",
+      "Bash(node -e \"console.log\\('react-router-dom', require\\('./node_modules/react-router-dom/package.json'\\).version\\)\")",
+      "Bash(node nav-test.mjs)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'vite' -and $_.CommandLine -notmatch 'build' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; \"stopped pid $\\($_.ProcessId\\)\" })",
+      "Bash(node signin-test.mjs)",
+      "Bash(node signin-shot.mjs)",
+      "Bash(node signin-scanner.mjs)"
     ]
   }
 }

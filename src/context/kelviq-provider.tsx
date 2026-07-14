@@ -26,6 +26,20 @@ import { FEATURE_IDS, PLAN_LIMITS, limitsForPlan, toPlanId, type PlanId } from '
    from the SDK-free subscription-context (which the extension imports).
 ───────────────────────────────────────────────────────────────────────── */
 
+/* The website is a free live demo — every tool open, unlimited annotations —
+   so visitors can test-drive without signing in or paying. The paid product is
+   the browser extension, which resolves entitlements through a separate provider
+   (ExtensionSubscriptionProvider) and is unaffected. We spread this over the
+   web value while preserving the real planId/subscription, so /account and the
+   pricing cards still reflect the visitor's actual subscription. */
+const DEMO_UNLOCK = {
+  colorFormat: true,
+  colorMode: true,
+  fontMode: true,
+  assets: true,
+  annotationLimit: Infinity,
+} as const
+
 /** Statuses that grant access (the subscription is currently paying/valid). */
 function isActiveStatus(status: string): boolean {
   const s = status.toLowerCase()
@@ -76,7 +90,7 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
           (annotEnt.usageLimit ?? Infinity)
         : limitsForPlan(planId).annotationLimit
 
-    return {
+    const live: SubscriptionValue = {
       planId,
       colorFormat: !loading && kq.hasAccess(FEATURE_IDS.colorFormat),
       colorMode: !loading && kq.hasAccess(FEATURE_IDS.colorMode),
@@ -92,6 +106,8 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
         ])
       },
     }
+    // Live demo: unlock every feature, but keep planId/subscription real above.
+    return { ...live, ...DEMO_UNLOCK }
   }, [kq, subs.data, loading])
 
   return (
@@ -113,10 +129,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  // Configured but signed out / no id → Free tier (fail-closed), no SDK.
+  // Configured but signed out / no id → Free tier, but the live demo unlocks
+  // every tool so visitors can test-drive without signing in.
   if (!isAuthenticated || !user?.id) {
     return (
-      <SubscriptionContext.Provider value={FREE_VALUE}>
+      <SubscriptionContext.Provider value={{ ...FREE_VALUE, ...DEMO_UNLOCK }}>
         {children}
       </SubscriptionContext.Provider>
     )
