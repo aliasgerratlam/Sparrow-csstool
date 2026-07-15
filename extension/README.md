@@ -67,16 +67,34 @@ Without a configured `VITE_CLERK_PUBLISHABLE_KEY`, Annotate stays locked
 
 ## Install (load unpacked)
 
-Works in any Chromium browser (**Chrome, Edge, Brave, Opera, Vivaldi**) and in
-**Firefox** (see the Firefox section below).
+Chrome MV3 and Firefox MV3 disagree on the `background` key (and a few others),
+so the extension ships as **two separate, self-contained folders** — one per
+browser family. Build them once:
 
-1. If the `dist/` folder isn't already here, build it once (see below).
+```bash
+npm run package:ext
+```
+
+That writes:
+
+| Folder | Load in |
+| --- | --- |
+| `extension/build/chromium/` | **Chrome, Edge, Brave, Opera, Vivaldi** |
+| `extension/build/firefox/`  | **Firefox 140+** (see the Firefox section) |
+
+Each folder is fully self-contained (its own tailored `manifest.json` plus
+copies of `dist/`, `icons/`, `fonts/`) and loads with **zero manifest warnings**
+in its target browser. `extension/build/` is gitignored — it's a build artifact.
+
+**Chromium:**
+
+1. Run `npm run package:ext` (needs the bundles + the two folders).
 2. Open the extensions page:
    - Chrome: `chrome://extensions`
    - Edge: `edge://extensions`
    - Brave: `brave://extensions`
 3. Turn on **Developer mode** (top-right in Chrome, left sidebar in Edge).
-4. Click **Load unpacked** and select this **`extension/`** folder.
+4. Click **Load unpacked** and select the **`extension/build/chromium/`** folder.
 5. Pin the Sparoww icon to your toolbar (puzzle-piece menu → pin).
 
 ### Use it
@@ -98,17 +116,23 @@ Run from the **repo root** (not this folder):
 
 ```bash
 npm install
-npm run build:ext
+npm run package:ext   # = build:ext, then assemble build/chromium + build/firefox
 ```
 
-That runs two bundles into `extension/dist/`:
+`build:ext` runs two bundles into `extension/dist/`:
 
 - `content.js` + `content.css` — the scanner (injected content script).
-- `background.js` — the MV3 service worker (toolbar toggle, open sign-in,
-  Sync-Host auth check, sign-out, cross-origin CSS fetch).
+- `background.js` — the MV3 background (a service worker on Chromium, an event
+  page on Firefox — same bundle; toolbar toggle, open sign-in, Sync-Host auth
+  check, sign-out, cross-origin CSS fetch).
 
-Re-run it after changing any scanner/background code, then hit **Reload** on the
-extension card. (Set the env in **Configuration** above first.)
+`package-ext.mjs` then copies `dist/` + `icons/` + `fonts/` into
+`build/chromium/` and `build/firefox/`, each with a browser-tailored
+`manifest.json` (see [How it works](#how-it-works)). Run `npm run build:ext`
+alone if you only need to refresh `dist/` while iterating.
+
+Re-run `npm run package:ext` after changing any scanner/background code, then hit
+**Reload** on the extension card. (Set the env in **Configuration** above first.)
 
 To regenerate the icons: `node extension/scripts/gen-icons.mjs`.
 
@@ -116,8 +140,20 @@ To regenerate the icons: `node extension/scripts/gen-icons.mjs`.
 
 ## How it works
 
-- **`manifest.json`** — MV3. Declares the content script (injected on every
-  page), the toolbar button, the fixed extension `key`, and the service worker.
+- **`manifest.json`** — MV3. The committed `extension/manifest.json` is the
+  shared **base** (content script, toolbar button, permissions, web-accessible
+  resources). `package-ext.mjs` clones it per target and rewrites only the keys
+  the two browsers disagree on:
+  - **Chromium** — `background.service_worker`; keeps the fixed extension `key`
+    and `minimum_chrome_version`; drops `browser_specific_settings` (Firefox-only).
+  - **Firefox** — `background.scripts` (Firefox runs an *event page*, never a
+    service worker); keeps `browser_specific_settings.gecko` (add-on id, min
+    version, the data-collection declaration AMO requires); drops `key` and
+    `minimum_chrome_version` (Chromium-only).
+
+  Splitting per target is why each folder loads with **no manifest warnings** —
+  a single shared manifest would always warn in one browser (Chrome rejects the
+  v2-only `background.scripts`; Firefox flags the Chromium-only keys).
 - **`dist/background.js`** — the service worker (built from `src/background.ts`).
   On toolbar click it sends `sparrow-toggle` to the active tab; it also opens the
   web app for sign-in, reads the synced Clerk session (Sync Host) and writes the
@@ -133,20 +169,15 @@ To regenerate the icons: `node extension/scripts/gen-icons.mjs`.
 
 ### Firefox
 
-The same folder loads in **Firefox 140+** — `manifest.json` is cross-browser:
+Firefox 140+ loads its own folder, **`extension/build/firefox/`** — same
+scanner/background bundles as Chromium, only the `manifest.json` differs (event
+page instead of a service worker; see [How it works](#how-it-works)).
 
-- `background` declares **both** `service_worker` (Chrome) and `scripts`
-  (Firefox); each browser picks its key and ignores the other.
-- `browser_specific_settings.gecko` supplies the add-on id
-  (`sparoww@trysparrowcss.com`), the minimum Firefox version, and the
-  data-collection declaration AMO requires. Chrome logs a harmless
-  "unrecognized key" warning for it (and Firefox does the same for `key` /
-  `minimum_chrome_version`).
-
-**Install (temporary):** open `about:debugging#/runtime/this-firefox` → **Load
-Temporary Add-on…** → pick this folder's `manifest.json`. Temporary add-ons are
-removed when Firefox closes; for a persistent install the extension must be
-signed by AMO (`web-ext sign`, or list it unlisted).
+**Install (temporary):** run `npm run package:ext`, then open
+`about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → pick
+`extension/build/firefox/manifest.json`. Temporary add-ons are removed when
+Firefox closes; for a persistent install the extension must be signed by AMO
+(`web-ext sign`, or list it unlisted).
 
 **Host permissions are opt-in on Firefox.** Unlike Chrome, Firefox does not
 grant `<all_urls>` at install. The toolbar button still works everywhere

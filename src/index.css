@@ -576,6 +576,16 @@ html {
 .uc-card:hover .uc-title { transform: translateZ(30px); }
 .uc-card:hover .uc-body { transform: translateZ(16px); }
 
+/* flat variant: no tilt, no lift, no parallax on hover */
+.uc-card--flat,
+.uc-card--flat:hover { transform: none; }
+.uc-card--flat:hover {
+  border-color: rgba(18, 17, 41, 0.08);
+  box-shadow: 0 1px 2px rgba(18, 17, 41, 0.06);
+}
+.uc-card--flat:hover .uc-title,
+.uc-card--flat:hover .uc-body { transform: none; }
+
 /* dark feature card of the bento grid: blue light-streak photo surface.
    The jpg is portrait with a bright cyan core — cover-cropping shows that
    core, so a scrim (heavier on the left, under the copy) keeps the white
@@ -1921,11 +1931,11 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
   overflow: hidden;
 }
 /* Signature blue→cyan hairline across the top, echoing the landing underline. */
-.ext-signin-dialog::before {
+/* .ext-signin-dialog::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(90deg, var(--color-sparrow-blue), #22d3ee);
-}
+} */
 .ext-signin-x { position: absolute; top: 14px; right: 14px; }
 .ext-signin-logo { display: block; margin: 0 auto 16px; }
 .ext-signin-dialog h3 {

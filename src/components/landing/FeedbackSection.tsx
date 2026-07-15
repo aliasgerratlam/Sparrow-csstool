@@ -55,7 +55,7 @@ const COLUMNS = [
 
 export function FeedbackSection() {
   return (
-    <section aria-labelledby="feedback-heading" className="pt-10 pb-16 md:pt-56 md:pb-24">
+    <section aria-labelledby="feedback-heading" className="pt-10 pb-16 md:pt-0 md:pb-24">
       <Container>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <div>

@@ -27,9 +27,11 @@ const USE_CASES = [
    hover) and inert under prefers-reduced-motion. */
 function TiltCard({
   className,
+  flat = false,
   children,
 }: {
   className?: string
+  flat?: boolean
   children: ReactNode
 }) {
   const ref = useRef<HTMLElement>(null)
@@ -55,9 +57,9 @@ function TiltCard({
   return (
     <article
       ref={ref}
-      className={cn('uc-card p-8', className)}
-      onPointerMove={onMove}
-      onPointerLeave={onLeave}
+      className={cn('uc-card p-8', flat && 'uc-card--flat', className)}
+      onPointerMove={flat ? undefined : onMove}
+      onPointerLeave={flat ? undefined : onLeave}
     >
       {children}
     </article>
@@ -95,6 +97,7 @@ export function UseCasesSection() {
             {USE_CASES.map((useCase, i) => (
               <TiltCard
                 key={useCase.title}
+                flat
                 className={cn(i === USE_CASES.length - 1 && 'sm:col-span-2')}
               >
                 <h3 className="uc-title font-abeezee text-xl font-semibold text-sparrow-ink">

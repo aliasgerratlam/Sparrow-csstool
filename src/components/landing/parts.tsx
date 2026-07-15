@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/format'
 import { useAppNavigate } from '@/context/navigation-context'
 import { Magnetic } from './Magnetic'
@@ -42,6 +42,7 @@ export function ArrowButton({
   glow = false,
   sparkle = false,
   magnetic = false,
+  loading = false,
   className,
   onClick,
 }: {
@@ -52,6 +53,7 @@ export function ArrowButton({
   glow?: boolean
   sparkle?: boolean
   magnetic?: boolean
+  loading?: boolean
   className?: string
   onClick?: () => void
 }) {
@@ -68,14 +70,21 @@ export function ArrowButton({
         ? 'bg-sparrow-blue btn-3d-blue'
         : 'bg-sparrow-ink btn-3d-dark',
     sparkle && 'cta-sparkle',
+    loading && 'pointer-events-none cursor-default',
     className,
   )
+  // While loading the trailing arrow becomes a spinner (falling back to a
+  // leading spinner when the button has no arrow) so the CTA reads as busy.
   const label = (
     <>
+      {loading && !arrow && <Loader2 className="size-5 animate-spin" />}
       {children}
-      {arrow && (
-        <ArrowUpRight className="size-5 transition-transform duration-200 ease-out group-hover:rotate-45" />
-      )}
+      {arrow &&
+        (loading ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : (
+          <ArrowUpRight className="size-5 transition-transform duration-200 ease-out group-hover:rotate-45" />
+        ))}
     </>
   )
   const inner = (
@@ -95,7 +104,7 @@ export function ArrowButton({
   // A click handler means this acts as a control (e.g. opening a modal), so
   // render a <button> to avoid the anchor jumping to '#'. Otherwise stay a link.
   const el = onClick ? (
-    <button type="button" onClick={onClick} className={classes}>
+    <button type="button" onClick={onClick} disabled={loading} className={classes}>
       {inner}
     </button>
   ) : (

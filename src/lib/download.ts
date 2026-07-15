@@ -54,6 +54,20 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** Download a static same-origin file by URL (no Blob/objectURL). Carries the
+ *  same `scanner-download-anchor` class so the scanner click-capture doesn't
+ *  cancel the download when the demo happens to be active. */
+export function triggerUrlDownload(url: string, filename: string): void {
+  const a = document.createElement('a')
+  a.className = 'scanner-download-anchor'
+  a.href = url
+  a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
 /** Extensionless URLs get their real extension from the response type. */
 function filenameFor(asset: SiteAsset, blob: Blob): string {
   if (asset.ext) return asset.filename

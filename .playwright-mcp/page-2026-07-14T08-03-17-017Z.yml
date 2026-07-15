@@ -1,0 +1,314 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - navigation "Primary" [ref=e5]:
+        - link "Sparrow home" [ref=e7] [cursor=pointer]:
+          - /url: "#home"
+          - img "Sparrow" [ref=e8]
+        - button "Open menu" [ref=e10]
+      - generic:
+        - list:
+          - listitem:
+            - link "Home":
+              - /url: "#home"
+          - listitem:
+            - link "How it works":
+              - /url: "#how-it-works"
+          - listitem:
+            - link "Features":
+              - /url: "#features"
+          - listitem:
+            - link "Pricing":
+              - /url: "#pricing"
+          - listitem:
+            - link "FAQ":
+              - /url: "#faq"
+          - listitem:
+            - link "Contact":
+              - /url: mailto:hello@trysparrowcss.com
+          - listitem:
+            - button "Sign in"
+    - main [ref=e12]:
+      - generic [ref=e13]:
+        - generic:
+          - heading "Everything you need to understand any website" [level=1] [ref=e14]:
+            - text: Everything you need to
+            - generic [ref=e15]: understand
+            - text: any website
+          - paragraph [ref=e16]: Inspect CSS, annotate pages, collaborate live, extract colors, fonts and assets—all from one lightweight browser extension built for developers, designers, and agencies.
+          - button "Add Sparrow to your browser" [ref=e18] [cursor=pointer]
+      - region [ref=e22]:
+        - generic [ref=e23]:
+          - heading "Install it once. Use it everywhere." [level=2] [ref=e24]
+          - generic [ref=e25]:
+            - article [ref=e26]:
+              - generic [ref=e27]:
+                - heading "Add Sparrow to your browser" [level=3] [ref=e29]
+                - paragraph [ref=e30]: Install the extension in seconds and pin it to your toolbar. You can start inspecting right away no setup, no configuration.
+              - img "Preview" [ref=e31]
+            - article [ref=e33]:
+              - generic [ref=e34]:
+                - heading "Open it on any webpage" [level=3] [ref=e36]
+                - paragraph [ref=e37]: Click the Sparrow icon on any site production, staging, or localhost and the full toolkit appears as an overlay.
+            - article [ref=e38]:
+              - generic [ref=e39]:
+                - heading "Inspect, annotate & measure" [level=3] [ref=e41]
+                - paragraph [ref=e42]: Switch between Inspect, Annotate, Ruler, Colors, Fonts, and Assets from one rail. Everything happens, so you never lose context.
+      - region [ref=e43]:
+        - heading "Features" [level=2] [ref=e44]
+        - generic [ref=e45]:
+          - article [ref=e46]:
+            - generic [ref=e47]:
+              - heading "Inspect any element. Understand every style." [level=3] [ref=e48]
+              - paragraph [ref=e49]: Hover over anything on a page and Sparrow shows you the CSS that actually shaped it the full css, DevTools-style, with overridden rules struck through and the winning declaration on top. If the site uses Tailwind, Sparrow detects it and shows the utility classes separately, ready to copy.
+              - list [ref=e50]:
+                - listitem [ref=e51]:
+                  - generic [ref=e54]: The real CSS, media queries, states, and pseudo-elements included
+                - listitem [ref=e55]:
+                  - generic [ref=e58]: Tailwind classes detected and copyable in one click
+                - listitem [ref=e59]:
+                  - generic [ref=e62]: Dimensions, font, and colors summarized at a glance
+                - listitem [ref=e63]:
+                  - generic [ref=e66]: Copy clean, ready-to-paste CSS for any element
+                - listitem [ref=e67]:
+                  - generic [ref=e70]: Freeze any selection and browse its full DOM path
+                - listitem [ref=e71]:
+                  - generic [ref=e74]: Multiple color formats
+            - generic "Product preview" [ref=e76]
+          - article [ref=e77]:
+            - generic [ref=e78]:
+              - heading "Feedback that lives on the page." [level=3] [ref=e79]
+              - paragraph [ref=e80]: Drop a numbered pin on the exact element you're talking about, write your comment, and share one link. Everyone who opens it sees your notes in context and can reply, resolve, and collaborate live, cursors and all.
+              - list [ref=e81]:
+                - listitem [ref=e82]:
+                  - generic [ref=e85]: Pin comments to exact elements no screenshots needed
+                - listitem [ref=e86]:
+                  - generic [ref=e89]: Threaded replies with Open / Resolved statuses
+                - listitem [ref=e90]:
+                  - generic [ref=e93]: One share link puts your whole team on the same page
+                - listitem [ref=e94]:
+                  - generic [ref=e97]: Live collabrations show who’s reviewing what
+                - listitem [ref=e98]:
+                  - generic [ref=e101]: Client mode lets reviewers comment without touching your notes
+            - generic "Product preview" [ref=e103]
+          - article [ref=e104]:
+            - generic [ref=e105]:
+              - heading "Measure spacing to the pixel." [level=3] [ref=e106]
+              - paragraph [ref=e107]: Click any element to anchor it, then hover anywhere else Sparrow draws the exact distance between them, with alignment guides projected across the whole viewport so misaligned layouts have nowhere to hide.
+              - list [ref=e108]:
+                - listitem [ref=e109]:
+                  - generic [ref=e112]: Measure the gap between any two elements
+                - listitem [ref=e113]:
+                  - generic [ref=e116]: Alignment guides reveal what lines up — and what doesn’t
+                - listitem [ref=e117]:
+                  - generic [ref=e120]: Visual QA without opening a design file
+            - generic "Product preview" [ref=e122]
+          - article [ref=e123]:
+            - generic [ref=e124]:
+              - heading "Discover every color, Rebrand any website in seconds." [level=3] [ref=e125]
+              - paragraph [ref=e126]: Sparrow scans the entire page and lists every color it paints, sorted by how much it's used. Click one to highlight everywhere it appears or swap it site wide to preview a rebrand in seconds. Copy any value as HEX, RGBA, or HSL.
+              - list [ref=e127]:
+                - listitem [ref=e128]:
+                  - generic [ref=e131]: The full palette with usage percentages and element counts
+                - listitem [ref=e132]:
+                  - generic [ref=e135]: Highlight every element using a given color
+                - listitem [ref=e136]:
+                  - generic [ref=e139]: Recolor the whole site live, then reset with one click
+                - listitem [ref=e140]:
+                  - generic [ref=e143]: Copy values in HEX, RGBA, or HSL
+            - generic "Product preview" [ref=e145]
+          - article [ref=e146]:
+            - generic [ref=e147]:
+              - heading "Try any font on a live website." [level=3] [ref=e148]
+              - paragraph [ref=e149]: Audit every typeface a page uses, then preview a replacement instantly pick from about 1,900 Google Fonts or upload your own brand font. Swap the whole site or a single element; sizes, weights, and spacing stay exactly as they were.
+              - list [ref=e150]:
+                - listitem [ref=e151]:
+                  - generic [ref=e154]: Every font on the page, with usage stats
+                - listitem [ref=e155]:
+                  - generic [ref=e158]: Search the full Google Fonts catalog with live previews
+                - listitem [ref=e159]:
+                  - generic [ref=e162]: Upload your own .ttf, .otf, .woff, or .woff2. it never leaves your browser
+                - listitem [ref=e163]:
+                  - generic [ref=e166]: Swap site-wide or one element at a time, and reset anytime
+            - generic "Product preview" [ref=e168]
+          - article [ref=e169]:
+            - generic [ref=e170]:
+              - heading "Every asset, Ready to download." [level=3] [ref=e171]
+              - paragraph [ref=e172]: Sparrow finds every image, SVG, and video a page uses including background images, favicons, and inline SVG that right click can't save. Download a single asset, or grab everything at once as a ZIP.
+              - list [ref=e173]:
+                - listitem [ref=e174]:
+                  - generic [ref=e177]: Finds images, SVGs, and videos even in CSS backgrounds
+                - listitem [ref=e178]:
+                  - generic [ref=e181]: Filter by type, see dimensions and usage counts
+                - listitem [ref=e182]:
+                  - generic [ref=e185]: Download one file or the whole page as a ZIP
+            - generic "Product preview" [ref=e187]
+      - region [ref=e188]:
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - heading "Design review without the screenshot circus." [level=2] [ref=e192]
+              - paragraph [ref=e193]: Send your client one link instead of asking them to describe a bug over email. They click the element, write what's wrong, and you get feedback pinned to the exact spot on the exact page with element context attached, ready to act on or hand to your team.
+            - generic "Feedback preview" [ref=e194]
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - heading "Comments with coordinates" [level=3] [ref=e198]
+              - paragraph [ref=e199]: Every note is anchored to a real element on the real page. No more 'the button on the left, no, the other left' the pin is the location.
+            - generic [ref=e200]:
+              - heading "Safe for clients, structured for you" [level=3] [ref=e201]
+              - paragraph [ref=e202]: "Reviewers join in Client Mode: they can comment, reply, and mark items resolved, but they can't edit or delete your work. You keep a searchable review list with open/resolved counts."
+            - generic [ref=e203]:
+              - heading "Works where your work lives" [level=3] [ref=e204]
+              - paragraph [ref=e205]: Production sites, staging environments, localhost previews. Sparrow runs on all of them without touching your code or your deploy pipeline.
+      - region [ref=e206]:
+        - generic [ref=e207]:
+          - heading "One toolkit, four jobs done." [level=2] [ref=e208]
+          - paragraph [ref=e209]: Sparrow replaces a handful of single-purpose extensions with one overlay that stays out of your way.
+          - generic [ref=e210]:
+            - article [ref=e211]:
+              - heading "Frontend developers" [level=3] [ref=e212]
+              - paragraph [ref=e213]: "Debug styles faster than DevTools for everyday questions: what's this font, why is this margin off, which rule wins? Copy the CSS or Tailwind classes and get back to your editor."
+            - generic [ref=e214]:
+              - article [ref=e215]:
+                - heading "Designers" [level=3] [ref=e216]
+                - paragraph [ref=e217]: Reverse-engineer interfaces you admire. Extract the palette with real usage data, identify every typeface, test your own fonts on a live page, and pull assets for your moodboard.
+              - article [ref=e218]:
+                - heading "Agencies & freelancers" [level=3] [ref=e219]
+                - paragraph [ref=e220]: Turn client feedback from vague emails into pinned, threaded, resolvable comments on the live site. Share one link, watch the review happen in real time, and close items as you ship.
+              - article [ref=e221]:
+                - heading "QA & product teams" [level=3] [ref=e222]
+                - paragraph [ref=e223]: Report visual bugs where they happen. Measure spacing against spec, flag misalignments with the ruler, and file annotations your developers can find without a repro guide.
+      - region [ref=e224]:
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - heading "Start free. Upgrade when it pays for itself." [level=2] [ref=e227]
+            - group "Billing period" [ref=e228]:
+              - button "monthly" [ref=e229] [cursor=pointer]
+              - button "yearly" [pressed] [ref=e230] [cursor=pointer]
+          - generic [ref=e231]:
+            - article [ref=e232]:
+              - heading "Free" [level=3] [ref=e233]
+              - paragraph [ref=e234]: Everything you need to start inspecting.
+              - generic [ref=e235]:
+                - generic [ref=e236]: $0
+                - generic [ref=e237]: free forever
+              - separator [ref=e238]
+              - paragraph [ref=e239]: What's Included
+              - list [ref=e240]:
+                - listitem [ref=e241]:
+                  - generic [ref=e244]: Full CSS inspector with cascade view
+                - listitem [ref=e245]:
+                  - generic [ref=e248]: Ruler with alignment guides
+                - listitem [ref=e249]:
+                  - generic [ref=e252]: 3 annotations per site per day
+                - listitem [ref=e253]:
+                  - generic [ref=e256]: Website color overview
+              - button "Start for free" [ref=e257] [cursor=pointer]
+            - article [ref=e261]:
+              - heading "Pro" [level=3] [ref=e262]
+              - paragraph [ref=e263]: The complete toolkit for daily design work.
+              - generic [ref=e264]:
+                - generic [ref=e265]: $90
+                - generic [ref=e266]: per year
+              - separator [ref=e267]
+              - paragraph [ref=e268]: What's Included
+              - list [ref=e269]:
+                - listitem [ref=e270]:
+                  - generic [ref=e273]: Everything in Free
+                - listitem [ref=e274]:
+                  - generic [ref=e277]: 10 annotations per site per day
+                - listitem [ref=e278]:
+                  - generic [ref=e281]: Multiple color format toggle
+                - listitem [ref=e282]:
+                  - generic [ref=e285]: Site-wide color swapping
+                - listitem [ref=e286]:
+                  - generic [ref=e289]: Font testing Google Fonts + your own uploads
+                - listitem [ref=e290]:
+                  - generic [ref=e293]: Asset downloads, single or ZIP
+                - listitem [ref=e294]:
+                  - generic [ref=e297]: Multiple color formats support
+                - listitem [ref=e298]:
+                  - generic [ref=e301]: Priority support
+              - button "Go Pro" [ref=e302] [cursor=pointer]
+            - article [ref=e306]:
+              - heading "Max" [level=3] [ref=e307]
+              - paragraph [ref=e308]: No limits, for teams that review every day.
+              - generic [ref=e309]:
+                - generic [ref=e310]: $190
+                - generic [ref=e311]: per year
+              - separator [ref=e312]
+              - paragraph [ref=e313]: What's Included
+              - list [ref=e314]:
+                - listitem [ref=e315]:
+                  - generic [ref=e318]: Everything in Pro
+                - listitem [ref=e319]:
+                  - generic [ref=e322]: Unlimited annotations
+                - listitem [ref=e323]:
+                  - generic [ref=e326]: Unlimited client review links
+                - listitem [ref=e327]:
+                  - generic [ref=e330]: Priority support
+              - button "Go Max" [ref=e331] [cursor=pointer]
+      - region [ref=e335]:
+        - generic [ref=e336]:
+          - heading "Questions? Answered." [level=2] [ref=e337]
+          - generic [ref=e338]:
+            - generic [ref=e339]:
+              - button "What exactly is Sparrow?" [expanded] [ref=e340]
+              - paragraph [ref=e345]: Sparrow is a browser extension that overlays a design toolkit on any webpage. You can inspect the CSS behind any element, measure spacing, extract colors, fonts, and assets, and pin feedback directly on the live page all without opening DevTools or taking a single screenshot.
+            - generic [ref=e346]:
+              - button "Do I need a technical background to use it?" [ref=e347]
+              - paragraph [ref=e350]: "No. Designers and clients use Sparrow without writing any code hovering shows you fonts, colors, and sizes in plain terms, and leaving feedback is just click and type. Developers get the deeper layers too: the full CSS cascade, Tailwind class detection, and copy-ready code."
+            - generic [ref=e351]:
+              - button "Is there a free plan?" [ref=e352]
+              - paragraph [ref=e355]: Yes, and it doesn't expire. Free includes the full CSS inspector, the ruler, the website color overview, and 3 annotations per site per day. Paid plans add site-wide color and font swapping, asset downloads, color format switching, and higher annotation limits.
+            - generic [ref=e356]:
+              - button "How much does a paid plan cost?" [ref=e357]
+              - paragraph [ref=e360]: Pro is $9/month ($90/year) and unlocks site-wide color and font swapping, asset downloads, color format switching, and 10 annotations per site per day. Max is $19/month ($190/year) and adds unlimited annotations and unlimited client review links. Paying yearly works out to two months free versus monthly.
+            - generic [ref=e361]:
+              - button "Can I upgrade, downgrade, or cancel anytime?" [ref=e362]
+              - paragraph [ref=e365]: Yes. You can switch between Free, Pro, and Max whenever you like, and manage everything — invoices, payment methods, cancellations — from your account portal. If you cancel, you keep your paid features until the end of the billing period you've already paid for, then drop back to Free automatically.
+            - generic [ref=e366]:
+              - button "What happens to my annotations if I hit the plan limit?" [ref=e367]
+              - paragraph [ref=e370]: Annotation limits are per site and reset every 24 hours (3 a day on Free, 10 on Pro, unlimited on Max). Reaching the limit only pauses adding new pins on that site for the day, your existing annotations are always saved and stay fully editable and shareable.
+            - generic [ref=e371]:
+              - button "Will Sparrow change or break the websites I use it on?" [ref=e372]
+              - paragraph [ref=e375]: Never. Everything Sparrow does — including recoloring a page or swapping its fonts is a local preview that only you see. The real website is untouched, and one click resets any experiment.
+            - generic [ref=e376]:
+              - button "How does sharing feedback work?" [ref=e377]
+              - paragraph [ref=e380]: Pin your comments, click Share, and send the link. Anyone who opens it sees your annotations in place on the page and can reply or resolve items with live cursors when you're reviewing together. Share links expire after 3 days for safety, but your annotations are saved and you can mint a fresh link anytime.
+            - generic [ref=e381]:
+              - button "Can clients mess up my annotations?" [ref=e382]
+              - paragraph [ref=e385]: "No. People who join through your link enter Client Mode: they can comment, reply, and change an item's status, but they can't edit or delete your notes."
+            - generic [ref=e386]:
+              - button "Which sites and environments does it work on?" [ref=e387]
+              - paragraph [ref=e390]: "Any page your browser can open: live production sites, staging environments, and localhost. There's nothing to install on the website itself."
+            - generic [ref=e391]:
+              - button "Does it understand Tailwind CSS?" [ref=e392]
+              - paragraph [ref=e395]: Yes, When an element is styled with Tailwind utilities, Sparrow shows the class list separately from the rest of the CSS and lets you copy the classes in one click.
+            - generic [ref=e396]:
+              - button "I want to test my own brand font. Is uploading it safe?" [ref=e397]
+              - paragraph [ref=e400]: Yes, uploaded fonts are registered directly in your browser and are never sent to a server. They apply for your current session only.
+    - generic [ref=e401]:
+      - region [ref=e402]:
+        - generic [ref=e404]:
+          - heading "Stop guessing what's on the page. Start knowing." [level=2] [ref=e405]
+          - button "Add Sparrow — it's free" [ref=e407] [cursor=pointer]
+      - contentinfo [ref=e411]:
+        - generic [ref=e413]:
+          - generic [ref=e414]:
+            - generic [ref=e415]:
+              - img "Sparrow" [ref=e417]
+              - generic [ref=e418]: Sparrow
+            - paragraph [ref=e419]: Inspect anything.Explain everything.
+          - generic [ref=e420]:
+            - navigation "Footer" [ref=e421]:
+              - button "Install" [ref=e422] [cursor=pointer]
+              - link "Features" [ref=e423] [cursor=pointer]:
+                - /url: "#features"
+              - link "Pricing" [ref=e424] [cursor=pointer]:
+                - /url: "#pricing"
+              - link "FAQ" [ref=e425] [cursor=pointer]:
+                - /url: "#faq"
+            - paragraph [ref=e426]: © 2026 Sparrow. All rights reserved.
+        - generic: Sparrow
+  - region "Notifications alt+T"

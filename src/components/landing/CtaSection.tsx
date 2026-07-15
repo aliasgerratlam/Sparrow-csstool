@@ -1,8 +1,8 @@
-import { useScanner } from '@/context/scanner-context'
+import { useExtensionDownload } from '@/hooks/use-extension-download'
 import { ArrowButton, Container } from './parts'
 
 export function CtaSection() {
-  const { enable } = useScanner()
+  const { downloading, download } = useExtensionDownload()
   return (
     <section
       aria-labelledby="cta-heading"
@@ -23,15 +23,9 @@ export function CtaSection() {
             Stop guessing what's on the page. Start knowing.
           </h2>
           <div className="mt-8 flex justify-center">
-            {/* No published extension yet — runs the in-page demo. */}
-            <ArrowButton
-              variant="blue"
-              onClick={() => {
-                enable()
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }}
-            >
-              Add Sparrow — it's free
+            {/* Downloads the built extension zip for the visitor's browser. */}
+            <ArrowButton variant="blue" onClick={download} loading={downloading}>
+              {downloading ? 'Downloading…' : "Add Sparrow — it's free"}
             </ArrowButton>
           </div>
         </div>

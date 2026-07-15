@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { ScannerProvider, useScanner } from '@/context/scanner-context'
+import { NavigationProvider } from '@/context/navigation-context'
 import {
   AnnotationUIProvider,
   useAnnotationUI,
@@ -16,6 +17,7 @@ import { store } from '@/hooks/use-annotations'
 import { ExtensionAuthProvider } from './ExtensionAuthProvider'
 import { ExtensionSubscriptionProvider } from './ExtensionSubscriptionProvider'
 import { SignInGate } from './SignInGate'
+import { MSG_OPEN_ACCOUNT } from './auth-bridge'
 import '@/index.css'
 
 /* Annotations are gated behind sign-in in the extension, so — unlike the web
@@ -78,6 +80,29 @@ function SessionBootEffect() {
   return null
 }
 
+/* Routes in-app navigation (e.g. the UserMenu's "Account" link) to the web app.
+   The content script has no router and its window IS the host page's, so the
+   default useAppNavigate() fallback (window.location.href = '/account') would
+   navigate the host site — not Sparrow. Instead, ask the background worker to
+   open the web app's page in a new tab. */
+function ExtNavigationProvider({ children }: { children: ReactNode }) {
+  const navigate = useCallback((to: string) => {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+        chrome.runtime.sendMessage(
+          { type: MSG_OPEN_ACCOUNT, path: to },
+          () => {
+            void chrome.runtime.lastError
+          },
+        )
+      }
+    } catch {
+      /* extension context invalidated — nothing to navigate. */
+    }
+  }, [])
+  return <NavigationProvider navigate={navigate}>{children}</NavigationProvider>
+}
+
 /** Handle the content script uses to drive the scanner from the toolbar button. */
 export interface ExtApi {
   toggle: () => void
@@ -119,15 +144,17 @@ export function ExtensionApp({
           <AnnotationUIProvider>
             <CollabProvider>
               <PortalContainerProvider container={portalContainer}>
-                <ExtBridge api={api} />
-                <SessionBootEffect />
-                <AnnotationAuthSync />
-                <AuthAuthorSync />
-                <AnnotationLimitSync />
-                <Scanner />
-                <SignInGate />
-                <Overlays />
-                <AnnotationLayer />
+                <ExtNavigationProvider>
+                  <ExtBridge api={api} />
+                  <SessionBootEffect />
+                  <AnnotationAuthSync />
+                  <AuthAuthorSync />
+                  <AnnotationLimitSync />
+                  <Scanner />
+                  <SignInGate />
+                  <Overlays />
+                  <AnnotationLayer />
+                </ExtNavigationProvider>
               </PortalContainerProvider>
             </CollabProvider>
           </AnnotationUIProvider>

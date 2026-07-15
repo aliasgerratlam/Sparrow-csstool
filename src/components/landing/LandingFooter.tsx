@@ -1,4 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
+import { useExtensionDownload } from '@/hooks/use-extension-download'
 import { Wordmark } from './Wordmark'
 import { Container } from './parts'
 
@@ -8,15 +10,13 @@ const NAV = [
   { label: 'FAQ', href: '#faq' },
 ]
 
-/* `onInstall` runs the in-page demo when the footer is mounted on a page that
-   carries the scanner (the landing/index page passes it). Without it — e.g. on
-   the account page, which has no scanner — the button instead sends the user to
-   the index where the demo lives, so the footer stays context-free and safe to
-   render anywhere. */
-export function LandingFooter({ onInstall }: { onInstall?: () => void }) {
+/* The footer is rendered on the landing/index page and on /account; the Install
+   button downloads the built extension zip (a same-origin static file), so it
+   works the same on any page without needing the scanner. */
+export function LandingFooter() {
   const navigate = useNavigate()
   const onAccount = useLocation().pathname.startsWith('/account')
-  const handleInstall = onInstall ?? (() => navigate('/'))
+  const { downloading, download } = useExtensionDownload()
 
   // Same-page: smooth-scroll to the section. On /account (no sections): navigate
   // client-side to the landing page and let RouterBridge scroll there.
@@ -46,13 +46,15 @@ export function LandingFooter({ onInstall }: { onInstall?: () => void }) {
               aria-label="Footer"
               className="flex flex-wrap items-center gap-x-8 gap-y-3"
             >
-              {/* No published extension yet — the install link runs the demo. */}
+              {/* Downloads the built extension zip for the visitor's browser. */}
               <button
                 type="button"
-                onClick={handleInstall}
-                className="cursor-pointer font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
+                onClick={download}
+                disabled={downloading}
+                className="inline-flex cursor-pointer items-center gap-1.5 font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white disabled:cursor-default"
               >
-                Install
+                {downloading && <Loader2 className="size-3.5 animate-spin" />}
+                {downloading ? 'Downloading…' : 'Install'}
               </button>
               {NAV.map((item) => (
                 <a

@@ -8,7 +8,8 @@
     "build": "node scripts/check-web-env.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "build:ext": "vite build --config extension/vite.config.ts && vite build --config extension/vite.background.config.ts"
+    "build:ext": "vite build --config extension/vite.config.ts && vite build --config extension/vite.background.config.ts",
+    "package:ext": "npm run build:ext && node extension/scripts/package-ext.mjs"
   },
   "dependencies": {
     "@clerk/chrome-extension": "^2.9.20",

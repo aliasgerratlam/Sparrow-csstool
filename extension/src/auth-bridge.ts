@@ -25,6 +25,10 @@ export const MSG_OPEN_SIGNIN = 'sparrow-open-signin'
 export const MSG_SIGNOUT = 'sparrow-signout'
 /** Ask the background to re-read the synced web-app session and update the snapshot. */
 export const MSG_CHECK_AUTH = 'sparrow-check-auth'
+/** Open a web-app page (default `/account`) in a NEW TAB. The content script has
+    no router and shares the host page's window, so it can't navigate in-app —
+    the background opens the deployed web app instead. Payload may carry `path`. */
+export const MSG_OPEN_ACCOUNT = 'sparrow-open-account'
 
 /* Loosely-typed view of Clerk's UserResource — enough to build an AuthSnapshot
    in the background worker without importing the React auth-context (which would

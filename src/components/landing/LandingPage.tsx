@@ -1,4 +1,3 @@
-import { useScanner } from '@/context/scanner-context'
 import { LandingHeader } from './LandingHeader'
 import { Hero } from './Hero'
 import { StepsSection } from './StepsSection'
@@ -15,7 +14,6 @@ import footerGradient from '@/assets/footer-gradient.svg'
    This is the app's index ("/"). The scanner/annotation chrome is mounted
    alongside it (see App.tsx) so the hero "Try Demo" CTA inspects this page. */
 export function LandingPage() {
-  const { enable } = useScanner()
   return (
     <div className="min-h-screen bg-sparrow-cream font-abeezee text-sparrow-ink antialiased">
       <LandingHeader />
@@ -43,12 +41,7 @@ export function LandingPage() {
           }}
         />
         <CtaSection />
-        <LandingFooter
-          onInstall={() => {
-            enable()
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-        />
+        <LandingFooter />
       </div>
     </div>
   )

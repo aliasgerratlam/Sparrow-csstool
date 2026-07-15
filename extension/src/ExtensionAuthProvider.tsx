@@ -12,6 +12,7 @@ import {
   MSG_OPEN_SIGNIN,
   MSG_SIGNOUT,
   readAuthSnapshot,
+  SIGNED_OUT,
   type AuthSnapshot,
 } from './auth-bridge'
 
@@ -107,6 +108,11 @@ export function ExtensionAuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(
     () =>
       new Promise<void>((resolve) => {
+        // Close the local gate immediately so the tool logs out at once — even
+        // if the worker is asleep, the message is dropped, or the storage
+        // onChanged event never lands. The background still ends the shared
+        // Clerk session; this just guarantees the UI reflects the sign-out.
+        setSnapshot(SIGNED_OUT)
         if (!contextAlive()) return resolve()
         try {
           chrome.runtime.sendMessage({ type: MSG_SIGNOUT }, () => {

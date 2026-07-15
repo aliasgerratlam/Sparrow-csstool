@@ -16,6 +16,7 @@ import { AUTH_PROMPT_PARAM, type AuthPromptMode } from '@/lib/clerk'
 import {
   AUTH_STORAGE_KEY,
   MSG_CHECK_AUTH,
+  MSG_OPEN_ACCOUNT,
   MSG_OPEN_SIGNIN,
   MSG_SIGNOUT,
   SIGNED_OUT,
@@ -119,6 +120,16 @@ function openSignIn(mode?: AuthPromptMode) {
   void chrome.tabs.create({ url: url.toString() })
 }
 
+/* Open a web-app page in a new tab. The content script can't navigate in-app
+   (no router, and its window is the host page's), so account/profile links are
+   routed here. Defaults to /account; only same-app absolute paths are honoured. */
+function openWebApp(path?: string) {
+  const base = WEB_APP_URL.replace(/\/+$/, '')
+  const p =
+    typeof path === 'string' && path.startsWith('/') ? path : '/account'
+  void chrome.tabs.create({ url: `${base}${p}` })
+}
+
 // Build a synced Clerk client that reads the web app's session. Returns null if
 // unconfigured or the sync fails (treated as signed-out).
 async function loadSyncedClerk() {
@@ -194,13 +205,81 @@ async function checkAuth() {
   await writeAuthSnapshot(snapshot)
 }
 
+/* Registrable base domain of a host, so cookie clears cover the app origin AND
+   Clerk's FAPI subdomain (e.g. clerk.trysparrowcss.com). Simple last-two-labels
+   heuristic — fine for our own single-level TLD sync host; `localhost` and bare
+   domains pass through unchanged. */
+function baseDomain(host: string): string {
+  const parts = host.split('.')
+  return parts.length <= 2 ? host : parts.slice(-2).join('.')
+}
+
+/* Sync Host is READ-ONLY by design: clerk.signOut() ends the EXTENSION's view of
+   the session but deliberately leaves the website's cookies intact, so the site
+   stays signed in. To log the user out everywhere, clear Clerk's session cookies
+   on the sync-host domain (and its FAPI subdomain) ourselves — the website's
+   Clerk instance then revalidates and signs out. Best-effort: on Firefox without
+   granted host permissions there's no cookie access, so this is a no-op. */
+async function clearSyncHostSession() {
+  try {
+    const domain = baseDomain(new URL(SYNC_HOST).hostname)
+    const cookies = await chrome.cookies.getAll({ domain })
+    await Promise.all(
+      cookies
+        .filter(
+          (c) =>
+            c.name === '__session' ||
+            c.name.startsWith('__client') ||
+            c.name.startsWith('__clerk'),
+        )
+        .map((c) => {
+          const cookieDomain = c.domain.replace(/^\./, '')
+          const url = `${c.secure ? 'https' : 'http'}://${cookieDomain}${c.path}`
+          return chrome.cookies.remove({
+            url,
+            name: c.name,
+            storeId: c.storeId,
+          })
+        }),
+    )
+  } catch {
+    /* no cookie access (e.g. Firefox without host permissions) — best effort. */
+  }
+}
+
+/* Reload any open sync-host (website) tabs so the sign-out shows IMMEDIATELY.
+   Clerk on the site otherwise only revalidates on focus/refresh, so a tab left
+   in the background would keep showing the signed-in UI until manually reloaded.
+   Cookies are already cleared by the time this runs, so the reload loads a
+   signed-out page. Best-effort: needs host access (Chrome has it; Firefox only
+   after the permission grant). */
+async function reloadSyncHostTabs() {
+  try {
+    const bd = baseDomain(new URL(SYNC_HOST).hostname)
+    const tabs = await chrome.tabs.query({
+      url: [`*://${bd}/*`, `*://*.${bd}/*`],
+    })
+    await Promise.all(
+      tabs.map((t) =>
+        t.id != null ? chrome.tabs.reload(t.id) : Promise.resolve(),
+      ),
+    )
+  } catch {
+    /* no tab/host access — the site updates on its next focus instead. */
+  }
+}
+
 async function signOut() {
   try {
     const clerk = await loadSyncedClerk()
     await clerk?.signOut()
   } catch {
-    // Even if Clerk sign-out fails, still close the local gate below.
+    // Even if Clerk sign-out fails, still clear cookies + close the gate below.
   }
+  // Force the website to sign out too (Sync Host won't clear its cookies for us),
+  // then reload its open tabs so the logout is visible without a manual refresh.
+  await clearSyncHostSession()
+  await reloadSyncHostTabs()
   await chrome.storage.local.set({ [AUTH_STORAGE_KEY]: SIGNED_OUT })
 }
 
@@ -208,6 +287,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg) return
   if (msg.type === MSG_OPEN_SIGNIN) {
     openSignIn(msg.mode as AuthPromptMode | undefined)
+    return
+  }
+  if (msg.type === MSG_OPEN_ACCOUNT) {
+    openWebApp(msg.path as string | undefined)
     return
   }
   if (msg.type === MSG_CHECK_AUTH) {
