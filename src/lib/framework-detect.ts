@@ -103,7 +103,7 @@ function compute(): Framework {
   const root = document.body
   if (root) {
     let scanned = 0
-    for (const el of Array.from(root.querySelectorAll('*'))) {
+    for (const el of root.querySelectorAll('*')) {
       if (el.closest(CHROME_SELECTOR)) continue // skip our own UI (mandatory)
       const list = el.classList
       if (list && list.length) {

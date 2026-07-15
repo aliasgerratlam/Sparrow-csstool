@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Search, Trash2, Upload } from 'lucide-react'
 import {
   addCustomFont,
@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   monospace: 'Monospace',
 }
 
-function PickerRow({
+const PickerRow = memo(function PickerRow({
   font,
   top,
   active,
@@ -74,11 +74,11 @@ function PickerRow({
       )}
     </button>
   )
-}
+})
 
 /* One uploaded font: pickable like a catalog row, with a remove button. The
    family is already registered via FontFace, so the label renders in it. */
-function CustomFontRow({
+const CustomFontRow = memo(function CustomFontRow({
   font,
   active,
   disabled,
@@ -118,7 +118,7 @@ function CustomFontRow({
       </button>
     </div>
   )
-}
+})
 
 /* "Your fonts": upload button + the uploaded-font rows. Reads the shared
    custom-fonts store so every picker instance shows the same list. */

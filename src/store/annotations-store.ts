@@ -339,10 +339,6 @@ export function setAnnotationLimit(limit: number): void {
   notify() // re-render quota-aware UI; do NOT emit (no data changed)
 }
 
-export function getAnnotationLimit(): number {
-  return annotationLimit
-}
-
 /** Whether the author may add another annotation on this domain right now. */
 export function canAddAnnotation(): boolean {
   return role === 'author' && canCreate(currentDomain(), annotationLimit)

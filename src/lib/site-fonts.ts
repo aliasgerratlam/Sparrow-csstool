@@ -69,7 +69,7 @@ export function scanSiteFonts(): SiteFont[] {
   const buckets = new Map<string, Bucket>()
   let totalElements = 0
 
-  for (const el of Array.from(root.querySelectorAll('*'))) {
+  for (const el of root.querySelectorAll('*')) {
     if (el.closest(CHROME_SELECTOR)) continue
     let cs: CSSStyleDeclaration
     try {

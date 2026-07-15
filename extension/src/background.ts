@@ -205,6 +205,19 @@ async function checkAuth() {
   await writeAuthSnapshot(snapshot)
 }
 
+// A single sign-in/out rewrites several __session*/__client* cookies in a quick
+// burst; coalesce them so we build one Clerk client + one live-plan fetch per
+// burst instead of one per cookie. The worker stays alive well past this window
+// (the cookie event woke it), so the short timer fires reliably.
+let cookieAuthTimer: ReturnType<typeof setTimeout> | undefined
+function checkAuthDebounced() {
+  if (cookieAuthTimer) clearTimeout(cookieAuthTimer)
+  cookieAuthTimer = setTimeout(() => {
+    cookieAuthTimer = undefined
+    void checkAuth()
+  }, 300)
+}
+
 /* Registrable base domain of a host, so cookie clears cover the app origin AND
    Clerk's FAPI subdomain (e.g. clerk.trysparrowcss.com). Simple last-two-labels
    heuristic — fine for our own single-level TLD sync host; `localhost` and bare
@@ -316,6 +329,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 chrome.cookies.onChanged.addListener((change) => {
   const name = change.cookie?.name ?? ''
   if (name.startsWith('__session') || name.startsWith('__client')) {
-    void checkAuth()
+    checkAuthDebounced()
   }
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useScanner } from '@/context/scanner-context'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import { useAnnotations, useRole, store } from '@/hooks/use-annotations'
@@ -38,10 +38,12 @@ export function PinLayer() {
 
   // Open annotations only — resolved ones live in the review list. Numbering is
   // creation-ordered (displayNumbers) so every collaborator sees the same "#4".
-  const numbers = store.displayNumbers(items)
-  const openItems: { ann: Annotation; num: number }[] = items
-    .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
-    .filter((x) => x.ann.status !== 'Resolved')
+  const openItems: { ann: Annotation; num: number }[] = useMemo(() => {
+    const numbers = store.displayNumbers(items)
+    return items
+      .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
+      .filter((x) => x.ann.status !== 'Resolved')
+  }, [items])
 
   const measure = useCallback(() => {
     raf.current = 0

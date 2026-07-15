@@ -138,8 +138,25 @@ export function scanSiteColors(): ColorCategory[] {
   const buckets = new Map<string, Bucket>()
   let totalUsages = 0
 
-  const all = Array.from(root.querySelectorAll('*'))
-  for (const el of all) {
+  // `add` is hoisted out of the per-element loop and reads the current element
+  // through `currentEl` so the closure isn't reallocated for every node.
+  let currentEl: Element
+  const add = (colorStr: string, prop: string): void => {
+    if (!colorStr || colorStr === 'none') return
+    const rgba = parseCssColor(colorStr)
+    if (!rgba || rgba[3] === 0) return // unresolvable or fully transparent
+    const key = rgba.join(',')
+    let bucket = buckets.get(key)
+    if (!bucket) {
+      bucket = { rgba, elements: new Set(), usages: [] }
+      buckets.set(key, bucket)
+    }
+    bucket.elements.add(currentEl)
+    bucket.usages.push({ el: currentEl, prop })
+    totalUsages++
+  }
+
+  for (const el of root.querySelectorAll('*')) {
     if (el.closest(CHROME_SELECTOR)) continue
     let cs: CSSStyleDeclaration
     try {
@@ -149,30 +166,16 @@ export function scanSiteColors(): ColorCategory[] {
     }
     if (cs.display === 'none') continue
 
-    const add = (colorStr: string, prop: string): void => {
-      if (!colorStr || colorStr === 'none') return
-      const rgba = parseCssColor(colorStr)
-      if (!rgba || rgba[3] === 0) return // unresolvable or fully transparent
-      const key = rgba.join(',')
-      let bucket = buckets.get(key)
-      if (!bucket) {
-        bucket = { rgba, elements: new Set(), usages: [] }
-        buckets.set(key, bucket)
-      }
-      bucket.elements.add(el)
-      bucket.usages.push({ el, prop })
-      totalUsages++
-    }
-
+    currentEl = el
     collectElementColors(el, cs, add)
   }
 
   if (!totalUsages) return []
 
   // Materialize SiteColors, sorted by usage (most-used first).
-  const colors: SiteColor[] = Array.from(buckets.values())
-    .map((b) => ({
-      key: b.rgba.join(','),
+  const colors: SiteColor[] = Array.from(buckets.entries())
+    .map(([key, b]) => ({
+      key,
       rgba: b.rgba,
       hex: formatHex(b.rgba[0], b.rgba[1], b.rgba[2]),
       pct: Math.round((b.usages.length / totalUsages) * 100),

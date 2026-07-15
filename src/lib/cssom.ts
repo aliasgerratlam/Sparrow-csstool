@@ -202,7 +202,8 @@ function traverseRuleList(
   order: number,
 ): number {
   if (!ruleList) return order
-  for (const rule of Array.from(ruleList)) {
+  for (let i = 0; i < ruleList.length; i++) {
+    const rule = ruleList[i]!
     if (rule.type === 1) {
       // CSSStyleRule
       const styleRule = rule as CSSStyleRule

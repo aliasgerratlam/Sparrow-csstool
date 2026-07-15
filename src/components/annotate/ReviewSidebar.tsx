@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import { useScanner } from '@/context/scanner-context'
 import {
@@ -107,6 +107,29 @@ export function ReviewSidebar() {
 
   const role = useRole()
 
+  // Derive the display numbers and filtered rows once per data/filter change —
+  // this component still re-renders on hover (it reads scanner state), so the
+  // memo keeps the per-annotation selector resolution off the hover path.
+  const rows = useMemo(() => {
+    const numbers = store.displayNumbers(items)
+    const matches = (ann: Annotation): boolean => {
+      if (fStatus !== 'all' && ann.status !== fStatus) return false
+      if (search) {
+        const q = search.toLowerCase()
+        if (
+          (ann.comment || '').toLowerCase().indexOf(q) < 0 &&
+          (ann.author || '').toLowerCase().indexOf(q) < 0
+        )
+          return false
+      }
+      return true
+    }
+    return items
+      .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
+      .filter((x) => matches(x.ann))
+      .map((x) => ({ ...x, resolved: !!resolve(x.ann.selector) }))
+  }, [items, fStatus, search])
+
   if (!ui.sidebarOpen) return null
 
   const isAuthor = role === 'author'
@@ -126,30 +149,19 @@ export function ReviewSidebar() {
     store.remove(id)
   }
 
-  const matches = (ann: Annotation): boolean => {
-    if (fStatus !== 'all' && ann.status !== fStatus) return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (
-        (ann.comment || '').toLowerCase().indexOf(q) < 0 &&
-        (ann.author || '').toLowerCase().indexOf(q) < 0
-      )
-        return false
-    }
-    return true
-  }
-
-  const numbers = store.displayNumbers(items)
-  const rows = items
-    .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
-    .filter((x) => matches(x.ann))
-    .map((x) => ({ ...x, resolved: !!resolve(x.ann.selector) }))
-
   const listed = rows.filter((r) => r.resolved)
   const orphans = rows.filter((r) => !r.resolved)
 
-  const renderItem = ({ ann, num }: { ann: Annotation; num: number }) => {
-    const missing = !resolve(ann.selector)
+  const renderItem = ({
+    ann,
+    num,
+    resolved,
+  }: {
+    ann: Annotation
+    num: number
+    resolved: boolean
+  }) => {
+    const missing = !resolved
     const editable = store.canEdit(ann, ui.author)
     return (
     <div

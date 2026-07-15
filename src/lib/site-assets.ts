@@ -1,5 +1,24 @@
-import { splitTopLevel } from './element-colors'
 import { CHROME_SELECTOR } from './site-colors'
+
+/** Split on top-level commas only (commas inside `rgb(…)` etc. are ignored).
+    Used to split layered background-image values into individual
+    `url()`/gradient layers, and `srcset` into candidates. */
+function splitTopLevel(s: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === ',' && depth === 0) {
+      out.push(s.slice(start, i))
+      start = i + 1
+    }
+  }
+  out.push(s.slice(start))
+  return out.map((x) => x.trim())
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    Site-wide asset scan — walk the whole inspected page and collect every
@@ -346,8 +365,7 @@ export function scanSiteAssets(): SiteAsset[] {
   }
 
   // 2) Full page walk.
-  const all = document.body.querySelectorAll<Element>('*')
-  for (const el of Array.from(all)) {
+  for (const el of document.body.querySelectorAll<Element>('*')) {
     if (el.closest(CHROME_SELECTOR)) continue
 
     let cs: CSSStyleDeclaration

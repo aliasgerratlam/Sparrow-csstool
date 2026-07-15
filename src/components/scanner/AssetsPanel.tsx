@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Download, GripHorizontal, Images, Play } from 'lucide-react'
 import { useDraggable } from '@/hooks/use-draggable'
 import {
@@ -98,15 +98,18 @@ export function AssetsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanned])
 
-  const counts: Record<Filter, number> = { all: assets.length, raster: 0, svg: 0, video: 0 }
-  for (const a of assets) counts[filterKind(a)]++
-
-  const visible = filter === 'all' ? assets : assets.filter((a) => filterKind(a) === filter)
-
-  // "Download all" zips the visible set — except under All, where videos are
-  // excluded (they can be enormous); the Videos chip zips them explicitly.
-  const zipSet = filter === 'all' ? visible.filter((a) => a.kind !== 'video') : visible
-  const excludedVideos = filter === 'all' ? counts.video : 0
+  // Derived counts/filtering — recomputed only when the asset set or filter
+  // changes, not on every intrinsic-dimension enrichment re-render.
+  const { counts, visible, zipSet, excludedVideos } = useMemo(() => {
+    const counts: Record<Filter, number> = { all: assets.length, raster: 0, svg: 0, video: 0 }
+    for (const a of assets) counts[filterKind(a)]++
+    const visible = filter === 'all' ? assets : assets.filter((a) => filterKind(a) === filter)
+    // "Download all" zips the visible set — except under All, where videos are
+    // excluded (they can be enormous); the Videos chip zips them explicitly.
+    const zipSet = filter === 'all' ? visible.filter((a) => a.kind !== 'video') : visible
+    const excludedVideos = filter === 'all' ? counts.video : 0
+    return { counts, visible, zipSet, excludedVideos }
+  }, [assets, filter])
 
   const onDownloadOne = async (asset: SiteAsset) => {
     const result = await downloadAsset(asset)

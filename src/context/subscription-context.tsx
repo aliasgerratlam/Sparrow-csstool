@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useEffect } from 'react'
 import { toast } from 'sonner'
 import { limitsForPlan, PLAN_LIMITS, type PlanId, type PlanLimits } from '@/lib/plans'
 import { store } from '@/hooks/use-annotations'
@@ -98,22 +98,6 @@ export function AnnotationLimitSync() {
     store.setAnnotationLimit(annotationLimit)
   }, [annotationLimit])
   return null
-}
-
-/** Convenience wrapper so callers can `<SubscriptionContext.Provider>`-style
-    supply a value without importing the raw context. */
-export function SubscriptionValueProvider({
-  value,
-  children,
-}: {
-  value: SubscriptionValue
-  children: ReactNode
-}) {
-  return (
-    <SubscriptionContext.Provider value={value}>
-      {children}
-    </SubscriptionContext.Provider>
-  )
 }
 
 /** Navigate the user to the pricing cards: smooth-scroll if they're already on

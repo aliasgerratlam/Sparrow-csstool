@@ -72,7 +72,12 @@ export function nextColorFormat(f: ColorFormat): ColorFormat {
    hex, rgb/rgba, hsl, oklch, etc. all parse. Solid colors only ever touch this
    canvas, so it can never be tainted. */
 let convCtx: CanvasRenderingContext2D | null | undefined
+// Parsing is deterministic per input string; cache results (pages reuse a small
+// set of distinct colors, and the CSS panel parses each token twice per render).
+const parseCache = new Map<string, [number, number, number, number] | null>()
 export function parseCssColor(str: string): [number, number, number, number] | null {
+  const cached = parseCache.get(str)
+  if (cached !== undefined) return cached
   if (convCtx === undefined) {
     convCtx = document
       .createElement('canvas')
@@ -86,11 +91,16 @@ export function parseCssColor(str: string): [number, number, number, number] | n
   const probe = ctx.fillStyle
   ctx.fillStyle = '#fff'
   ctx.fillStyle = str
-  if (ctx.fillStyle !== probe) return null
+  if (ctx.fillStyle !== probe) {
+    parseCache.set(str, null)
+    return null
+  }
   ctx.clearRect(0, 0, 1, 1)
   ctx.fillRect(0, 0, 1, 1)
   const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data
-  return [r!, g!, b!, a!]
+  const rgba: [number, number, number, number] = [r!, g!, b!, a!]
+  parseCache.set(str, rgba)
+  return rgba
 }
 
 /* Matches color tokens *inside* a value — hex and functional notations. Gradient

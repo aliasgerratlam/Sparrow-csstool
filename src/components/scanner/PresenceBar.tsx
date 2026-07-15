@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useCollab } from '@/context/collab-context'
 import { initials } from '@/lib/collab-identity'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -9,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 const MAX_AVATARS = 4
 
-export function PresenceBar() {
+export const PresenceBar = memo(function PresenceBar() {
   const { enabled, onlineUsers, identity } = useCollab()
   // Only peers who joined via the link — exclude myself entirely.
   const peers = onlineUsers.filter((u) => u.id !== identity?.id)
@@ -58,4 +59,4 @@ export function PresenceBar() {
       </TooltipContent>
     </Tooltip>
   )
-}
+})

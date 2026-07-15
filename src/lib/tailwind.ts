@@ -45,8 +45,9 @@ export function isTailwindClass(cls: string): boolean {
   const dash = base.indexOf('-')
   if (dash === -1) return TW_PREFIX_SET.has(base) // bare: border, shadow, rounded
   const seg1 = base.slice(0, dash)
+  if (TW_PREFIX_SET.has(seg1)) return true
   const seg2 = base.split('-').slice(0, 2).join('-')
-  return TW_PREFIX_SET.has(seg1) || TW_PREFIX_SET.has(seg2)
+  return TW_PREFIX_SET.has(seg2)
 }
 
 export function getTailwindClasses(el: Element): string[] {

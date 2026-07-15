@@ -17,7 +17,6 @@
     "@kelviq/node-sdk": "^2.6.0",
     "@kelviq/react-sdk": "^2.1.1",
     "@radix-ui/react-dialog": "^1.1.6",
-    "@radix-ui/react-select": "^2.1.6",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.2.10",
     "@supabase/supabase-js": "^2.108.2",

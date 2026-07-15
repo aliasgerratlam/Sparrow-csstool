@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { LogOut, User as UserIcon } from 'lucide-react'
 import { useAuth, userDisplayName } from '@/context/auth-context'
 import { useAppNavigate } from '@/context/navigation-context'
@@ -8,7 +8,7 @@ import { initials } from '@/lib/collab-identity'
    account email and a Logout action. Lightweight (local state + click-outside);
    the repo has no dropdown primitive. It sits inside #scanner-toolbar, which is
    already whitelisted in ScannerController's isScannerUI, so clicks are safe. */
-export function UserMenu() {
+export const UserMenu = memo(function UserMenu() {
   const { user, signOut } = useAuth()
   const appNavigate = useAppNavigate()
   const [open, setOpen] = useState(false)
@@ -98,4 +98,4 @@ export function UserMenu() {
       )}
     </div>
   )
-}
+})

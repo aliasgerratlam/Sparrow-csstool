@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 
 /* A plain "here's your link" popover. The session is created by the caller
    before opening, so this is purely presentational — show the URL and copy it. */
-export function ShareDialog({
+export const ShareDialog = memo(function ShareDialog({
   open,
   onOpenChange,
 }: {
@@ -140,4 +140,4 @@ export function ShareDialog({
       </DialogContent>
     </Dialog>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { RotateCcw, RefreshCw } from 'lucide-react'
 import {
   convertColorTokens,
@@ -30,6 +30,10 @@ export function SiteColorOverview({ format }: { format: ColorFormat }) {
   const bumpReset = () => setResetNonce((n) => n + 1)
   // Which color's elements are outlined on the page (click a tile to toggle).
   const [highlightKey, setHighlightKey] = useState<string | null>(null)
+
+  // Flat, usage-ordered list (categories drive ordering but aren't labelled).
+  // Rebuilt only when the scan changes, not on every live-edit `bump()`.
+  const colors = useMemo(() => categories.flatMap((cat) => cat.colors), [categories])
 
   // Rescan reads the page fresh — revert overrides first so it re-reads the
   // original palette rather than the recolored one.
@@ -82,8 +86,6 @@ export function SiteColorOverview({ format }: { format: ColorFormat }) {
     )
   }
 
-  // Flat, usage-ordered list (categories drive ordering but aren't labelled).
-  const colors = categories.flatMap((cat) => cat.colors)
   const anyOverride = colors.some((c) => getOverride(c.key) != null)
 
   // Distinct elements of the highlighted color (if any), for the outline layer.

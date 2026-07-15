@@ -21,11 +21,6 @@ interface PreviewRecord {
 
 const active = new Map<string, PreviewRecord>()
 
-export function hasChanges(ann: Annotation | null | undefined): boolean {
-  const sc = (ann && ann.suggestedChanges) || {}
-  return Object.keys(PROPS).some((k) => sc[k] != null && sc[k] !== '')
-}
-
 export function apply(ann: Annotation): boolean {
   const el = resolve(ann.selector) as HTMLElement | null
   if (!el || !el.isConnected) return false

@@ -163,15 +163,6 @@ function authorRulesFor(element: Element): MatchedRule[] {
   )
 }
 
-// The source label of the winning applied rule, for display.
-export function getPrimarySource(element: Element): string {
-  const rules = authorRulesFor(element).filter(
-    (r) => !r.state && (!r.mediaCondition || r.mediaActive),
-  )
-  if (!rules.length) return ''
-  return cascadeSort(rules).slice(-1)[0]?.source || ''
-}
-
 // Serialize matched author rules to CSS text for the Copy CSS action.
 export function buildCSSText(element: Element): string {
   const rules = authorRulesFor(element)

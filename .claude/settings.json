@@ -109,7 +109,10 @@
       "Bash(node drive3.mjs)",
       "Bash(node drive4.mjs)",
       "Bash(node probe.mjs)",
-      "Bash(powershell -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -match '\\\\''vite'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }')"
+      "Bash(powershell -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -match '\\\\''vite'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }')",
+      "Bash(break)",
+      "Bash(netstat -ano)",
+      "Bash(BASE=http://localhost:5174 node drive.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"
