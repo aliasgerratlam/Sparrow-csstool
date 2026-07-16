@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
+import { BookOpen, Loader2 } from 'lucide-react'
 import { useExtensionDownload } from '@/hooks/use-extension-download'
+import { useInstallGuide } from '@/context/install-guide-context'
 import { Wordmark } from './Wordmark'
 import { Container } from './parts'
 
@@ -17,6 +18,7 @@ export function LandingFooter() {
   const navigate = useNavigate()
   const onAccount = useLocation().pathname.startsWith('/account')
   const { downloading, download } = useExtensionDownload()
+  const { openGuide } = useInstallGuide()
 
   // Same-page: smooth-scroll to the section. On /account (no sections): navigate
   // client-side to the landing page and let RouterBridge scroll there.
@@ -55,6 +57,15 @@ export function LandingFooter() {
               >
                 {downloading && <Loader2 className="size-3.5 animate-spin" />}
                 {downloading ? 'Downloading…' : 'Install'}
+              </button>
+              {/* Reopen the post-download install walkthrough on demand. */}
+              <button
+                type="button"
+                onClick={openGuide}
+                className="inline-flex cursor-pointer items-center gap-1.5 font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
+              >
+                <BookOpen className="size-3.5" />
+                Setup guide
               </button>
               {NAV.map((item) => (
                 <a

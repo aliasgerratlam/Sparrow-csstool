@@ -112,7 +112,13 @@
       "Bash(powershell -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -match '\\\\''vite'\\\\'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }')",
       "Bash(break)",
       "Bash(netstat -ano)",
-      "Bash(BASE=http://localhost:5174 node drive.mjs)"
+      "Bash(BASE=http://localhost:5174 node drive.mjs)",
+      "PowerShell(cd d:\\\\cssScan; npm run dev 2>&1 | Tee-Object -FilePath \"$env:TEMP\\\\sparrow-dev.log\")",
+      "PowerShell(Start-Sleep -Seconds 4; Get-Content \"$env:TEMP\\\\sparrow-dev.log\" -ErrorAction SilentlyContinue | Select-Object -Last 15)",
+      "Bash(node drive2.mjs \"C:/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/5f90df38-fa1b-4b27-9022-2dbd9487ef4d/tasks/bnd3f24s0.output\")",
+      "Bash(printf 'localhost:5174')",
+      "Bash(node drive2.mjs port.txt)",
+      "Bash(node tabs.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"

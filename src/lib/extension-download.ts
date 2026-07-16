@@ -21,6 +21,12 @@ export function detectBrowserTarget(): 'firefox' | 'chromium' {
   return /firefox/i.test(navigator.userAgent) ? 'firefox' : 'chromium'
 }
 
+/** The saved zip's filename for a target — shown/copied in the install guide so
+ *  the visitor can find the file they just downloaded. */
+export function extensionZipName(target: 'firefox' | 'chromium'): string {
+  return ZIPS[target].filename
+}
+
 /** Fetch the zip into memory (this is the real work the loader reflects), then
  *  save it. On a fetch failure fall back to a plain anchor download so the CTA
  *  still works. Resolves once the download has been triggered. */

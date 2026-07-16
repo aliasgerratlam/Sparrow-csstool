@@ -15,7 +15,9 @@ import { CollabProvider } from '@/context/collab-context'
 import { AuthProvider, useAuth, userDisplayName } from '@/context/auth-context'
 import { SubscriptionProvider } from '@/context/kelviq-provider'
 import { NavigationProvider } from '@/context/navigation-context'
+import { InstallGuideProvider } from '@/context/install-guide-context'
 import { AnnotationLimitSync } from '@/context/subscription-context'
+import { InstallGuideDialog } from '@/components/landing/InstallGuideDialog'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { AccountPage } from '@/components/account/AccountPage'
 import { Scanner } from '@/components/scanner/Scanner'
@@ -189,11 +191,16 @@ export default function App() {
       <AuthProvider>
         <SubscriptionProvider>
           <RouterBridge>
-            <Routes>
-              <Route path="/account" element={<AccountRoute />} />
-              <Route path="*" element={<IndexRoute />} />
-            </Routes>
-            <Toaster />
+            {/* Wraps both routes so every download CTA (hero / CTA / footer) and
+                the footer "Setup guide" link share one modal instance. */}
+            <InstallGuideProvider>
+              <Routes>
+                <Route path="/account" element={<AccountRoute />} />
+                <Route path="*" element={<IndexRoute />} />
+              </Routes>
+              <InstallGuideDialog />
+              <Toaster />
+            </InstallGuideProvider>
           </RouterBridge>
         </SubscriptionProvider>
       </AuthProvider>
