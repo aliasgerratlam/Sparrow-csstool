@@ -98,3 +98,10 @@ export function msUntilReset(host: string = currentDomain()): number | null {
   const oldest = Math.min(...live)
   return Math.max(0, oldest + WINDOW_MS - Date.now())
 }
+
+/** Human "resets in …" label — minutes under an hour, rounded-up hours above. */
+export function formatReset(ms: number): string {
+  const mins = Math.max(1, Math.ceil(ms / 60_000))
+  if (mins < 60) return `${mins}m`
+  return `${Math.ceil(ms / 3_600_000)}h`
+}

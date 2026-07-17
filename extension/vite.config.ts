@@ -34,6 +34,11 @@ export default defineConfig(({ mode }) => {
     // Lets shared components (e.g. ModeRail) apply extension-only behavior,
     // like hiding the tool rail entirely until the user signs in.
     'import.meta.env.VITE_IS_EXTENSION': '"1"',
+    // Target for external links opened from the content script (e.g. the "Upgrade"
+    // CTA → the web app's #pricing). Mirrors the background build's default.
+    'import.meta.env.VITE_EXT_WEB_APP_URL': JSON.stringify(
+      env.VITE_EXT_WEB_APP_URL || 'https://www.trysparrowcss.com',
+    ),
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL ?? ''),
     'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY ?? ''),
     'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': '""',

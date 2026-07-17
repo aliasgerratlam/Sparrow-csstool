@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useScanner } from '@/context/scanner-context'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import { useAnnotations, useRole, store } from '@/hooks/use-annotations'
+import { useReplySeen } from '@/hooks/use-reply-seen'
 import { useCollab } from '@/context/collab-context'
 import { resolve } from '@/lib/selector-engine'
+import { hasUnreadReplies } from '@/lib/reply-seen'
 import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -32,9 +34,15 @@ export function PinLayer() {
   const raf = useRef(0)
 
   const role = useRole()
+  // Re-render when the reply-seen ledger changes (e.g. a card is opened) so the
+  // unread dot clears. New replies re-render via `items` (useAnnotations) already.
+  useReplySeen()
   const { sessionEnded } = useCollab()
   const visible =
     ((isActive && mode === 'annotate') || role === 'client') && !sessionEnded
+  // Identity the current user's replies are stamped with — mirrors AnnotationCard,
+  // so our own replies never light up our own pin.
+  const myName = ui.author.trim() || (role === 'client' ? 'Client' : 'Author')
 
   // Open annotations only — resolved ones live in the review list. Numbering is
   // creation-ordered (displayNumbers) so every collaborator sees the same "#4".
@@ -133,6 +141,9 @@ export function PinLayer() {
                 onMouseLeave={() => ui.setHoverPinEl(null)}
               >
                 {num}
+                {hasUnreadReplies(ann, myName) && (
+                  <span className="annot-pin-dot" aria-hidden />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" light className="max-w-[260px]">

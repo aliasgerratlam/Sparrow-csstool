@@ -16,6 +16,8 @@ import {
 } from '@/hooks/use-annotations'
 import { useElementRect } from '@/hooks/use-element-rect'
 import { resolve } from '@/lib/selector-engine'
+import { markSeen } from '@/lib/reply-seen'
+import { formatReset } from '@/lib/annotation-quota'
 import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,14 +41,6 @@ function cardColorOf(ann: Annotation): string {
 // scanner's Esc-to-close handler fires.
 function stopKeyLeak(e: ReactKeyboardEvent) {
   if (e.key !== 'Escape') e.stopPropagation()
-}
-
-// Coarse "resets in …" label for the quota window — minutes under an hour,
-// rounded-up hours above it (matches the upgrade toast's ~Nh wording).
-function fmtReset(ms: number): string {
-  const mins = Math.max(1, Math.ceil(ms / 60_000))
-  if (mins < 60) return `${mins}m`
-  return `${Math.ceil(ms / 3_600_000)}h`
 }
 
 // The full, exact element address (shown on hover).
@@ -169,6 +163,15 @@ export function AnnotationCard() {
     const end = ta.value.length
     ta.setSelectionRange(end, end)
   }, [ann?.id, ro, isDraft, editing])
+
+  // Clear the unread-reply dot for a saved annotation while its card is open —
+  // both on open and if a new reply streams in while it stays open. `myReplyName`
+  // (below) is the same identity used to author replies, so self-replies are
+  // ignored. Drafts have no replies, so they're skipped.
+  useEffect(() => {
+    if (!ann || isDraft) return
+    markSeen(ann, ui.author.trim() || (ro ? 'Client' : 'Author'))
+  }, [ann, isDraft, ro, ui.author])
 
   if (!ann) return null
 
@@ -413,7 +416,7 @@ export function AnnotationCard() {
         )}
 
         {!isDraft && (
-          <details className="annot-section" open>
+          <details className="annot-section">
             <summary>Replies ({replies.length})</summary>
             <div className="annot-replies">
               {replies.length ? (
@@ -511,7 +514,7 @@ export function AnnotationCard() {
                 </span>
                 {quota.resetsInMs != null && (
                   <span className="annot-quota-reset">
-                    · resets in ~{fmtReset(quota.resetsInMs)}
+                    · resets in ~{formatReset(quota.resetsInMs)}
                   </span>
                 )}
               </div>

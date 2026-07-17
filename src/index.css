@@ -5,6 +5,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* sonner ships its structural CSS by injecting a <style> into document.head at
+   runtime. That works for the web app, but the extension renders inside a Shadow
+   DOM where a document.head <style> never cascades in — so pull sonner's styles
+   into our bundle, which the content script injects into the shadow root. */
+@import 'sonner/dist/styles.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -1465,6 +1470,14 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 }
 .annot-pin:hover { transform: scale(1.18); z-index: 1; box-shadow: 0 6px 20px rgba(91,140,255,.7); }
 .annot-pin.active { outline: 2px solid #fff; outline-offset: 2px; transform: scale(1.12); }
+/* Unread-reply badge: someone replied to this annotation and the user hasn't
+   opened it yet. White ring keeps it legible over the gradient and any tint. */
+.annot-pin-dot {
+  position: absolute; top: -3px; right: -3px; width: 10px; height: 10px;
+  border-radius: 50%; background: #ff3b30; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35); pointer-events: none;
+  animation: annotCheckPop .3s cubic-bezier(.2,1.4,.4,1) both;
+}
 /* Pulsing halo that radiates out from open pins. */
 .annot-pin.open::before {
   content: ""; position: absolute; inset: 0; border-radius: 50%;
@@ -1633,6 +1646,14 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 .annot-filter-opt:hover { background: rgba(16,102,241,.07); }
 .annot-filter-opt.is-selected { color: var(--color-sparrow-blue); font-weight: 600; }
 .annot-filter-opt > svg { color: var(--color-sparrow-blue); }
+/* section headings within the multi-dimension filter menu */
+.annot-filter-section-label {
+  padding: 8px 10px 3px; font-size: .62rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--a-muted);
+}
+.annot-filter-section-label:not(:first-child) {
+  margin-top: 2px; border-top: 1px solid rgba(18,17,41,.08); padding-top: 8px;
+}
 .annot-sb-list, .annot-sb-orphan-list { padding: 0 18px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .annot-sb-list { flex: 1; }
 .annot-li {
@@ -1658,6 +1679,30 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 .annot-li-author { font-size: .68rem; color: var(--a-muted); }
 .annot-li-date { font-size: .72rem; color: #8089a0; display: inline-flex; align-items: center; font-family: 'JetBrains Mono', ui-monospace, monospace; }
 .annot-li-date::before { content: '🕒'; font-size: .68rem; margin-right: 4px; opacity: .7; }
+/* Collapsible reply thread inside a review-drawer row. Read-only preview;
+   composing/editing replies stays in the on-page card. */
+.annot-li-replies { margin-top: 8px; }
+.annot-li-replies > summary {
+  display: inline-flex; align-items: center; gap: 5px; width: fit-content;
+  list-style: none; cursor: pointer; user-select: none;
+  font-size: .72rem; font-weight: 600; color: var(--color-sparrow-blue);
+  padding: 2px 4px; margin: -2px -4px; border-radius: 6px;
+}
+.annot-li-replies > summary::-webkit-details-marker { display: none; }
+.annot-li-replies > summary:hover { background: rgba(16,102,241,.08); }
+.annot-li-replies > summary svg { opacity: .8; }
+.annot-li-reply-list { display: flex; flex-direction: column; gap: 6px; margin-top: 7px; }
+.annot-li-reply {
+  background: rgba(18,17,41,.03); border: 1px solid rgba(18,17,41,.06);
+  border-radius: 9px; padding: 6px 9px;
+}
+.annot-li-reply-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 2px; }
+.annot-li-reply-head strong {
+  font-size: .7rem; font-weight: 600; color: var(--color-sparrow-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.annot-li-reply-date { font-size: .64rem; color: rgba(18,17,41,.4); flex-shrink: 0; }
+.annot-li-reply-msg { font-size: .76rem; line-height: 1.4; color: rgba(18,17,41,.82); white-space: pre-wrap; word-break: break-word; }
 /* Icon-only row actions: quiet tinted glyphs, background appears on hover.
    The `title` attribute carries the verb, `aria-label` covers screen readers. */
 .annot-li-actions { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -1807,6 +1852,52 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 }
 .annot-submit-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
 .annot-submit-btn svg, .annot-reply-send svg { display: block; }
+/* Upgrade CTA inside the annotation-cap toast — same 3D-ledge Sparrow-blue
+   treatment as the card's submit button, sized as a text pill. Rendered as a
+   custom node (not sonner's [data-button]) so sonner's dark default doesn't win. */
+.annot-upgrade-btn {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 7px 15px; border: none; cursor: pointer; white-space: nowrap;
+  font-family: 'ABeeZee', system-ui, -apple-system, sans-serif;
+  font-size: .8rem; font-weight: 600; letter-spacing: .01em;
+  color: #fff; background: var(--color-sparrow-blue); border-radius: 10px;
+  box-shadow: 0 3px 0 0 color-mix(in srgb, var(--color-sparrow-blue) 70%, black), 0 8px 16px rgba(16,102,241,.22);
+  transition: transform .15s, box-shadow .15s, filter .15s;
+}
+.annot-upgrade-btn:hover {
+  transform: translateY(-1px); filter: brightness(1.06);
+  box-shadow: 0 4px 0 0 color-mix(in srgb, var(--color-sparrow-blue) 70%, black), 0 10px 20px rgba(16,102,241,.28);
+}
+.annot-upgrade-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--color-sparrow-blue) 70%, black), 0 3px 8px rgba(16,102,241,.18);
+}
+/* "Quota reached / expired" alert skin for the annotation-cap toast — a rose
+   card with a red border + warning glyph, like a no-credit-left notice. The
+   compound [data-sonner-toast] selector out-specifies sonner's own default
+   background and the global bg-white/text utilities. */
+[data-sonner-toast].annot-limit-toast {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe7e3 100%);
+  border: 1px solid rgba(220, 38, 38, .32);
+  color: #7f1d1d;
+  box-shadow: 0 12px 30px rgba(220, 38, 38, .20);
+}
+.annot-limit-toast [data-title] { color: #991b1b; }
+.annot-limit-toast [data-icon] {
+  color: #dc2626; margin-right: 2px;
+  display: flex; align-items: center; align-self: flex-start; margin-top: 1px;
+}
+/* Match the CTA to the alert: red 3D-ledge pill instead of Sparrow blue. */
+.annot-limit-toast .annot-upgrade-btn {
+  background: #dc2626;
+  box-shadow: 0 3px 0 0 #991b1b, 0 8px 16px rgba(220, 38, 38, .28);
+}
+.annot-limit-toast .annot-upgrade-btn:hover {
+  box-shadow: 0 4px 0 0 #991b1b, 0 10px 20px rgba(220, 38, 38, .34);
+}
+.annot-limit-toast .annot-upgrade-btn:active {
+  box-shadow: 0 1px 0 0 #991b1b, 0 3px 8px rgba(220, 38, 38, .24);
+}
 .annot-reply-input { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
 .annot-reply-ta { width: 100%; }
 .annot-replies { display: flex; flex-direction: column; gap: 7px; }

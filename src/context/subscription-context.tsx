@@ -104,14 +104,19 @@ export function AnnotationLimitSync() {
     a page that has the section; in the extension open the web app's pricing in
     a new tab (never navigate the host page); else full-nav to /#pricing. */
 export function goToPricing() {
+  // In the extension the scanner is injected over an arbitrary host page, so we
+  // must never scroll or navigate it — always open the web app's pricing in a
+  // new tab. The web app scrolls to #pricing on arrival (hash effect in App.tsx).
+  if (import.meta.env.VITE_IS_EXTENSION) {
+    const base = (
+      import.meta.env.VITE_EXT_WEB_APP_URL || 'https://www.trysparrowcss.com'
+    ).replace(/\/+$/, '')
+    window.open(`${base}/#pricing`, '_blank', 'noopener')
+    return
+  }
   const el = document.getElementById('pricing')
   if (el) {
     el.scrollIntoView({ behavior: 'smooth' })
-    return
-  }
-  if (import.meta.env.VITE_IS_EXTENSION) {
-    const base = import.meta.env.VITE_EXT_WEB_APP_URL || ''
-    window.open(`${base}/#pricing`, '_blank', 'noopener')
     return
   }
   window.location.href = '/#pricing'

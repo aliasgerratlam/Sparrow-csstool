@@ -13,6 +13,7 @@ import { PortalContainerProvider } from '@/lib/portal-container'
 import { Scanner } from '@/components/scanner/Scanner'
 import { Overlays } from '@/components/scanner/Overlays'
 import { AnnotationLayer } from '@/components/annotate/AnnotationLayer'
+import { Toaster } from '@/components/ui/sonner'
 import { store } from '@/hooks/use-annotations'
 import { ExtensionAuthProvider } from './ExtensionAuthProvider'
 import { ExtensionSubscriptionProvider } from './ExtensionSubscriptionProvider'
@@ -154,6 +155,11 @@ export function ExtensionApp({
                   <SignInGate />
                   <Overlays />
                   <AnnotationLayer />
+                  {/* sonner renders inline (no portal), so mounting it inside
+                      the shadow subtree keeps toasts in the shadow root where
+                      the injected CSS lives — the web app's <Toaster/> is in
+                      App.tsx, which the extension never renders. */}
+                  <Toaster />
                 </ExtNavigationProvider>
               </PortalContainerProvider>
             </CollabProvider>

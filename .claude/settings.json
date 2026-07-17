@@ -118,7 +118,15 @@
       "Bash(node drive2.mjs \"C:/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/5f90df38-fa1b-4b27-9022-2dbd9487ef4d/tasks/bnd3f24s0.output\")",
       "Bash(printf 'localhost:5174')",
       "Bash(node drive2.mjs port.txt)",
-      "Bash(node tabs.mjs)"
+      "Bash(node tabs.mjs)",
+      "Read(//d/cssScan/extension/**)",
+      "Bash(cd /d/cssScan/extension && echo \"=== NEW string present? ===\"; grep -c \"Try again in\" dist/content.js 2>/dev/null; echo \"=== OLD string present? ===\"; grep -c \"Resets in\" dist/content.js 2>/dev/null; grep -c \"for this site today\" dist/content.js 2>/dev/null; echo \"=== dist build time ===\"; stat -c '%y' dist/content.js)",
+      "Bash(cd /d/cssScan/extension && echo \"=== sonner structural CSS now in content.css? ===\"; grep -c \"data-sonner-toaster\" dist/content.css; echo \"=== toast string in content.js? ===\"; grep -c \"Try again in\" dist/content.js; echo \"=== build times ===\"; stat -c '%y %n' dist/content.css dist/content.js)",
+      "PowerShell(npx vite --mode test --port 5199)",
+      "Bash(powershell.exe -NoProfile -Command 'Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '\\\\''vite'\\\\'' -and \\($_.CommandLine -match '\\\\''5199'\\\\'' -or $_.CommandLine -match '\\\\''css-scanner'\\\\'' -or $_.CommandLine -match '\\\\''cssScan'\\\\''\\) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; \\(Get-NetTCPConnection -LocalPort 5173,5199 -State Listen -ErrorAction SilentlyContinue | Measure-Object\\).Count')",
+      "Bash(VITE_CLERK_PUBLISHABLE_KEY= VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5199)",
+      "Read(//tmp/**)",
+      "Bash(node shadow-test.mjs)"
     ],
     "additionalDirectories": [
       "\\tmp"

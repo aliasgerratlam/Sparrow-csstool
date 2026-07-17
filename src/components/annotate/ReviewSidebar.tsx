@@ -16,6 +16,7 @@ import {
   Check,
   Filter,
   Link2,
+  MessageSquare,
   Pencil,
   RotateCcw,
   Search,
@@ -25,18 +26,37 @@ import {
 import { Logo } from '@/components/ui/Logo'
 import type { Annotation } from '@/lib/types'
 
-/* Lightweight status filter. Deliberately NOT a Radix Select: Select always
+type RepliesFilter = 'all' | 'with' | 'without'
+type SortOrder = 'latest' | 'oldest'
+
+type FilterState = {
+  status: string
+  author: string
+  replies: RepliesFilter
+  sort: SortOrder
+}
+
+const DEFAULT_FILTER: FilterState = {
+  status: 'all',
+  author: 'all',
+  replies: 'all',
+  sort: 'latest',
+}
+
+/* Lightweight filter menu. Deliberately NOT a Radix Select: Select always
    mounts RemoveScroll + a DismissableLayer that portals to <body> and disables
    outside pointer events. That portaling leaked clicks past the sidebar into the
    annotate handler (stray draft pins) and the scroll-lock reflowed the drawer.
    This menu lives inside #annot-sidebar, so every click is caught by the
    scanner's isScannerUI guard, and it overlays (absolute) instead of reflowing. */
-function StatusFilter({
+function AnnotationFilter({
   value,
+  authors,
   onChange,
 }: {
-  value: string
-  onChange: (v: string) => void
+  value: FilterState
+  authors: string[]
+  onChange: (v: FilterState) => void
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -44,53 +64,107 @@ function StatusFilter({
   useEffect(() => {
     if (!open) return
     const onPointerDown = (e: Event) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      const wrap = wrapRef.current
+      if (!wrap) return
+      // Use composedPath() rather than contains(e.target): in the browser
+      // extension the whole scanner lives in a Shadow DOM, so a document-level
+      // event is retargeted to the shadow host and contains() would report a
+      // click on our own menu as "outside" — closing it on pointerdown before
+      // the option's click can register. composedPath includes shadow-internal
+      // nodes, so the menu's own clicks are correctly seen as inside.
+      const path = (e as Event & { composedPath?: () => EventTarget[] })
+        .composedPath?.()
+      const inside = path
+        ? path.includes(wrap)
+        : wrap.contains(e.target as Node)
+      if (!inside) setOpen(false)
     }
     document.addEventListener('pointerdown', onPointerDown, true)
     return () =>
       document.removeEventListener('pointerdown', onPointerDown, true)
   }, [open])
 
-  const options = [
+  const active =
+    value.status !== DEFAULT_FILTER.status ||
+    value.author !== DEFAULT_FILTER.author ||
+    value.replies !== DEFAULT_FILTER.replies ||
+    value.sort !== DEFAULT_FILTER.sort
+
+  const statusOptions = [
     { value: 'all', label: 'All status' },
     ...STATUSES.map((s) => ({ value: s, label: s })),
   ]
+  const authorOptions = [
+    { value: 'all', label: 'All users' },
+    ...authors.map((a) => ({ value: a, label: a })),
+  ]
+  const replyOptions: { value: RepliesFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'with', label: 'With replies' },
+    { value: 'without', label: 'Without replies' },
+  ]
+  const sortOptions: { value: SortOrder; label: string }[] = [
+    { value: 'latest', label: 'Latest first' },
+    { value: 'oldest', label: 'Oldest first' },
+  ]
+
+  const opt = <T extends string>(
+    selected: T,
+    o: { value: T; label: string },
+    apply: (v: T) => void,
+  ) => (
+    <button
+      key={o.value}
+      type="button"
+      role="option"
+      aria-selected={selected === o.value}
+      className={
+        'annot-filter-opt' + (selected === o.value ? ' is-selected' : '')
+      }
+      onClick={() => apply(o.value)}
+    >
+      <span>{o.label}</span>
+      {selected === o.value && <Check className="size-4" />}
+    </button>
+  )
 
   return (
     <div className="annot-filter" ref={wrapRef}>
       <button
         type="button"
-        className={'annot-filter-trigger' + (value !== 'all' ? ' is-active' : '')}
-        aria-label="Filter by status"
+        className={'annot-filter-trigger' + (active ? ' is-active' : '')}
+        aria-label="Filter and sort annotations"
         aria-haspopup="listbox"
         aria-expanded={open}
-        title={'Filter: ' + (value === 'all' ? 'All statuses' : value)}
+        title="Filter and sort"
         onClick={() => setOpen((o) => !o)}
       >
         <Filter className="size-4" />
       </button>
       {open && (
         <div className="annot-filter-menu" role="listbox">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={value === opt.value}
-              className={
-                'annot-filter-opt' + (value === opt.value ? ' is-selected' : '')
-              }
-              onClick={() => {
-                onChange(opt.value)
-                setOpen(false)
-              }}
-            >
-              <span>{opt.label}</span>
-              {value === opt.value && <Check className="size-4" />}
-            </button>
-          ))}
+          <div className="annot-filter-section-label">Status</div>
+          {statusOptions.map((o) =>
+            opt(value.status, o, (v) => onChange({ ...value, status: v })),
+          )}
+          {authors.length > 0 && (
+            <>
+              <div className="annot-filter-section-label">User</div>
+              {authorOptions.map((o) =>
+                opt(value.author, o, (v) =>
+                  onChange({ ...value, author: v }),
+                ),
+              )}
+            </>
+          )}
+          <div className="annot-filter-section-label">Replies</div>
+          {replyOptions.map((o) =>
+            opt(value.replies, o, (v) => onChange({ ...value, replies: v })),
+          )}
+          <div className="annot-filter-section-label">Sort</div>
+          {sortOptions.map((o) =>
+            opt(value.sort, o, (v) => onChange({ ...value, sort: v })),
+          )}
         </div>
       )}
     </div>
@@ -102,10 +176,20 @@ export function ReviewSidebar() {
   const scanner = useScanner()
   const items = useAnnotations()
   const counts = useAnnotationCounts()
-  const [fStatus, setFStatus] = useState<string>('all')
+  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
   const [search, setSearch] = useState('')
 
   const role = useRole()
+
+  // Distinct annotation authors, for the "User" filter section.
+  const authors = useMemo(() => {
+    const set = new Set<string>()
+    items.forEach((a) => {
+      const name = (a.author || '').trim()
+      if (name) set.add(name)
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [items])
 
   // Derive the display numbers and filtered rows once per data/filter change —
   // this component still re-renders on hover (it reads scanner state), so the
@@ -113,22 +197,40 @@ export function ReviewSidebar() {
   const rows = useMemo(() => {
     const numbers = store.displayNumbers(items)
     const matches = (ann: Annotation): boolean => {
-      if (fStatus !== 'all' && ann.status !== fStatus) return false
+      if (filter.status !== 'all' && ann.status !== filter.status) return false
+      if (filter.author !== 'all' && (ann.author || '').trim() !== filter.author)
+        return false
+      const replyCount = ann.replies?.length ?? 0
+      if (filter.replies === 'with' && replyCount === 0) return false
+      if (filter.replies === 'without' && replyCount > 0) return false
       if (search) {
         const q = search.toLowerCase()
+        const inReplies = (ann.replies || []).some(
+          (r) =>
+            (r.message || '').toLowerCase().indexOf(q) >= 0 ||
+            (r.author || '').toLowerCase().indexOf(q) >= 0,
+        )
         if (
           (ann.comment || '').toLowerCase().indexOf(q) < 0 &&
-          (ann.author || '').toLowerCase().indexOf(q) < 0
+          (ann.author || '').toLowerCase().indexOf(q) < 0 &&
+          !inReplies
         )
           return false
       }
       return true
     }
+    const ts = (ann: Annotation) => {
+      const t = ann.createdAt ? new Date(ann.createdAt).getTime() : 0
+      return Number.isNaN(t) ? 0 : t
+    }
     return items
       .map((ann, idx) => ({ ann, num: numbers.get(ann.id) ?? idx + 1 }))
       .filter((x) => matches(x.ann))
+      .sort((a, b) =>
+        filter.sort === 'latest' ? ts(b.ann) - ts(a.ann) : ts(a.ann) - ts(b.ann),
+      )
       .map((x) => ({ ...x, resolved: !!resolve(x.ann.selector) }))
-  }, [items, fStatus, search])
+  }, [items, filter, search])
 
   if (!ui.sidebarOpen) return null
 
@@ -194,6 +296,33 @@ export function ReviewSidebar() {
           )}
           {ann.author && <span className="annot-li-author">{ann.author}</span>}
         </div>
+        {ann.replies && ann.replies.length > 0 && (
+          <details
+            className="annot-li-replies"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <summary>
+              <MessageSquare className="size-3.5" aria-hidden="true" />
+              {ann.replies.length}{' '}
+              {ann.replies.length === 1 ? 'reply' : 'replies'}
+            </summary>
+            <div className="annot-li-reply-list">
+              {ann.replies.map((r) => (
+                <div key={r.id} className="annot-li-reply">
+                  <div className="annot-li-reply-head">
+                    <strong>{r.author || 'Anonymous'}</strong>
+                    {r.createdAt && (
+                      <span className="annot-li-reply-date">
+                        {fmtDate(r.createdAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="annot-li-reply-msg">{r.message}</div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
       <div className="annot-li-actions">
         {editable && !missing && (
@@ -308,7 +437,11 @@ export function ReviewSidebar() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <StatusFilter value={fStatus} onChange={setFStatus} />
+        <AnnotationFilter
+          value={filter}
+          authors={authors}
+          onChange={setFilter}
+        />
       </div>
       {ui.relinkId && (
         <div className="annot-relink-banner">
