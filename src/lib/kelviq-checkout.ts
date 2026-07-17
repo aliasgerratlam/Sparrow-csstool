@@ -23,7 +23,7 @@
 
 import { supabase } from './supabase'
 import { isKelviqConfigured } from './kelviq'
-import type { PlanId } from './plans'
+import { toPlanId, type PlanId } from './plans'
 
 export type BillingCycle = 'monthly' | 'yearly'
 
@@ -136,6 +136,48 @@ export async function cancelSubscription(args: {
     return { status: 'ok' }
   } catch (err) {
     return { status: 'failed', message: errText(err, 'Could not cancel') }
+  }
+}
+
+export interface LivePlan {
+  planId: PlanId
+  billingCycle: BillingCycle | null
+  renewsAt: string | null
+  status: string | null
+}
+
+/** Resolve the caller's CURRENT plan live, server-side, via the kelviq-plan
+    Edge Function.
+
+    The browser Kelviq React SDK CANNOT read the subscriptions endpoint: it
+    authenticates with the client (publishable) key, which that endpoint rejects
+    with 403 "Authentication credentials were not provided" (only the server key
+    is accepted there — see the Edge Functions' livePlanForCustomer). So the web
+    app resolves the plan through this function instead — it reads the live
+    subscription with the server key AND self-heals Clerk publicMetadata, so a
+    subsequent reloadUser() reflects the real plan on every surface (account
+    page + pricing cards). Returns null when subscriptions aren't configured or
+    on any error. */
+export async function resolveLivePlan(getToken: GetToken): Promise<LivePlan | null> {
+  if (!isKelviqConfigured || !supabase) return null
+  try {
+    const data = await invoke<{
+      plan?: string
+      billingCycle?: string | null
+      renewsAt?: string | null
+      status?: string | null
+    }>('kelviq-plan', {}, getToken)
+    if (!data || typeof data.plan !== 'string') return null
+    const cycle = data.billingCycle
+    return {
+      planId: toPlanId(data.plan),
+      billingCycle:
+        cycle === 'monthly' ? 'monthly' : cycle === 'yearly' ? 'yearly' : null,
+      renewsAt: data.renewsAt ?? null,
+      status: data.status ?? null,
+    }
+  } catch {
+    return null
   }
 }
 

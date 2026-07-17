@@ -8,7 +8,7 @@ import { useEntitlements } from '@/context/subscription-context'
 import { isKelviqConfigured } from '@/lib/kelviq'
 import {
   startCheckout,
-  changePlan,
+  openPortal,
   type BillingCycle,
 } from '@/lib/kelviq-checkout'
 import { PLAN_DISPLAY, PLAN_IDS, type PlanId } from '@/lib/plans'
@@ -44,8 +44,9 @@ export function PricingSection() {
   //  • Paid, signed out → prompt sign-in (or demo when auth isn't configured).
   //  • Paid, signed in, no billing backend → route to the account page.
   //  • Paid, signed in, billing on → hosted checkout for a NEW subscription,
-  //    or in-place upgrade/downgrade when one already exists. Success returns
-  //    to /account (checkout redirect) or refreshes entitlements (plan change).
+  //    or the hosted customer portal to switch when one already exists (the
+  //    browser holds no subscription id — it can't read Kelviq's subscriptions
+  //    endpoint — so plan changes go through the portal, its sanctioned door).
   const onPlanCta = async (id: PlanId) => {
     if (activePlan) return
 
@@ -72,18 +73,15 @@ export function PricingSection() {
     }
 
     setActivePlan(id)
-    // Already subscribed → change plan in place; else start hosted checkout.
-    const result = subscription
-      ? await changePlan({
-          subscriptionId: subscription.id,
-          planId: plan,
-          cycle: billing,
-          getToken,
-        })
+    // Already on a paid plan → switch in the hosted portal; else start a new
+    // hosted checkout. Both redirect the browser away on success.
+    const alreadyPaid = !!subscription || effectivePlan !== 'free'
+    const result = alreadyPaid
+      ? await openPortal(getToken)
       : await startCheckout({ planId: plan, cycle: billing, getToken })
 
     if (result.status === 'redirecting') {
-      // Browser is navigating to hosted checkout — keep the spinner up.
+      // Browser is navigating to the portal / hosted checkout — keep spinner.
       return
     }
     if (result.status === 'ok') {

@@ -126,7 +126,8 @@
       "Bash(powershell.exe -NoProfile -Command 'Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '\\\\''vite'\\\\'' -and \\($_.CommandLine -match '\\\\''5199'\\\\'' -or $_.CommandLine -match '\\\\''css-scanner'\\\\'' -or $_.CommandLine -match '\\\\''cssScan'\\\\''\\) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; \\(Get-NetTCPConnection -LocalPort 5173,5199 -State Listen -ErrorAction SilentlyContinue | Measure-Object\\).Count')",
       "Bash(VITE_CLERK_PUBLISHABLE_KEY= VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5199)",
       "Read(//tmp/**)",
-      "Bash(node shadow-test.mjs)"
+      "Bash(node shadow-test.mjs)",
+      "Bash(awk '/Authorization/{print NR\": \"$0}' kelviq-react-sdk.js)"
     ],
     "additionalDirectories": [
       "\\tmp"

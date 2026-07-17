@@ -1,10 +1,6 @@
-import { useMemo, type ReactNode } from 'react'
-import {
-  KelviqProvider,
-  useKelviq,
-  type RawSubscriptionData,
-} from '@kelviq/react-sdk'
-import { useAuth } from '@/context/auth-context'
+import { useEffect, useMemo, type ReactNode } from 'react'
+import { KelviqProvider, useKelviq } from '@kelviq/react-sdk'
+import { useAuth, userPlan, type AuthUser } from '@/context/auth-context'
 import {
   SubscriptionContext,
   FREE_VALUE,
@@ -18,7 +14,8 @@ import {
   KELVIQ_PRODUCT_ID,
   isKelviqConfigured,
 } from '@/lib/kelviq'
-import { FEATURE_IDS, PLAN_LIMITS, limitsForPlan, toPlanId, type PlanId } from '@/lib/plans'
+import { resolveLivePlan } from '@/lib/kelviq-checkout'
+import { FEATURE_IDS, PLAN_LIMITS, limitsForPlan } from '@/lib/plans'
 
 /* ─────────────────────────────────────────────────────────────────────────
    Web-app subscription provider — resolves live Kelviq entitlements and feeds
@@ -40,47 +37,61 @@ const DEMO_UNLOCK = {
   annotationLimit: Infinity,
 } as const
 
-/** Statuses that grant access (the subscription is currently paying/valid). */
-function isActiveStatus(status: string): boolean {
-  const s = status.toLowerCase()
-  return s === 'active' || s === 'trialing' || s === 'trial' || s === 'past_due'
-}
-
-function toBillingCycle(recurrence: string): 'monthly' | 'yearly' | null {
-  const r = recurrence.toUpperCase()
-  if (r === 'MONTHLY') return 'monthly'
-  if (r === 'YEARLY') return 'yearly'
-  return null
-}
-
-function pickSubscription(
-  subs: RawSubscriptionData[] | null,
-): SubscriptionInfo | null {
-  if (!subs || subs.length === 0) return null
-  const current = subs.find((s) => isActiveStatus(s.status)) ?? subs[0]
-  if (!current) return null
+/* Build the displayed subscription from Clerk publicMetadata (mirrored by the
+   kelviq-webhook and self-healed by kelviq-plan). We source it from metadata —
+   NOT the SDK's subscriptions call — because the browser SDK's client key is
+   unauthorized for Kelviq's subscriptions endpoint (403); see resolveLivePlan.
+   The Kelviq subscription id isn't mirrored into metadata, so management routes
+   through the hosted customer portal (openPortal), which needs no id. */
+function subscriptionFromMeta(user: AuthUser | null): SubscriptionInfo | null {
+  const meta = userPlan(user)
+  if (!meta.isPaid) return null
+  const raw = user?.metadata ?? {}
   return {
-    id: current.id,
-    status: current.status,
-    planId: toPlanId(current.plan?.identifier),
-    billingCycle: toBillingCycle(current.recurrence),
-    renewsAt: current.billingPeriodEndTime ?? null,
-    endsAt: current.endDate ?? null,
-    amount: current.amount,
-    currency: current.currency,
+    id: typeof raw.subscription_id === 'string' ? raw.subscription_id : '',
+    status:
+      typeof raw.subscription_status === 'string'
+        ? raw.subscription_status
+        : 'active',
+    planId: meta.id,
+    billingCycle: meta.billingCycle,
+    renewsAt: meta.renewsAt,
+    endsAt: null,
+    amount: '',
+    currency: '',
   }
 }
 
 /* Inner resolver — must be rendered INSIDE <KelviqProvider>. */
 function KelviqEntitlements({ children }: { children: ReactNode }) {
   const kq = useKelviq()
-  const subs = kq.subscriptions
-  const loading = kq.isLoading || subs.isLoading
+  const { user, getToken, reloadUser } = useAuth()
+  const loading = kq.isLoading
+
+  // Self-heal the plan on mount (and whenever the signed-in user changes). The
+  // browser SDK can't read Kelviq's subscriptions endpoint with the client key
+  // (403), so we never call it — the subscriptions fetch is disabled below.
+  // Instead resolve the plan server-side via kelviq-plan (server key), which
+  // mirrors it into Clerk metadata, then reload the Clerk user so the plan +
+  // subscription below reflect the real subscription on every surface. This is
+  // the same path the browser extension already uses.
+  useEffect(() => {
+    if (!user?.id) return
+    let cancelled = false
+    void (async () => {
+      const live = await resolveLivePlan(getToken)
+      if (!cancelled && live) await reloadUser()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, getToken, reloadUser])
 
   const value = useMemo<SubscriptionValue>(() => {
-    const subscription = pickSubscription(subs.data)
-    // Fail-closed: until entitlements resolve, treat as Free.
-    const planId: PlanId = loading ? 'free' : (subscription?.planId ?? 'free')
+    // Plan + subscription come from Clerk metadata (webhook / kelviq-plan
+    // mirror), not the SDK subscriptions call.
+    const planId = userPlan(user).id
+    const subscription = subscriptionFromMeta(user)
 
     const annotEnt = kq.getEntitlement(FEATURE_IDS.annotationsLimit)
     const annotationLimit = loading
@@ -100,15 +111,16 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
       subscription,
       isLoading: loading,
       refresh: async () => {
-        await Promise.all([
+        const [, live] = await Promise.all([
           kq.refreshAllEntitlements(),
-          kq.refreshSubscriptions(),
+          resolveLivePlan(getToken),
         ])
+        if (live) await reloadUser()
       },
     }
     // Live demo: unlock every feature, but keep planId/subscription real above.
     return { ...live, ...DEMO_UNLOCK }
-  }, [kq, subs.data, loading])
+  }, [kq, user, loading, getToken, reloadUser])
 
   return (
     <SubscriptionContext.Provider value={value}>
@@ -147,7 +159,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       environment={KELVIQ_ENVIRONMENT}
       config={{
         fetchEntitlementsOnMount: true,
-        fetchSubscriptionsOnMount: true,
+        // The subscriptions endpoint rejects the browser's client key (403), so
+        // never fetch it — the plan is resolved via kelviq-plan instead (see
+        // KelviqEntitlements). Leaving this on spams 403s + retries on load.
+        fetchSubscriptionsOnMount: false,
       }}
     >
       <KelviqEntitlements>{children}</KelviqEntitlements>
