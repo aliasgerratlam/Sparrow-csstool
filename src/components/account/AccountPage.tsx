@@ -126,22 +126,41 @@ function AccountBody() {
 }
 
 function SubscriptionCard() {
-  const { user, getToken } = useAuth()
+  const { user, getToken, reloadUser } = useAuth()
   const { subscription, planId, refresh, isLoading } = useEntitlements()
   // Metadata plan is the display fallback (and the only source when Kelviq
   // isn't configured — live entitlements are unavailable then).
   const metaPlan = userPlan(user)
 
-  // Show a successful-checkout toast + force-refresh entitlements on return
-  // from hosted checkout (the webhook may still be settling).
+  // Show a successful-checkout toast on return from hosted checkout, then keep
+  // pulling until the new plan appears. The kelviq-webhook (Kelviq → Supabase →
+  // Clerk metadata) settles asynchronously, so a single immediate refresh races
+  // it and lands stale ("Free"). Poll a few times with backoff, refreshing BOTH
+  // the live Kelviq entitlements AND the Clerk user (the metadata fallback),
+  // so the card flips on its own without a manual page reload.
   useEffect(() => {
     const url = new URL(window.location.href)
     if (url.searchParams.get('checkout') !== 'success') return
     url.searchParams.delete('checkout')
     window.history.replaceState(null, '', url.toString())
     toast.success('Payment successful — your plan is now active.')
-    void refresh()
-  }, [refresh])
+
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // Escalating delays (~ms) covering the typical webhook settlement window.
+    const schedule = [1500, 2500, 3000, 4000, 5000]
+    let i = 0
+    const tick = async () => {
+      await Promise.allSettled([refresh(), reloadUser()])
+      if (cancelled || i >= schedule.length) return
+      timer = setTimeout(tick, schedule[i++])
+    }
+    timer = setTimeout(tick, schedule[i++])
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [refresh, reloadUser])
 
   const [busy, setBusy] = useState(false)
 

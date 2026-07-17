@@ -159,6 +159,11 @@ export function ExtensionAuthProvider({ children }: { children: ReactNode }) {
       signOut,
       // The extension does no payments; nothing consumes this token.
       getToken: async () => null,
+      // No Clerk instance here — ask the background to re-sync the snapshot,
+      // which is the extension's equivalent of pulling fresh user metadata.
+      reloadUser: async () => {
+        requestAuthCheck()
+      },
       openLoginDialog,
     }),
     [snapshot, signOut, openLoginDialog],

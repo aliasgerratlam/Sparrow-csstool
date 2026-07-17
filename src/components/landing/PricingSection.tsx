@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ArrowButton, Container } from './parts'
-import { useAuth } from '@/context/auth-context'
+import { useAuth, userPlan } from '@/context/auth-context'
 import { useEntitlements } from '@/context/subscription-context'
 import { isKelviqConfigured } from '@/lib/kelviq'
 import {
@@ -20,13 +20,21 @@ type Billing = BillingCycle
 type PaidPlanId = Exclude<PlanId, 'free'>
 
 export function PricingSection() {
-  const [billing, setBilling] = useState<Billing>('yearly')
+  const [billing, setBilling] = useState<Billing>('monthly')
   // The plan id currently processing (its button shows a spinner); null when
   // idle. Doubles as the "busy" guard against concurrent actions.
   const [activePlan, setActivePlan] = useState<PlanId | null>(null)
-  const { isConfigured, isAuthenticated, openLoginDialog, getToken } = useAuth()
+  const { isConfigured, isAuthenticated, openLoginDialog, getToken, user } =
+    useAuth()
   const { planId: currentPlan, subscription } = useEntitlements()
   const navigate = useNavigate()
+
+  // Which plan card gets the "Current plan" label. Prefer the live Kelviq
+  // subscription's plan, but fall back to the Clerk-metadata plan (mirrored by
+  // the kelviq-webhook) when the live subscription hasn't resolved — otherwise
+  // this card stays on "Free" for a paying user even after a reload, since
+  // (unlike the account page) it has no other source. Mirrors AccountPage.
+  const effectivePlan: PlanId = subscription ? currentPlan : userPlan(user).id
 
   const goDemo = () =>
     document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' })
@@ -128,7 +136,7 @@ export function PricingSection() {
         <div className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:pb-0">
           {PLAN_IDS.map((id) => {
             const plan = PLAN_DISPLAY[id]
-            const isCurrent = isAuthenticated && currentPlan === id
+            const isCurrent = isAuthenticated && effectivePlan === id
             const cta = isCurrent ? 'Current plan' : plan.cta
             return (
               <article

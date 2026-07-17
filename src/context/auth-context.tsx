@@ -55,6 +55,10 @@ interface AuthValue {
   /** The signed-in user's Clerk session JWT (null when signed out / guest).
       Used to authenticate calls to server functions, e.g. payment verification. */
   getToken: () => Promise<string | null>
+  /** Re-fetch the signed-in user from Clerk so freshly-mirrored publicMetadata
+      (e.g. the plan the kelviq-webhook just wrote) is picked up without a full
+      page reload. No-op when signed out / guest. */
+  reloadUser: () => Promise<void>
   /** Opens Clerk's hosted sign-in modal (any gated action can prompt login).
       `mode: 'sign-up'` opens the create-account form instead of sign-in.
       `onDismissed` fires if the user closes the modal while still signed out
@@ -79,6 +83,7 @@ const GUEST_VALUE: AuthValue = {
   loading: false,
   signOut: async () => {},
   getToken: async () => null,
+  reloadUser: async () => {},
   openLoginDialog: () => {},
 }
 
@@ -148,6 +153,14 @@ function AuthBridge({ children }: { children: ReactNode }) {
     [clerk],
   )
 
+  const reloadUser = useCallback(async () => {
+    try {
+      await user?.reload()
+    } catch {
+      /* transient Clerk fetch error — the next poll / page load recovers. */
+    }
+  }, [user])
+
   const openLoginDialog = useCallback(
     (opts?: { mode?: 'sign-in' | 'sign-up'; onDismissed?: () => void }) => {
       if (opts?.mode === 'sign-up') clerk.openSignUp()
@@ -166,9 +179,10 @@ function AuthBridge({ children }: { children: ReactNode }) {
       loading: !isLoaded,
       signOut,
       getToken,
+      reloadUser,
       openLoginDialog,
     }),
-    [user, isSignedIn, isLoaded, signOut, getToken, openLoginDialog],
+    [user, isSignedIn, isLoaded, signOut, getToken, reloadUser, openLoginDialog],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>

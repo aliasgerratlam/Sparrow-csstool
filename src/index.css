@@ -1657,7 +1657,7 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 .annot-sb-list, .annot-sb-orphan-list { padding: 0 18px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .annot-sb-list { flex: 1; }
 .annot-li {
-  display: flex; align-items: center; gap: 12px; padding: 13px 12px 13px 14px; cursor: pointer;
+  display: flex; align-items: flex-start; gap: 12px; padding: 13px 12px 13px 14px; cursor: pointer;
   background: rgba(255,255,255,.75); border: 1px solid var(--a-border); border-radius: 14px;
   transition: border-color .14s, background .14s;
 }
