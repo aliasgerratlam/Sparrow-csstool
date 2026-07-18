@@ -127,7 +127,17 @@
       "Bash(VITE_CLERK_PUBLISHABLE_KEY= VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite --port 5199)",
       "Read(//tmp/**)",
       "Bash(node shadow-test.mjs)",
-      "Bash(awk '/Authorization/{print NR\": \"$0}' kelviq-react-sdk.js)"
+      "Bash(awk '/Authorization/{print NR\": \"$0}' kelviq-react-sdk.js)",
+      "Bash(unzip -l public/sparrow-firefox.zip)",
+      "Bash(unzip -l public/sparrow-chrome.zip)",
+      "Bash(unzip -l /tmp/head-firefox.zip)",
+      "Bash(xxd public/sparrow-firefox.zip)",
+      "Bash(unzip -t public/sparrow-firefox.zip)",
+      "Bash(unzip -t public/sparrow-chrome.zip)",
+      "Bash(npx --yes addons-linter@latest public/sparrow-firefox.zip)",
+      "Bash(python -c ' *)",
+      "Bash(unzip -l extension/build/firefox.zip)",
+      "Bash(git mv *)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -184,7 +184,7 @@ export function InstallGuideDialog() {
                       src={icon}
                       alt=""
                       className={cn(
-                        'size-7 rounded-full bg-white ring-2 ring-white',
+                        'size-7 rounded-full',
                         i > 0 && '-ml-2',
                       )}
                     />

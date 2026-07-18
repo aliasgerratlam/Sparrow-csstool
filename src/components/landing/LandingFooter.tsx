@@ -11,6 +11,12 @@ const NAV = [
   { label: 'FAQ', href: '#faq' },
 ]
 
+// Route links (not in-page anchors) — rendered as a separate legal row.
+const LEGAL = [
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms & Conditions', to: '/terms' },
+]
+
 /* The footer is rendered on the landing/index page and on /account; the Install
    button downloads the built extension zip (a same-origin static file), so it
    works the same on any page without needing the scanner. */
@@ -72,6 +78,25 @@ export function LandingFooter() {
                   key={item.label}
                   href={onAccount ? `/${item.href}` : item.href}
                   onClick={handleNavClick(item.href)}
+                  className="font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+
+            <nav
+              aria-label="Legal"
+              className="flex flex-wrap items-center gap-x-8 gap-y-3 md:justify-end"
+            >
+              {LEGAL.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.to}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate(item.to)
+                  }}
                   className="font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
                 >
                   {item.label}

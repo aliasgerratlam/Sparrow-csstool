@@ -33,6 +33,11 @@ function fmtDate(iso: string | null | undefined): string | null {
 export function AccountPage() {
   const { isAuthenticated, isConfigured, loading, openLoginDialog } = useAuth()
 
+  // Always start at the top when arriving on the account page.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
   // Landing here signed-out (e.g. deep link) prompts login rather than a blank.
   useEffect(() => {
     if (!loading && isConfigured && !isAuthenticated) openLoginDialog()

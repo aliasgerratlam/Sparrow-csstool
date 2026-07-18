@@ -2,7 +2,7 @@ import { Logo } from '@/components/ui/Logo'
 import { cn } from '@/lib/format'
 
 /* Sparrow brand lockup used in the landing header and footer: the existing logo
-   mark (sparoww-logo asset) paired with the "Sparrow" wordmark from the Figma. */
+   mark (sparrow-logo asset) paired with the "Sparrow" wordmark from the Figma. */
 export function Wordmark({
   className,
   logoHeight = 80,

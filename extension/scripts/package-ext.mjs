@@ -25,8 +25,8 @@
  */
 import { readFile, writeFile, rm, mkdir, cp, readdir, stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { deflateRawSync } from 'node:zlib'
 import path from 'node:path'
-import { downloadZip } from 'client-zip'
 
 const extDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const buildDir = path.join(extDir, 'build')
@@ -59,23 +59,101 @@ const TARGETS = {
   },
 }
 
+// CRC-32 (IEEE, the ZIP variant) — table computed once at module load.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    t[n] = c >>> 0
+  }
+  return t
+})()
+function crc32(buf) {
+  let c = 0xffffffff
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8)
+  return (c ^ 0xffffffff) >>> 0
+}
+
+// Fixed DOS timestamp (1980-01-01 00:00) so the committed zips are byte-stable.
+const DOS_DATE = 0x0021
+const DOS_TIME = 0x0000
+
 /** Zip a build/<target>/ folder into public/<name>, files at the zip root
- *  (manifest.json on top) so "Load unpacked" works straight after extract. A
- *  fixed epoch mtime keeps the bytes reproducible so committed zips don't churn. */
+ *  (manifest.json on top) so "Load unpacked" works straight after extract.
+ *
+ *  Hand-rolled encoder rather than a streaming lib on purpose: Mozilla's
+ *  addons-linter reads each entry from its LOCAL file header, so the archive
+ *  MUST carry the real CRC-32 and sizes there — no data-descriptor (bit 3),
+ *  no ZIP64 markers. A streamed zip that defers those to a trailing descriptor
+ *  makes AMO fail to find manifest.json ("not found at the root of the
+ *  extension"), even though the entry is flat at the root. DEFLATE via zlib is
+ *  deterministic, so a fixed DOS timestamp keeps the committed bytes stable. */
 async function zipFolder(srcDir, outFile) {
-  const rels = await readdir(srcDir, { recursive: true })
-  const entries = []
-  for (const rel of rels.sort()) {
+  const rels = (await readdir(srcDir, { recursive: true })).sort()
+  const fileParts = [] // local header + name + compressed data, in order
+  const central = []   // central-directory headers
+  let offset = 0       // running offset of the next local header
+
+  for (const rel of rels) {
     const full = path.join(srcDir, rel)
     if (!(await stat(full)).isFile()) continue
-    entries.push({
-      name: rel.split(path.sep).join('/'), // zip paths are forward-slashed
-      input: await readFile(full),
-      lastModified: new Date(0),
-    })
+    const nameBuf = Buffer.from(rel.split(path.sep).join('/'), 'utf8') // zip paths are forward-slashed
+    const data = await readFile(full)
+    const crc = crc32(data)
+    const compressed = deflateRawSync(data)
+    const size = data.length
+    const csize = compressed.length
+
+    const local = Buffer.alloc(30)
+    local.writeUInt32LE(0x04034b50, 0) // local file header signature
+    local.writeUInt16LE(20, 4)         // version needed to extract (2.0)
+    local.writeUInt16LE(0x0800, 6)     // flags: UTF-8 names, NO data descriptor
+    local.writeUInt16LE(8, 8)          // compression method: DEFLATE
+    local.writeUInt16LE(DOS_TIME, 10)
+    local.writeUInt16LE(DOS_DATE, 12)
+    local.writeUInt32LE(crc, 14)
+    local.writeUInt32LE(csize, 18)
+    local.writeUInt32LE(size, 22)
+    local.writeUInt16LE(nameBuf.length, 26)
+    local.writeUInt16LE(0, 28)         // extra field length
+    fileParts.push(local, nameBuf, compressed)
+
+    const cd = Buffer.alloc(46)
+    cd.writeUInt32LE(0x02014b50, 0)    // central directory header signature
+    cd.writeUInt16LE(20, 4)            // version made by
+    cd.writeUInt16LE(20, 6)            // version needed to extract
+    cd.writeUInt16LE(0x0800, 8)        // flags
+    cd.writeUInt16LE(8, 10)            // compression method: DEFLATE
+    cd.writeUInt16LE(DOS_TIME, 12)
+    cd.writeUInt16LE(DOS_DATE, 14)
+    cd.writeUInt32LE(crc, 16)
+    cd.writeUInt32LE(csize, 20)
+    cd.writeUInt32LE(size, 24)
+    cd.writeUInt16LE(nameBuf.length, 28)
+    cd.writeUInt16LE(0, 30)            // extra field length
+    cd.writeUInt16LE(0, 32)            // comment length
+    cd.writeUInt16LE(0, 34)            // disk number start
+    cd.writeUInt16LE(0, 36)            // internal file attributes
+    cd.writeUInt32LE(0, 38)            // external file attributes
+    cd.writeUInt32LE(offset, 42)       // relative offset of local header
+    central.push(cd, nameBuf)
+
+    offset += local.length + nameBuf.length + compressed.length
   }
-  const bytes = new Uint8Array(await downloadZip(entries).arrayBuffer())
-  await writeFile(outFile, bytes)
+
+  const cdBuf = Buffer.concat(central)
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0)    // end of central directory signature
+  eocd.writeUInt16LE(0, 4)             // number of this disk
+  eocd.writeUInt16LE(0, 6)             // disk where central directory starts
+  eocd.writeUInt16LE(central.length / 2, 8)  // cd records on this disk (2 buffers per entry)
+  eocd.writeUInt16LE(central.length / 2, 10) // total cd records
+  eocd.writeUInt32LE(cdBuf.length, 12) // size of central directory
+  eocd.writeUInt32LE(offset, 16)       // offset of central directory
+  eocd.writeUInt16LE(0, 20)            // comment length
+
+  await writeFile(outFile, Buffer.concat([...fileParts, cdBuf, eocd]))
 }
 
 const baseManifest = JSON.parse(await readFile(path.join(extDir, 'manifest.json'), 'utf8'))

@@ -15,11 +15,11 @@ type LogoProps = {
 // text fills the rest. These bounds crop to the bird alone for `mark` lockups.
 const MARK = { left: 55, width: 485, full: 1361, height: 576 }
 
-/* Shared Sparoww brand wordmark. The source asset is a wide logo with its own
+/* Shared Sparrow brand wordmark. The source asset is a wide logo with its own
    background, so it's displayed as a rounded chip. Pass `height` for horizontal
    chrome, or `width` for narrow columns (e.g. the mode rail). Pass `mark` to
    render just the bird (used in lockups that add their own "Sparrow" text). */
-export function Logo({ className, height = 20, width, mark = false, title = 'Sparoww' }: LogoProps) {
+export function Logo({ className, height = 20, width, mark = false, title = 'Sparrow' }: LogoProps) {
   if (mark) {
     const scale = height / MARK.height
     return (
@@ -32,7 +32,7 @@ export function Logo({ className, height = 20, width, mark = false, title = 'Spa
           alt={title}
           title={title}
           draggable={false}
-          className={['sparoww-logo', className].filter(Boolean).join(' ')}
+          className={['sparrow-logo', className].filter(Boolean).join(' ')}
           style={{
             height,
             width: MARK.full * scale,
@@ -51,7 +51,7 @@ export function Logo({ className, height = 20, width, mark = false, title = 'Spa
       alt={title}
       title={title}
       draggable={false}
-      className={['sparoww-logo', className].filter(Boolean).join(' ')}
+      className={['sparrow-logo', className].filter(Boolean).join(' ')}
       style={style}
     />
   )

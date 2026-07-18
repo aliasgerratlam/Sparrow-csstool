@@ -19,7 +19,7 @@ import { ArrowButton } from '@/components/landing/parts'
    behind the modal would just strand an inert toolbar.
 
    Styled like the share dialog's glassy card (.ext-signin-* in index.css) with
-   the landing page's 3D blue CTA, so it reads as native Sparoww chrome. */
+   the landing page's 3D blue CTA, so it reads as native Sparrow chrome. */
 export function SignInGate() {
   const { isActive, disable } = useScanner()
   const { loading, isAuthenticated, openLoginDialog } = useAuth()

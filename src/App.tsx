@@ -20,6 +20,8 @@ import { AnnotationLimitSync } from '@/context/subscription-context'
 import { InstallGuideDialog } from '@/components/landing/InstallGuideDialog'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { AccountPage } from '@/components/account/AccountPage'
+import { PrivacyPolicyPage } from '@/components/legal/PrivacyPolicyPage'
+import { TermsPage } from '@/components/legal/TermsPage'
 import { Scanner } from '@/components/scanner/Scanner'
 import { Overlays } from '@/components/scanner/Overlays'
 import { AnnotationLayer } from '@/components/annotate/AnnotationLayer'
@@ -196,6 +198,8 @@ export default function App() {
             <InstallGuideProvider>
               <Routes>
                 <Route path="/account" element={<AccountRoute />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
                 <Route path="*" element={<IndexRoute />} />
               </Routes>
               <InstallGuideDialog />

@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
       lib: {
         entry: path.resolve(__dirname, 'src/background.ts'),
         formats: ['iife'],
-        name: 'SparowwBackground',
+        name: 'SparrowBackground',
         fileName: () => 'background.js',
       },
     },

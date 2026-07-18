@@ -335,8 +335,8 @@ html {
   animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
-/* ─── Sparoww brand wordmark (shared across tool chrome) ─── */
-.sparoww-logo {
+/* ─── Sparrow brand wordmark (shared across tool chrome) ─── */
+.sparrow-logo {
   display: block;
   width: auto;
   object-fit: contain;

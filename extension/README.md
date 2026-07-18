@@ -1,4 +1,4 @@
-# Sparoww Scanner — Browser Extension
+# Sparrow Scanner — Browser Extension
 
 The tools from the landing page's **Try Demo** button — packaged as a browser
 extension so you can run them on **any** website.
@@ -95,12 +95,12 @@ in its target browser. `extension/build/` is gitignored — it's a build artifac
    - Brave: `brave://extensions`
 3. Turn on **Developer mode** (top-right in Chrome, left sidebar in Edge).
 4. Click **Load unpacked** and select the **`extension/build/chromium/`** folder.
-5. Pin the Sparoww icon to your toolbar (puzzle-piece menu → pin).
+5. Pin the Sparrow icon to your toolbar (puzzle-piece menu → pin).
 
 ### Use it
 
 - Open any website.
-- Click the **Sparoww toolbar icon** to bring the scanner up.
+- Click the **Sparrow toolbar icon** to bring the scanner up.
 - Pick a tool from the mode rail on the left; hover/click the page.
 - Click the icon again (or press **Esc**) to put it away.
 
@@ -185,7 +185,7 @@ grant `<all_urls>` at install. The toolbar button still works everywhere
 for full host access — grant it, or the following stay broken: auto-detecting
 sign-in on the web app (cookie watch), cross-origin stylesheet recovery, and
 auto-opening on `?sparrow-session` share links. You can also grant it manually
-under `about:addons` → Sparoww → **Permissions**.
+under `about:addons` → Sparrow → **Permissions**.
 
 **Auth caveat.** The Clerk Sync Host flow works in Firefox (the Clerk SDK uses
 the promise-based `browser.*` API via its bundled polyfill), but Clerk validates

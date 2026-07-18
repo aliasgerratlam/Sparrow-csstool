@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
     lib: {
       entry: path.resolve(__dirname, 'src/content.tsx'),
       formats: ['iife'],
-      name: 'SparowwScanner',
+      name: 'SparrowScanner',
       fileName: () => 'content.js',
     },
     rollupOptions: {
