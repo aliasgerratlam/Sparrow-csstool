@@ -23,21 +23,23 @@ export function LandingHeader() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
-  // Reused on /account too. There the section anchors (#features …) point at the
-  // landing page, so prefix them with "/"; and the right-side CTA becomes
-  // Sign out (you're already on your account) instead of "My account".
+  // Reused on /account, /privacy, /terms too. Those pages don't carry the
+  // landing sections, so the anchors (#home, #features …) must point back at the
+  // landing page ("/#features") rather than scroll in place. `onAccount` also
+  // swaps the right-side CTA to Sign out (you're already on your account).
   const onAccount = pathname.startsWith('/account')
-  const navBase = onAccount ? '/' : ''
+  const onLanding = pathname === '/'
+  const navBase = onLanding ? '' : '/'
   const handleSignOut = () => void signOut().then(() => navigate('/'))
 
   // On the landing page, smooth-scroll to the section without letting the
-  // browser append the "#home"/"#features" hash to the URL. On /account the
-  // anchors navigate client-side to the landing page, where RouterBridge
+  // browser append the "#home"/"#features" hash to the URL. On the other pages
+  // the anchors navigate client-side to the landing page, where RouterBridge
   // scrolls to the target section once it mounts.
   const handleNavClick = (href: string) => (e: React.MouseEvent) => {
     e.preventDefault()
     setOpen(false)
-    if (onAccount) {
+    if (!onLanding) {
       navigate(`/${href}`) // e.g. "/#features"
       return
     }

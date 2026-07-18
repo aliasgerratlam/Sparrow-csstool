@@ -22,15 +22,16 @@ const LEGAL = [
    works the same on any page without needing the scanner. */
 export function LandingFooter() {
   const navigate = useNavigate()
-  const onAccount = useLocation().pathname.startsWith('/account')
+  const onLanding = useLocation().pathname === '/'
   const { downloading, download } = useExtensionDownload()
   const { openGuide } = useInstallGuide()
 
-  // Same-page: smooth-scroll to the section. On /account (no sections): navigate
-  // client-side to the landing page and let RouterBridge scroll there.
+  // Same-page: smooth-scroll to the section. On pages without the landing
+  // sections (/account, /privacy, /terms): navigate client-side to the landing
+  // page and let RouterBridge scroll there.
   const handleNavClick = (href: string) => (e: React.MouseEvent) => {
     e.preventDefault()
-    if (onAccount) {
+    if (!onLanding) {
       navigate(`/${href}`) // e.g. "/#features"
       return
     }
@@ -76,7 +77,7 @@ export function LandingFooter() {
               {NAV.map((item) => (
                 <a
                   key={item.label}
-                  href={onAccount ? `/${item.href}` : item.href}
+                  href={onLanding ? item.href : `/${item.href}`}
                   onClick={handleNavClick(item.href)}
                   className="font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
                 >
