@@ -65,11 +65,24 @@ export type PriceMap = Partial<
   Record<PlanId, { monthly?: string; yearly?: string }>
 >
 
-/** null = no live pricing (unconfigured / still loading) → static fallback. */
-const PricingContext = createContext<PriceMap | null>(null)
+/**
+ * Live pricing state for the cards.
+ * - `prices`: mapped Kelviq prices (null until resolved / when unconfigured).
+ * - `loading`: true only while a live fetch is in flight with nothing yet to
+ *   show — the signal a card uses to render a skeleton instead of flashing the
+ *   static PLAN_DISPLAY price and then swapping it for the localized one. Stays
+ *   false when Kelviq is unconfigured or a fetch failed, so those fall straight
+ *   back to the static copy.
+ */
+export type PricingState = { prices: PriceMap | null; loading: boolean }
 
-/** Live, localized Kelviq prices for the pricing cards (null → use PLAN_DISPLAY). */
-export function useKelviqPrices(): PriceMap | null {
+const PricingContext = createContext<PricingState>({
+  prices: null,
+  loading: false,
+})
+
+/** Live, localized Kelviq prices for the pricing cards (+ loading flag). */
+export function useKelviqPrices(): PricingState {
   return useContext(PricingContext)
 }
 
@@ -185,11 +198,17 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
     return { ...live, ...DEMO_UNLOCK }
   }, [kq, user, loading, getToken, reloadUser])
 
-  const prices = useMemo(() => mapPrices(kq.pricing.data), [kq.pricing.data])
+  const pricing = useMemo<PricingState>(() => {
+    const prices = mapPrices(kq.pricing.data)
+    // Skeleton until live prices resolve; once they arrive (or the fetch
+    // errors) fall back to static copy rather than a perpetual skeleton.
+    const loading = !prices && !kq.pricing.error
+    return { prices, loading }
+  }, [kq.pricing.data, kq.pricing.error])
 
   return (
     <SubscriptionContext.Provider value={value}>
-      <PricingContext.Provider value={prices}>
+      <PricingContext.Provider value={pricing}>
         {children}
       </PricingContext.Provider>
     </SubscriptionContext.Provider>

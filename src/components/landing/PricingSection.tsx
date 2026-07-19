@@ -31,7 +31,9 @@ export function PricingSection() {
   const { planId: currentPlan, subscription } = useEntitlements()
   // Live, localized Kelviq prices (null while loading / when unconfigured);
   // each card falls back to its static PLAN_DISPLAY copy when a value is absent.
-  const prices = useKelviqPrices()
+  // `loading` is true only while the live fetch is still in flight — paid cards
+  // show a skeleton then, instead of flashing the static price and swapping it.
+  const { prices, loading: pricesLoading } = useKelviqPrices()
   const navigate = useNavigate()
 
   // Notice an abandoned / declined checkout. Kelviq's hosted checkout has no
@@ -164,11 +166,15 @@ export function PricingSection() {
             const cta = isCurrent ? 'Current plan' : plan.cta
             // Prefer the live Kelviq price for the selected cycle; fall back to
             // the static display copy while pricing loads / when unconfigured.
+            const livePrice =
+              billing === 'yearly' ? prices?.[id]?.yearly : prices?.[id]?.monthly
             const priceLabel =
-              (billing === 'yearly'
-                ? prices?.[id]?.yearly
-                : prices?.[id]?.monthly) ??
+              livePrice ??
               (billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice)
+            // Skeleton the price only for paid plans while the live fetch is in
+            // flight — Free has no live price (always $0), so it never waits.
+            const showPriceSkeleton =
+              pricesLoading && id !== 'free' && !livePrice
             return (
               <article
                 key={plan.id}
@@ -182,16 +188,25 @@ export function PricingSection() {
                 </p>
 
                 <div className="mt-6 flex items-end gap-2">
-                  <span className="font-abeezee text-4xl font-semibold text-sparrow-ink">
-                    {priceLabel}
-                  </span>
-                  <span className="mb-1 font-abeezee text-base text-sparrow-ink/60">
-                    {plan.id === 'free'
-                      ? 'free forever'
-                      : billing === 'yearly'
-                        ? 'per year'
-                        : 'per month'}
-                  </span>
+                  {showPriceSkeleton ? (
+                    <span
+                      aria-hidden
+                      className="mb-1 h-9 w-24 animate-pulse rounded-md bg-sparrow-ink/10"
+                    />
+                  ) : (
+                    <>
+                      <span className="font-abeezee text-4xl font-semibold text-sparrow-ink">
+                        {priceLabel}
+                      </span>
+                      <span className="mb-1 font-abeezee text-base text-sparrow-ink/60">
+                        {plan.id === 'free'
+                          ? 'free forever'
+                          : billing === 'yearly'
+                            ? 'per year'
+                            : 'per month'}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <hr className="my-5 border-black/10" />

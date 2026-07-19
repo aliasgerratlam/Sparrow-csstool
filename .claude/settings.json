@@ -138,7 +138,10 @@
       "Bash(python -c ' *)",
       "Bash(unzip -l extension/build/firefox.zip)",
       "Bash(git mv *)",
-      "Bash(xargs grep -l \"createSession\\\\|CheckoutSession\\\\|cancelUrl\")"
+      "Bash(xargs grep -l \"createSession\\\\|CheckoutSession\\\\|cancelUrl\")",
+      "Bash(grep -rhoE \"\\(sandbox|production\\)[^\\\\\"']{0,40}kelviq[a-z.]*\" node_modules/@kelviq/react-sdk/dist)",
+      "Bash(curl -s -H \"Authorization: Bearer client-407a749d-4712-44ae-b64b-3ae3e1ec6272:113dcb34-8ec5-425c-9209-172f6daa440d\" \"https://api.kelviq.com/api/v1/monetization/product-offering/acb7ee68-8127-46c2-b79e-3bdd32d4939a/\" -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(curl -s -H \"Authorization: Bearer client-407a749d-4712-44ae-b64b-3ae3e1ec6272:113dcb34-8ec5-425c-9209-172f6daa440d\" \"https://sandboxapi.kelviq.com/api/v1/monetization/product-offering/acb7ee68-8127-46c2-b79e-3bdd32d4939a/\" -w \"\\\\nHTTP %{http_code}\\\\n\")"
     ],
     "additionalDirectories": [
       "\\tmp"
