@@ -137,7 +137,8 @@
       "Bash(npx --yes addons-linter@latest public/sparrow-firefox.zip)",
       "Bash(python -c ' *)",
       "Bash(unzip -l extension/build/firefox.zip)",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(xargs grep -l \"createSession\\\\|CheckoutSession\\\\|cancelUrl\")"
     ],
     "additionalDirectories": [
       "\\tmp"

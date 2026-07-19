@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ArrowButton, Container } from './parts'
 import { useAuth, userPlan } from '@/context/auth-context'
 import { useEntitlements } from '@/context/subscription-context'
+import { useKelviqPrices } from '@/context/kelviq-provider'
 import { isKelviqConfigured } from '@/lib/kelviq'
 import {
   startCheckout,
   openPortal,
+  consumeCheckoutPending,
   type BillingCycle,
 } from '@/lib/kelviq-checkout'
 import { PLAN_DISPLAY, PLAN_IDS, type PlanId } from '@/lib/plans'
@@ -27,7 +29,31 @@ export function PricingSection() {
   const { isConfigured, isAuthenticated, openLoginDialog, getToken, user } =
     useAuth()
   const { planId: currentPlan, subscription } = useEntitlements()
+  // Live, localized Kelviq prices (null while loading / when unconfigured);
+  // each card falls back to its static PLAN_DISPLAY copy when a value is absent.
+  const prices = useKelviqPrices()
   const navigate = useNavigate()
+
+  // Notice an abandoned / declined checkout. Kelviq's hosted checkout has no
+  // cancelUrl, so a failed or dismissed payment just leaves the user on Kelviq's
+  // page; they return here via Back with the in-flight flag still set (a
+  // completed checkout clears it on /account). Reassure them no charge was made.
+  // Runs on mount (full-reload return) and on bfcache restore (pageshow).
+  useEffect(() => {
+    const check = () => {
+      const planId = consumeCheckoutPending()
+      if (!planId) return
+      toast(`Checkout for ${PLAN_DISPLAY[planId].name} wasn't completed.`, {
+        description: "You weren't charged — pick a plan whenever you're ready.",
+      })
+    }
+    check()
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) check()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
 
   // Which plan card gets the "Current plan" label. Prefer the live Kelviq
   // subscription's plan, but fall back to the Clerk-metadata plan (mirrored by
@@ -136,6 +162,13 @@ export function PricingSection() {
             const plan = PLAN_DISPLAY[id]
             const isCurrent = isAuthenticated && effectivePlan === id
             const cta = isCurrent ? 'Current plan' : plan.cta
+            // Prefer the live Kelviq price for the selected cycle; fall back to
+            // the static display copy while pricing loads / when unconfigured.
+            const priceLabel =
+              (billing === 'yearly'
+                ? prices?.[id]?.yearly
+                : prices?.[id]?.monthly) ??
+              (billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice)
             return (
               <article
                 key={plan.id}
@@ -150,7 +183,7 @@ export function PricingSection() {
 
                 <div className="mt-6 flex items-end gap-2">
                   <span className="font-abeezee text-4xl font-semibold text-sparrow-ink">
-                    {billing === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}
+                    {priceLabel}
                   </span>
                   <span className="mb-1 font-abeezee text-base text-sparrow-ink/60">
                     {plan.id === 'free'

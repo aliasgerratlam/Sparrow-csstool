@@ -1,9 +1,19 @@
-import { useEffect, useMemo, type ReactNode } from 'react'
-import { KelviqProvider, useKelviq } from '@kelviq/react-sdk'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from 'react'
+import {
+  KelviqProvider,
+  useKelviq,
+  kqFormatPrice,
+  type RawPricingApiResponse,
+} from '@kelviq/react-sdk'
 import { useAuth, userPlan, type AuthUser } from '@/context/auth-context'
 import {
   SubscriptionContext,
-  FREE_VALUE,
   UNGATED_VALUE,
   type SubscriptionInfo,
   type SubscriptionValue,
@@ -15,7 +25,12 @@ import {
   isKelviqConfigured,
 } from '@/lib/kelviq'
 import { resolveLivePlan } from '@/lib/kelviq-checkout'
-import { FEATURE_IDS, PLAN_LIMITS, limitsForPlan } from '@/lib/plans'
+import {
+  FEATURE_IDS,
+  PLAN_LIMITS,
+  limitsForPlan,
+  type PlanId,
+} from '@/lib/plans'
 
 /* ─────────────────────────────────────────────────────────────────────────
    Web-app subscription provider — resolves live Kelviq entitlements and feeds
@@ -36,6 +51,54 @@ const DEMO_UNLOCK = {
   assets: true,
   annotationLimit: Infinity,
 } as const
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Live pricing — the pricing cards read prices from Kelviq (localized to the
+   visitor's currency/country) instead of the static PLAN_DISPLAY strings.
+   Pricing is public (no customerId needed), so it's fetched even for signed-out
+   visitors. A missing period/plan leaves the field undefined and the card falls
+   back to its PLAN_DISPLAY copy.
+───────────────────────────────────────────────────────────────────────── */
+
+/** Formatted, localized price strings per plan/period (undefined = fall back). */
+export type PriceMap = Partial<
+  Record<PlanId, { monthly?: string; yearly?: string }>
+>
+
+/** null = no live pricing (unconfigured / still loading) → static fallback. */
+const PricingContext = createContext<PriceMap | null>(null)
+
+/** Live, localized Kelviq prices for the pricing cards (null → use PLAN_DISPLAY). */
+export function useKelviqPrices(): PriceMap | null {
+  return useContext(PricingContext)
+}
+
+const KNOWN_PLAN = (id: string): id is PlanId =>
+  id === 'free' || id === 'pro' || id === 'max'
+
+/** Map Kelviq's raw pricing response into formatted per-plan/period strings. */
+function mapPrices(pricing: RawPricingApiResponse | null): PriceMap | null {
+  if (!pricing?.plans?.length) return null
+  const { currencySymbol, pricingLocale } = pricing
+  const out: PriceMap = {}
+  for (const plan of pricing.plans) {
+    if (!KNOWN_PLAN(plan.identifier)) continue
+    const charges = plan.price?.charges ?? []
+    const priceFor = (period: string): string | undefined => {
+      if (plan.price?.priceType === 'FREE') return undefined
+      const charge = charges.find((c) => c.chargePeriod === period)
+      return charge
+        ? kqFormatPrice(charge.priceData.amount, currencySymbol, {
+            locale: pricingLocale,
+          })
+        : undefined
+    }
+    const monthly = priceFor('MONTHLY')
+    const yearly = priceFor('YEARLY')
+    if (monthly || yearly) out[plan.identifier] = { monthly, yearly }
+  }
+  return Object.keys(out).length ? out : null
+}
 
 /* Build the displayed subscription from Clerk publicMetadata (mirrored by the
    kelviq-webhook and self-healed by kelviq-plan). We source it from metadata —
@@ -122,9 +185,13 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
     return { ...live, ...DEMO_UNLOCK }
   }, [kq, user, loading, getToken, reloadUser])
 
+  const prices = useMemo(() => mapPrices(kq.pricing.data), [kq.pricing.data])
+
   return (
     <SubscriptionContext.Provider value={value}>
-      {children}
+      <PricingContext.Provider value={prices}>
+        {children}
+      </PricingContext.Provider>
     </SubscriptionContext.Provider>
   )
 }
@@ -141,24 +208,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     )
   }
 
-  // Configured but signed out / no id → Free tier, but the live demo unlocks
-  // every tool so visitors can test-drive without signing in.
-  if (!isAuthenticated || !user?.id) {
-    return (
-      <SubscriptionContext.Provider value={{ ...FREE_VALUE, ...DEMO_UNLOCK }}>
-        {children}
-      </SubscriptionContext.Provider>
-    )
-  }
+  // Configured — always mount the Kelviq provider so PUBLIC pricing is fetched
+  // for the pricing cards even for signed-out visitors (pricing needs no
+  // customer id). Entitlements do need a customer, so those are only fetched
+  // when signed in; signed out, KelviqEntitlements degrades to Free + the live
+  // demo unlock so visitors can still test-drive every tool.
+  const signedIn = isAuthenticated && !!user?.id
 
   return (
     <KelviqProvider
       accessToken={KELVIQ_CLIENT_KEY ?? null}
       productId={KELVIQ_PRODUCT_ID}
-      customerId={user.id}
+      customerId={user?.id}
       environment={KELVIQ_ENVIRONMENT}
       config={{
-        fetchEntitlementsOnMount: true,
+        // Public pricing → live, localized prices on the pricing cards.
+        fetchPricingOnMount: true,
+        // Entitlements need a customer id — only fetch when signed in.
+        fetchEntitlementsOnMount: signedIn,
         // The subscriptions endpoint rejects the browser's client key (403), so
         // never fetch it — the plan is resolved via kelviq-plan instead (see
         // KelviqEntitlements). Leaving this on spams 403s + retries on load.

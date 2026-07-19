@@ -20,14 +20,27 @@ export interface CallerUser {
   name: string
 }
 
-/** Verify the x-clerk-token and resolve the caller, or null if unauthenticated. */
-export async function requireUser(req: Request): Promise<CallerUser | null> {
+/** Result of authenticating a caller: the resolved user, or a specific reason
+    it failed. The reason is logged server-side and returned in the 401 body so
+    a failing checkout is diagnosable instead of an opaque "Unauthorized". */
+export type AuthOutcome =
+  | { ok: true; user: CallerUser }
+  | { ok: false; reason: string }
+
+/** Verify the x-clerk-token and resolve the caller. Distinguishes the failure
+    modes (missing header / unconfigured secret / bad token / user lookup) so
+    the caller can report which one — the previous blanket catch collapsed all
+    of them into an undiagnosable 401. */
+export async function authenticateUser(req: Request): Promise<AuthOutcome> {
   const token = req.headers.get('x-clerk-token')
-  if (!token || !CLERK_SECRET_KEY) return null
+  if (!token) return { ok: false, reason: 'Missing x-clerk-token header' }
+  if (!CLERK_SECRET_KEY) {
+    return { ok: false, reason: 'CLERK_SECRET_KEY is not set on the Edge Function' }
+  }
   try {
     const claims = await verifyToken(token, { secretKey: CLERK_SECRET_KEY })
-    const userId = String(claims.sub)
-    if (!userId) return null
+    const userId = String(claims.sub ?? '')
+    if (!userId) return { ok: false, reason: 'Token has no subject (sub) claim' }
     const clerk = createClerkClient({ secretKey: CLERK_SECRET_KEY })
     const user = await clerk.users.getUser(userId)
     const email =
@@ -35,9 +48,10 @@ export async function requireUser(req: Request): Promise<CallerUser | null> {
       user.emailAddresses?.[0]?.emailAddress ??
       ''
     const name = user.fullName || user.firstName || user.username || ''
-    return { userId, email, name }
-  } catch {
-    return null
+    return { ok: true, user: { userId, email, name } }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { ok: false, reason: `Clerk token verification failed: ${message}` }
   }
 }
 

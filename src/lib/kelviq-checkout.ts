@@ -62,8 +62,85 @@ async function invoke<T>(
     headers: token ? { 'x-clerk-token': token } : undefined,
     body,
   })
-  if (error) throw error
+  if (error) throw new Error(await edgeErrorMessage(error))
   return data as T
+}
+
+/** supabase-js surfaces a non-2xx Edge Function response as a FunctionsHttpError
+    whose `.message` is generic ("...non-2xx status code") — the actionable
+    detail is in the response body (`{ error, reason }`), reachable via
+    `error.context`. Pull that out so callers show the real cause (e.g. why a
+    401 happened) instead of an opaque message. */
+async function edgeErrorMessage(error: unknown): Promise<string> {
+  const ctx = (error as { context?: unknown })?.context
+  if (ctx instanceof Response) {
+    try {
+      const body = await ctx.clone().json()
+      const reason = typeof body?.reason === 'string' ? body.reason : ''
+      const msg = typeof body?.error === 'string' ? body.error : ''
+      const combined = [msg, reason].filter(Boolean).join(': ')
+      if (combined) return combined
+    } catch {
+      /* body wasn't JSON — fall through to the generic message. */
+    }
+  }
+  return errText(error, 'Request failed')
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Pending-checkout flag. Kelviq's hosted checkout is redirect-based and its
+   API takes ONLY a successUrl (no cancelUrl — see the node SDK's
+   CreateCheckoutSessionPayload), so a declined card or an abandoned checkout
+   never redirects back to us; the browser just stays on Kelviq's page until the
+   user hits Back. To still notice that, we stash a short-lived flag right before
+   navigating away: the success handler clears it (kelviq returned via
+   successUrl), so if a returning visitor still has it set, checkout did NOT
+   complete. sessionStorage (per-tab) is the right scope — it clears on tab
+   close and survives the same-tab Back navigation.
+───────────────────────────────────────────────────────────────────────── */
+const CHECKOUT_PENDING_KEY = 'kelviq:checkout-pending'
+/** Ignore a flag older than this so a stale sessionStorage entry can't fire a
+    spurious "not completed" toast on an unrelated later visit to the page. */
+const PENDING_TTL_MS = 15 * 60 * 1000
+
+function markCheckoutPending(planId: PlanId): void {
+  try {
+    sessionStorage.setItem(
+      CHECKOUT_PENDING_KEY,
+      JSON.stringify({ planId, at: Date.now() }),
+    )
+  } catch {
+    /* storage unavailable (private mode / quota) — skip; the toast is a nicety. */
+  }
+}
+
+/** Read + clear the pending-checkout flag. Returns the planId when a checkout
+    was started (within the freshness window) and NOT completed — the success
+    handler clears the flag — else null. Idempotent: clears on read. */
+export function consumeCheckoutPending(): PlanId | null {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_PENDING_KEY)
+    if (!raw) return null
+    sessionStorage.removeItem(CHECKOUT_PENDING_KEY)
+    const parsed = JSON.parse(raw) as { planId?: unknown; at?: unknown }
+    if (typeof parsed.at !== 'number' || Date.now() - parsed.at > PENDING_TTL_MS)
+      return null
+    return parsed.planId === 'pro' || parsed.planId === 'max'
+      ? parsed.planId
+      : null
+  } catch {
+    return null
+  }
+}
+
+/** Clear the pending-checkout flag without acting on it — called by the
+    success handler so a returning visitor isn't told checkout "didn't finish". */
+export function clearCheckoutPending(): void {
+  try {
+    sessionStorage.removeItem(CHECKOUT_PENDING_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Start a NEW subscription: creates a hosted checkout session and redirects
@@ -86,6 +163,9 @@ export async function startCheckout(args: {
       args.getToken,
     )
     if (!checkoutUrl) return { status: 'failed', message: 'No checkout URL' }
+    // Mark in-flight only now that we're actually navigating to Kelviq (an
+    // earlier failure returns above without setting the flag).
+    markCheckoutPending(args.planId)
     window.location.href = checkoutUrl
     return { status: 'redirecting' }
   } catch (err) {

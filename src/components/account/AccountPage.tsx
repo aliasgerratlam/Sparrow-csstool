@@ -7,7 +7,7 @@ import { Container, ArrowButton } from '@/components/landing/parts'
 import { useAuth, userDisplayName, userPlan } from '@/context/auth-context'
 import { useEntitlements } from '@/context/subscription-context'
 import { isKelviqConfigured } from '@/lib/kelviq'
-import { openPortal } from '@/lib/kelviq-checkout'
+import { openPortal, clearCheckoutPending } from '@/lib/kelviq-checkout'
 import { initials } from '@/lib/collab-identity'
 import { cn } from '@/lib/format'
 import footerGradient from '@/assets/footer-gradient.svg'
@@ -148,6 +148,9 @@ function SubscriptionCard() {
     if (url.searchParams.get('checkout') !== 'success') return
     url.searchParams.delete('checkout')
     window.history.replaceState(null, '', url.toString())
+    // Checkout completed → clear the in-flight flag so returning to the pricing
+    // page later doesn't wrongly report the checkout as abandoned.
+    clearCheckoutPending()
     toast.success('Payment successful — your plan is now active.')
 
     let cancelled = false

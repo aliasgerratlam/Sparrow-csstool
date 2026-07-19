@@ -20,7 +20,7 @@
 ───────────────────────────────────────────────────────────────────────── */
 
 import { handlePreflight, json } from '../_shared/cors.ts'
-import { requireUser, updateClerkPlan } from '../_shared/clerk.ts'
+import { authenticateUser, updateClerkPlan } from '../_shared/clerk.ts'
 import { livePlanForCustomer } from '../_shared/kelviq.ts'
 
 Deno.serve(async (req) => {
@@ -28,8 +28,12 @@ Deno.serve(async (req) => {
   if (preflight) return preflight
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  const user = await requireUser(req)
-  if (!user) return json({ error: 'Unauthorized' }, 401)
+  const auth = await authenticateUser(req)
+  if (!auth.ok) {
+    console.error('[kelviq-plan] auth failed:', auth.reason)
+    return json({ error: 'Unauthorized', reason: auth.reason }, 401)
+  }
+  const user = auth.user
 
   try {
     const live = await livePlanForCustomer(user.userId)
