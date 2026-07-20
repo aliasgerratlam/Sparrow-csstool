@@ -8,9 +8,13 @@
 // the fully-rendered outerHTML back over the route's index.html. main.tsx
 // detects the prerendered markup and hydrates instead of re-rendering.
 //
-// Local runs: set PUPPETEER_EXECUTABLE_PATH to a Chromium/Edge binary (this repo
-// has no bundled Chromium in some sandboxes). On Vercel, puppeteer downloads its
-// own Chromium at install time and this env var is unset — the default is used.
+// Browser resolution (puppeteer-core has no bundled download — deterministic,
+// no flaky install-time Chromium fetch, which is what silently broke the first
+// Vercel deploy):
+//   1. PUPPETEER_EXECUTABLE_PATH, if set — explicit override.
+//   2. Linux (Vercel/CI): @sparticuz/chromium — a Chromium built for Amazon
+//      Linux, extracted to /tmp at runtime. Vercel build containers can run it.
+//   3. Windows/macOS (local): first Edge/Chrome found at its standard path.
 //
 // Third-party requests (Clerk, Supabase, Google Fonts, Analytics) are blocked
 // during the crawl: they can't authenticate on localhost anyway, would slow the
@@ -21,7 +25,7 @@ import { createServer } from 'node:http'
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import { join, extname, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const DIST = join(ROOT, 'dist')
@@ -55,6 +59,41 @@ async function tryFile(path) {
     /* not a file */
   }
   return null
+}
+
+async function exists(path) {
+  try {
+    return (await stat(path)).isFile()
+  } catch {
+    return false
+  }
+}
+
+// Standard install locations for Edge/Chrome on developer machines.
+const LOCAL_BROWSERS = [
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+]
+
+/** Resolve a launchable browser: env override → sparticuz (linux) → local. */
+async function resolveBrowser() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, args: [] }
+  }
+  if (process.platform === 'linux') {
+    const chromium = (await import('@sparticuz/chromium')).default
+    return { executablePath: await chromium.executablePath(), args: chromium.args }
+  }
+  for (const path of LOCAL_BROWSERS) {
+    if (await exists(path)) return { executablePath: path, args: [] }
+  }
+  throw new Error(
+    'No browser found — install Edge/Chrome or set PUPPETEER_EXECUTABLE_PATH.',
+  )
 }
 
 // Minimal static server for dist/ with SPA fallback — mirrors the production
@@ -98,10 +137,12 @@ async function main() {
   }
 
   const server = await serve(template)
+  const { executablePath, args } = await resolveBrowser()
+  console.log(`  using browser: ${executablePath}`)
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    executablePath,
+    args: [...args, '--no-sandbox', '--disable-setuid-sandbox'],
   })
 
   let failed = 0

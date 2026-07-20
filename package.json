@@ -34,13 +34,14 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "puppeteer": "^25.3.0",
+    "puppeteer-core": "^25.3.0",
     "supabase": "^2.109.1",
     "tailwindcss": "^4.0.0",
     "tw-animate-css": "^1.2.5",

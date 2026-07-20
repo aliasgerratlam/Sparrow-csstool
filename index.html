@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <meta name="theme-color" content="#faf7f0" />
-  <!-- Per-route <title>, description, canonical, and Open Graph/Twitter tags are
-       emitted by <Seo> (src/components/seo/Seo.tsx) via React 19's native
-       metadata hoisting, and baked into each page by scripts/prerender.mjs.
-       Deliberately no static <title> here: it would duplicate the one <Seo>
-       renders in the prerendered <head>. -->
+  <!-- FALLBACK title/description, served whenever a page isn't prerendered
+       (dev, or the prerender step was skipped in CI). At runtime main.tsx
+       strips these before React mounts and <Seo> (src/components/seo/Seo.tsx)
+       re-emits the per-route set — that same strip runs during the prerender
+       crawl, so snapshotted pages also end up with exactly one set of tags. -->
+  <title>Sparrow — Inspect CSS, Annotate & Review Any Website</title>
+  <meta name="description" content="Sparrow is a browser extension for inspecting CSS, measuring spacing, extracting colors, fonts, and assets, and leaving pinned feedback on any live website. Free to start." />
 
   <!-- Structured data (site-wide). Baked into every prerendered page. -->
   <script type="application/ld+json">
