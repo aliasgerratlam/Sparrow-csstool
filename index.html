@@ -4,15 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <title>Sparrow — Inspect CSS, Annotate & Review Any Website</title>
-  <meta name="description" content="Sparrow is a browser extension for inspecting CSS, measuring spacing, extracting colors, fonts, and assets, and leaving pinned feedback on any live website. Free to start." />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Sparrow — Inspect CSS, Annotate & Review Any Website" />
-  <meta property="og:description" content="Inspect the CSS behind any element, measure spacing, extract colors, fonts, and assets, and pin feedback directly on the live page — no DevTools, no screenshots." />
-  <meta property="og:image" content="/sparrow-logo.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Sparrow — Inspect CSS, Annotate & Review Any Website" />
-  <meta name="twitter:description" content="Inspect the CSS behind any element, measure spacing, extract colors, fonts, and assets, and pin feedback directly on the live page — no DevTools, no screenshots." />
+  <meta name="theme-color" content="#faf7f0" />
+  <!-- Per-route <title>, description, canonical, and Open Graph/Twitter tags are
+       emitted by <Seo> (src/components/seo/Seo.tsx) via React 19's native
+       metadata hoisting, and baked into each page by scripts/prerender.mjs.
+       Deliberately no static <title> here: it would duplicate the one <Seo>
+       renders in the prerendered <head>. -->
+
+  <!-- Structured data (site-wide). Baked into every prerendered page. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://trysparrowcss.com/#organization",
+        "name": "Sparrow",
+        "url": "https://trysparrowcss.com",
+        "logo": "https://trysparrowcss.com/sparrow-logo.png"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://trysparrowcss.com/#website",
+        "name": "Sparrow",
+        "url": "https://trysparrowcss.com",
+        "publisher": { "@id": "https://trysparrowcss.com/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Sparrow",
+        "url": "https://trysparrowcss.com",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Chrome, Firefox, Edge",
+        "description": "Inspect the CSS behind any element, measure spacing, extract colors, fonts, and assets, and pin feedback directly on the live page — no DevTools, no screenshots.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    ]
+  }
+  </script>
+
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZJPS32X5DB"></script>
   <script>

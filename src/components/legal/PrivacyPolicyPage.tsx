@@ -1,3 +1,4 @@
+import { Seo } from '@/components/seo/Seo'
 import { LegalPage, LegalSection, LegalList } from './LegalPage'
 
 const CONTACT_EMAIL = 'hello@trysparrowcss.com'
@@ -10,7 +11,13 @@ const UPDATED = 'July 18, 2026'
    if a new processor is added, list it under "Third-party services". */
 export function PrivacyPolicyPage() {
   return (
-    <LegalPage
+    <>
+      <Seo
+        title="Privacy Policy — Sparrow"
+        description="How Sparrow collects, uses, and protects your data across our website and browser extension."
+        path="/privacy"
+      />
+      <LegalPage
       title="Privacy Policy"
       updated={UPDATED}
       intro={
@@ -171,5 +178,6 @@ export function PrivacyPolicyPage() {
         </p>
       </LegalSection>
     </LegalPage>
+    </>
   )
 }

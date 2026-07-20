@@ -154,7 +154,20 @@
       "Bash(grep -iE \"\\\\.env\\\\.local|\\\\.env$\")",
       "Bash(command -v zip)",
       "PowerShell(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 5173,5174,3000,4173 } | Select-Object LocalPort, State)",
-      "Bash(curl -s http://localhost:5173/)"
+      "Bash(curl -s http://localhost:5173/)",
+      "PowerShell(npm install --save-dev react-snap 2>&1)",
+      "PowerShell(npx vite build 2>&1)",
+      "PowerShell(npx react-snap 2>&1)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 3; Write-Output \"=== PRERENDER ===\"; $env:PUPPETEER_EXECUTABLE_PATH = \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"; node scripts/prerender.mjs 2>&1)",
+      "PowerShell(npx vite build 2>&1 | Select-Object -Last 2; Write-Output \"=== PRERENDER ===\"; $env:PUPPETEER_EXECUTABLE_PATH = \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"; node scripts/prerender.mjs 2>&1)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_evaluate",
+      "PowerShell(npm run typecheck 2>&1 | Select-Object -Last 5; Write-Output \"=== BUILD ===\"; $env:PUPPETEER_EXECUTABLE_PATH = \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"; npm run build 2>&1 | Select-Object -Last 6)",
+      "mcp__playwright__browser_close",
+      "Bash(pkill -f \"serve-dist.mjs\")",
+      "Bash(pkill -f \"vite preview\")",
+      "Bash(git checkout *)",
+      "PowerShell($env:PUPPETEER_EXECUTABLE_PATH = \"C:\\\\Program Files \\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"; npm run build 2>&1 | Select-Object -Last 7; Write-Output \"exit: $LASTEXITCODE\")"
     ],
     "additionalDirectories": [
       "\\tmp"

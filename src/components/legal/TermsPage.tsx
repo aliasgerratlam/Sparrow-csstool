@@ -1,3 +1,4 @@
+import { Seo } from '@/components/seo/Seo'
 import { LegalPage, LegalSection, LegalList } from './LegalPage'
 
 const CONTACT_EMAIL = 'hello@trysparrowcss.com'
@@ -8,7 +9,13 @@ const UPDATED = 'July 18, 2026'
    plans, monthly + yearly) and the self-serve customer portal. */
 export function TermsPage() {
   return (
-    <LegalPage
+    <>
+      <Seo
+        title="Terms & Conditions — Sparrow"
+        description="The terms governing your use of Sparrow's website, browser extension, and related services."
+        path="/terms"
+      />
+      <LegalPage
       title="Terms & Conditions"
       updated={UPDATED}
       intro={
@@ -147,5 +154,6 @@ export function TermsPage() {
         </p>
       </LegalSection>
     </LegalPage>
+    </>
   )
 }

@@ -26,6 +26,24 @@ setCssFetcher(async (url) => {
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Root element #root not found')
 
+// scripts/prerender.mjs bakes static HTML for the marketing routes into the
+// build (for crawlers / social + AI bots that don't run JS). We deliberately
+// CLIENT-render over that prerendered shell rather than hydrate it: this app is
+// a client-only SPA with nondeterministic first-render (Clerk auth state,
+// window-dependent layout, scanner overlays), so hydration mismatches (React
+// error #423) are expected. React clears the shell and renders fresh on load —
+// the SEO benefit lives entirely in the served HTML, so nothing is lost here.
+//
+// The prerendered <head> already contains the SEO tags <Seo> emits. Since we
+// client-render (not hydrate), React would ADD a second copy of each, leaving
+// identical duplicates in the live DOM (untidy, flagged by SEO auditors). Strip
+// the baked set here so React re-adds exactly one. No-op in dev (nothing baked).
+for (const tag of document.head.querySelectorAll(
+  'title, meta[name="description"], meta[name="robots"], link[rel="canonical"], meta[property^="og:"], meta[name^="twitter:"]',
+)) {
+  tag.remove()
+}
+
 createRoot(rootEl).render(
   <StrictMode>
     <App />

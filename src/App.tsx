@@ -18,6 +18,7 @@ import { NavigationProvider } from '@/context/navigation-context'
 import { InstallGuideProvider } from '@/context/install-guide-context'
 import { AnnotationLimitSync } from '@/context/subscription-context'
 import { InstallGuideDialog } from '@/components/landing/InstallGuideDialog'
+import { Seo } from '@/components/seo/Seo'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { AccountPage } from '@/components/account/AccountPage'
 import { PrivacyPolicyPage } from '@/components/legal/PrivacyPolicyPage'
@@ -161,7 +162,17 @@ function RouterBridge({ children }: { children: React.ReactNode }) {
 // Account page ("/account") — Clerk profile + subscription management, rendered
 // alone (no scanner/annotation chrome).
 function AccountRoute() {
-  return <AccountPage />
+  return (
+    <>
+      <Seo
+        title="Your Account — Sparrow"
+        description="Manage your Sparrow profile and subscription."
+        path="/account"
+        noindex
+      />
+      <AccountPage />
+    </>
+  )
 }
 
 // Index ("/") and any unmatched path — the Sparrow landing page. It carries the
@@ -172,6 +183,11 @@ function IndexRoute() {
     <ScannerProvider>
       <AnnotationUIProvider>
         <CollabProvider>
+          <Seo
+            title="Sparrow — Inspect CSS, Annotate & Review Any Website"
+            description="Sparrow is a browser extension for inspecting CSS, measuring spacing, extracting colors, fonts, and assets, and leaving pinned feedback on any live website. Free to start."
+            path="/"
+          />
           <BootEffects sessionId={boot.sessionId} />
           <AuthPromptEffect />
           <AnnotationAuthSync />
