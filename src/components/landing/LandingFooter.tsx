@@ -40,8 +40,8 @@ export function LandingFooter() {
   return (
     <footer className="relative overflow-hidden md:pt-16 pt-0">
       <Container>
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
-          <div className="max-w-sm">
+        <div className="flex flex-col items-center gap-10 text-center md:flex-row md:items-start md:justify-between md:text-left">
+          <div className="flex max-w-sm flex-col items-center md:block">
             <Wordmark dark logoHeight={40} />
             <p className="mt-0 font-abeezee text-sm text-white/85">
               Inspect anything.
@@ -50,10 +50,10 @@ export function LandingFooter() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-6 md:items-end">
+          <div className="flex flex-col items-center gap-6 md:items-end">
             <nav
               aria-label="Footer"
-              className="flex flex-wrap items-center gap-x-8 gap-y-3"
+              className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-start"
             >
               {/* Downloads the built extension zip for the visitor's browser. */}
               <button
@@ -88,7 +88,7 @@ export function LandingFooter() {
 
             <nav
               aria-label="Legal"
-              className="flex flex-wrap items-center gap-x-8 gap-y-3 md:justify-end"
+              className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-end"
             >
               {LEGAL.map((item) => (
                 <a

@@ -40,6 +40,24 @@ const ZIP_NAMES = {
   firefox: 'sparrow-firefox.zip',
 }
 
+// Store-submission zips. Web stores (Chrome Web Store, Edge Add-ons) reject the
+// `key` field — they assign the published extension its own id — so the store
+// build strips it. The load-unpacked ZIP_NAMES keep `key` so the locally-loaded
+// id stays stable (matches Clerk allowed_origins; see extension/README.md).
+// Firefox's build already carries no `key`, so its store zip == its unpacked zip.
+const STORE_ZIP_NAMES = {
+  chromium: 'sparrow-chrome-store.zip',
+}
+
+/** Per-target manifest transform applied ONLY to the store build, on top of the
+ *  normal target transform. */
+const STORE_TRANSFORMS = {
+  chromium: (m) => {
+    delete m.key // Chrome Web Store / Edge reject `key`; the store owns the id
+    return m
+  },
+}
+
 // Copied verbatim into each browser folder (paths stay relative to the manifest,
 // so web_accessible_resources / content_scripts references keep resolving).
 const ASSET_DIRS = ['dist', 'icons', 'fonts']
@@ -177,4 +195,19 @@ for (const [target, transform] of Object.entries(TARGETS)) {
   await zipFolder(outDir, path.join(publicDir, zipName))
 
   console.log(`packaged ${target}: build/${target}/ → public/${zipName} (background: ${Object.keys(manifest.background).join(', ')})`)
+
+  // Store-submission variant (key stripped) — separate folder so the load-unpacked
+  // build keeps its stable id.
+  const storeZipName = STORE_ZIP_NAMES[target]
+  if (storeZipName) {
+    const storeDir = path.join(buildDir, `${target}-store`)
+    await mkdir(storeDir, { recursive: true })
+    const storeManifest = STORE_TRANSFORMS[target](structuredClone(manifest))
+    await writeFile(path.join(storeDir, 'manifest.json'), JSON.stringify(storeManifest, null, 2) + '\n', 'utf8')
+    for (const dir of ASSET_DIRS) {
+      await cp(path.join(extDir, dir), path.join(storeDir, dir), { recursive: true })
+    }
+    await zipFolder(storeDir, path.join(publicDir, storeZipName))
+    console.log(`packaged ${target} (store): build/${target}-store/ → public/${storeZipName} (no key)`)
+  }
 }

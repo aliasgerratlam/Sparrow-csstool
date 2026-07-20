@@ -141,7 +141,20 @@
       "Bash(xargs grep -l \"createSession\\\\|CheckoutSession\\\\|cancelUrl\")",
       "Bash(grep -rhoE \"\\(sandbox|production\\)[^\\\\\"']{0,40}kelviq[a-z.]*\" node_modules/@kelviq/react-sdk/dist)",
       "Bash(curl -s -H \"Authorization: Bearer client-407a749d-4712-44ae-b64b-3ae3e1ec6272:113dcb34-8ec5-425c-9209-172f6daa440d\" \"https://api.kelviq.com/api/v1/monetization/product-offering/acb7ee68-8127-46c2-b79e-3bdd32d4939a/\" -w \"\\\\nHTTP %{http_code}\\\\n\")",
-      "Bash(curl -s -H \"Authorization: Bearer client-407a749d-4712-44ae-b64b-3ae3e1ec6272:113dcb34-8ec5-425c-9209-172f6daa440d\" \"https://sandboxapi.kelviq.com/api/v1/monetization/product-offering/acb7ee68-8127-46c2-b79e-3bdd32d4939a/\" -w \"\\\\nHTTP %{http_code}\\\\n\")"
+      "Bash(curl -s -H \"Authorization: Bearer client-407a749d-4712-44ae-b64b-3ae3e1ec6272:113dcb34-8ec5-425c-9209-172f6daa440d\" \"https://sandboxapi.kelviq.com/api/v1/monetization/product-offering/acb7ee68-8127-46c2-b79e-3bdd32d4939a/\" -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(grep -i \"trysparrowcss\" /c/Windows/System32/drivers/etc/hosts 2>/dev/null || echo \"NO_ENTRY_YET\")",
+      "Read(//c/Windows/System32/drivers/etc/**)",
+      "PowerShell($entry = \"`n127.0.0.1 trysparrowcss.com\"; try { Add-Content -Path \"$env:WINDIR\\\\System32\\\\drivers\\\\etc\\\\hosts\" -Value $entry -Encoding ascii -ErrorAction Stop; \"ADDED\" } catch { \"NEEDS_ADMIN: $\\($_.Exception.Message\\)\" })",
+      "Bash(grep -o \"product-offering[^\\\\\"'\\\\`]*\" node_modules/@kelviq/react-sdk/dist/kelviq-react-sdk.js)",
+      "Bash(grep -oE \"\\(production|sandbox\\)[^,;]{0,60}\" node_modules/@kelviq/react-sdk/dist/kelviq-react-sdk.js)",
+      "Bash(node -e \"const m=require\\('./extension/manifest.json'\\); console.log\\('desc len:', m.description.length\\)\")",
+      "Bash(unzip -l sparrow-chrome-store.zip)",
+      "Bash(python -c \"import zipfile; print\\('\\\\n'.join\\(zipfile.ZipFile\\('sparrow-chrome-store.zip'\\).namelist\\(\\)\\)\\)\")",
+      "Bash(unzip -l \"d:/cssScan/sparrow-source-review.zip\")",
+      "Bash(grep -iE \"\\\\.env\\\\.local|\\\\.env$\")",
+      "Bash(command -v zip)",
+      "PowerShell(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in 5173,5174,3000,4173 } | Select-Object LocalPort, State)",
+      "Bash(curl -s http://localhost:5173/)"
     ],
     "additionalDirectories": [
       "\\tmp"
