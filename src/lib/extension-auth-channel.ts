@@ -78,10 +78,17 @@ export function postExtReady(): void {
   }
 }
 
+/* We deliberately do NOT gate on `event.source === window`. In a Firefox content
+   script (isolated world) that comparison frequently fails for page-posted
+   messages due to Xray wrappers, which would silently drop every push and leave
+   the extension permanently locked. Trust is established by the origin allowlist
+   (only our own web-app origin) plus the specific message marker — sufficient for
+   this first-party channel. */
+
 /** Web app: run `cb` whenever a relay announces itself (so we re-post state). */
 export function onExtReady(cb: () => void): () => void {
   const handler = (e: MessageEvent) => {
-    if (e.source !== window || !isWebAppOrigin(e.origin)) return
+    if (!isWebAppOrigin(e.origin)) return
     if ((e.data as ExtAuthQueryMessage | undefined)?.source === EXT_AUTH_QUERY)
       cb()
   }
@@ -92,7 +99,7 @@ export function onExtReady(cb: () => void): () => void {
 /** Relay: run `cb` with each auth push from the web app. */
 export function onAuthPush(cb: (msg: ExtAuthPushMessage) => void): () => void {
   const handler = (e: MessageEvent) => {
-    if (e.source !== window || !isWebAppOrigin(e.origin)) return
+    if (!isWebAppOrigin(e.origin)) return
     const data = e.data as ExtAuthPushMessage | undefined
     if (data?.source === EXT_AUTH_PUSH) cb(data)
   }

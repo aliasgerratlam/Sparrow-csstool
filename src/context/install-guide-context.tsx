@@ -13,21 +13,19 @@ export type InstallGuideTab = 'chromium' | 'firefox'
 type InstallGuideValue = {
   /** Whether the install-guide modal is currently open. */
   open: boolean
-  /** Tab to surface first — the visitor's detected browser family. */
+  /** The visitor's detected browser family — picks which store the modal links to. */
   initialTab: InstallGuideTab
-  /** Open the guide (auto-shown after a download; also reopenable from the
-      footer "Setup guide" link). */
+  /** Open the thank-you modal (popped by the install CTAs on click). */
   openGuide: () => void
-  /** Dismiss the guide. */
+  /** Dismiss the modal. */
   closeGuide: () => void
 }
 
 const InstallGuideContext = createContext<InstallGuideValue | null>(null)
 
-/* Holds the shared open-state for the post-download install walkthrough so the
-   three download CTAs (Hero / CTA section / footer) can pop it on completion and
-   the footer can reopen it on demand. Rendered once at the app root alongside
-   <InstallGuideDialog />. */
+/* Holds the shared open-state for the post-click thank-you modal so the install
+   CTAs (Hero / CTA section / footer) can pop it. Rendered once at the app root
+   alongside <InstallGuideDialog />. */
 export function InstallGuideProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   // Detect once at mount so the modal defaults to the tab matching the visitor's

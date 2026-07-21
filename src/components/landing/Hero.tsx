@@ -12,7 +12,7 @@ import { ArrowButton, Container } from './parts'
    so the soft field doesn't band. */
 export function Hero() {
   const { isActive, toggle } = useScanner()
-  const { downloading, download } = useExtensionDownload()
+  const { getExtension } = useExtensionDownload()
   return (
     <section
       id="home"
@@ -43,15 +43,15 @@ export function Hero() {
             unit toggles with `hidden` (ArrowButton's className reaches only the
             inner button, not the .magnetic-wrap). */}
         <div className="mx-auto mt-8 flex w-full max-w-md flex-col items-center justify-center gap-3 min-[992px]:max-w-none min-[992px]:flex-row">
-          {/* Downloads the built extension zip for the visitor's browser
-              (Chromium vs Firefox). The demo lives on the button beside it. */}
+          {/* Opens the extension's store listing for the visitor's browser
+              (Chrome Web Store vs Firefox Add-ons). The demo lives on the
+              button beside it. */}
           <ArrowButton
             variant="blue"
-            onClick={download}
-            loading={downloading}
+            onClick={getExtension}
             className="w-full min-[992px]:w-auto"
           >
-            {downloading ? 'Downloading…' : 'Download Sparrow Here'}
+            Get the Sparrow Extension
           </ArrowButton>
           <div className="hidden min-[992px]:block">
             <ArrowButton

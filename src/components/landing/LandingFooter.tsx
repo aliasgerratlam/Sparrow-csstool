@@ -1,7 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BookOpen, Loader2 } from 'lucide-react'
 import { useExtensionDownload } from '@/hooks/use-extension-download'
-import { useInstallGuide } from '@/context/install-guide-context'
 import { Wordmark } from './Wordmark'
 import { Container } from './parts'
 
@@ -18,13 +16,12 @@ const LEGAL = [
 ]
 
 /* The footer is rendered on the landing/index page and on /account; the Install
-   button downloads the built extension zip (a same-origin static file), so it
+   button opens the extension's store listing for the visitor's browser, so it
    works the same on any page without needing the scanner. */
 export function LandingFooter() {
   const navigate = useNavigate()
   const onLanding = useLocation().pathname === '/'
-  const { downloading, download } = useExtensionDownload()
-  const { openGuide } = useInstallGuide()
+  const { getExtension } = useExtensionDownload()
 
   // Same-page: smooth-scroll to the section. On pages without the landing
   // sections (/account, /privacy, /terms): navigate client-side to the landing
@@ -55,24 +52,13 @@ export function LandingFooter() {
               aria-label="Footer"
               className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-start"
             >
-              {/* Downloads the built extension zip for the visitor's browser. */}
+              {/* Opens the extension's store listing for the visitor's browser. */}
               <button
                 type="button"
-                onClick={download}
-                disabled={downloading}
-                className="inline-flex cursor-pointer items-center gap-1.5 font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white disabled:cursor-default"
-              >
-                {downloading && <Loader2 className="size-3.5 animate-spin" />}
-                {downloading ? 'Downloading…' : 'Install'}
-              </button>
-              {/* Reopen the post-download install walkthrough on demand. */}
-              <button
-                type="button"
-                onClick={openGuide}
+                onClick={getExtension}
                 className="inline-flex cursor-pointer items-center gap-1.5 font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
               >
-                <BookOpen className="size-3.5" />
-                Setup guide
+                Install
               </button>
               {NAV.map((item) => (
                 <a

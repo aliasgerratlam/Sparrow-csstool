@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlEzMxQCC/xTXHUOgyUE1bP8eN3Qxj2rU7vyConkeIL8UKS1rc/ieEji/Z46bq1qPGLm0byKFF+JQLYsaXlc6FIpr1aHejKbj9EZW9G3+7CighdnWifcCQgZKONZ9NM0iigH1IkIYGEZ9SM5CczMqMmK3cWKis17BaVRv3ymzPqgeaKwIKf26n/jReTiEbkwBCEhj2ySBf1cm13iEfe1DuveeEencOUQkeGqhZFQTxubBJLr/w8zLh5aACkfmU2fbuco6NdKPo095WZvh/+ZX4jp0Uhp0v8lbouPljblHY7C21f1gcIOHg0dDjXm+eQm6W8mTESJf1Z88beuAWWzYgwIDAQAB",
   "name": "Sparrow — CSS Inspector & Annotator",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Inspect CSS, measure layouts, pick colors and fonts, extract assets, and annotate any webpage — the Sparrow toolkit, on every site.",
   "action": {
     "default_title": "Toggle Sparrow Scanner",

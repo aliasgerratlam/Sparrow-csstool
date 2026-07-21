@@ -6,6 +6,7 @@ import iconBrave from '@/assets/image 6.svg'
 import iconOpera from '@/assets/image 7.svg'
 import iconGlobe from '@/assets/image 8.svg'
 import iconCursor from '@/assets/image 9.svg'
+import step1Image from '@/assets/step1_chrome.png'
 import step2Image from '@/assets/step2.jpg'
 import step3Image from '@/assets/step3.jpg'
 
@@ -29,6 +30,7 @@ const STEPS: Step[] = [
         <img src={iconOpera} alt="" className="size-7" />
       </>
     ),
+    image: step1Image,
   },
   {
     title: 'Open it on any webpage',

@@ -214,8 +214,8 @@ export default function App() {
         <ExtensionAuthBridge />
         <SubscriptionProvider>
           <RouterBridge>
-            {/* Wraps both routes so every download CTA (hero / CTA / footer) and
-                the footer "Setup guide" link share one modal instance. */}
+            {/* Wraps both routes so every install CTA (hero / CTA / footer)
+                shares one thank-you modal instance. */}
             <InstallGuideProvider>
               <Routes>
                 <Route path="/account" element={<AccountRoute />} />

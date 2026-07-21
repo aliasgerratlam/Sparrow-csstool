@@ -2,7 +2,7 @@ import { useExtensionDownload } from '@/hooks/use-extension-download'
 import { ArrowButton, Container } from './parts'
 
 export function CtaSection() {
-  const { downloading, download } = useExtensionDownload()
+  const { getExtension } = useExtensionDownload()
   return (
     <section
       aria-labelledby="cta-heading"
@@ -23,9 +23,9 @@ export function CtaSection() {
             Stop guessing what's on the page. Start knowing.
           </h2>
           <div className="mt-8 flex justify-center">
-            {/* Downloads the built extension zip for the visitor's browser. */}
-            <ArrowButton variant="blue" onClick={download} loading={downloading}>
-              {downloading ? 'Downloading…' : "Add Sparrow — it's free"}
+            {/* Opens the extension's store listing for the visitor's browser. */}
+            <ArrowButton variant="blue" onClick={getExtension}>
+              Add Sparrow — it's free
             </ArrowButton>
           </div>
         </div>

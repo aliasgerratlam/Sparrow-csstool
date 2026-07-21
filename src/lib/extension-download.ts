@@ -1,45 +1,23 @@
-import { triggerBlobDownload, triggerUrlDownload } from './download'
+/* Landing-page install CTAs send visitors to the extension's published store
+   listing, picking the Chrome Web Store or Firefox Add-ons page for the
+   visitor's browser. (Previously these downloaded a load-unpacked zip; Sparrow
+   is now published on both stores, so we link out instead.) */
 
-/* Landing-page install CTAs download the built extension as a zip, picking the
-   Chromium build or the Firefox build for the visitor's browser. The zips are
-   produced by extension/scripts/package-ext.mjs into public/ (served at the
-   site root) — their filenames must stay in sync with ZIP_NAMES there. */
-
-const ZIPS = {
-  firefox: { url: '/sparrow-firefox.zip', filename: 'sparrow-firefox.zip' },
-  chromium: { url: '/sparrow-chrome.zip', filename: 'sparrow-chrome.zip' },
+const STORE_URLS = {
+  firefox: 'https://addons.mozilla.org/en-US/firefox/addon/sparrow-css-toolkit',
+  chromium:
+    'https://chromewebstore.google.com/detail/biogbnhkebjenaaajncehpkapdpdfdcd?utm_source=item-share-cb',
 } as const
 
-// Keep the button's "Downloading…" state visible for at least this long so the
-// loader reads as intentional rather than flashing on a fast connection.
-const MIN_SPINNER_MS = 600
-
 /** Firefox is the only outlier among target browsers; everything else (Chrome,
- *  Edge, Brave, Opera, Vivaldi) uses the chromium build — matching the TARGETS
- *  split in package-ext.mjs. */
+ *  Edge, Brave, Opera, Vivaldi) uses the Chrome Web Store listing. */
 export function detectBrowserTarget(): 'firefox' | 'chromium' {
   return /firefox/i.test(navigator.userAgent) ? 'firefox' : 'chromium'
 }
 
-/** The saved zip's filename for a target — shown/copied in the install guide so
- *  the visitor can find the file they just downloaded. */
-export function extensionZipName(target: 'firefox' | 'chromium'): string {
-  return ZIPS[target].filename
-}
-
-/** Fetch the zip into memory (this is the real work the loader reflects), then
- *  save it. On a fetch failure fall back to a plain anchor download so the CTA
- *  still works. Resolves once the download has been triggered. */
-export async function downloadExtension(): Promise<void> {
-  const target = ZIPS[detectBrowserTarget()]
-  try {
-    const [res] = await Promise.all([
-      fetch(target.url),
-      new Promise<void>((resolve) => setTimeout(resolve, MIN_SPINNER_MS)),
-    ])
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    triggerBlobDownload(await res.blob(), target.filename)
-  } catch {
-    triggerUrlDownload(target.url, target.filename)
-  }
+/** The store URL for a target (defaults to the visitor's detected browser). */
+export function extensionStoreUrl(
+  target: 'firefox' | 'chromium' = detectBrowserTarget(),
+): string {
+  return STORE_URLS[target]
 }

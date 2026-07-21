@@ -188,7 +188,11 @@
       "Bash(curl -s \"https://www.trysparrowcss.com/\" -o /tmp/www.html -w \"%{size_download} bytes\\\\n\")",
       "Bash(grep -o '<div id=\"root\">.\\\\{0,80\\\\}' /tmp/www.html)",
       "Bash(npx --yes addons-linter build/firefox)",
-      "Bash(npx --yes addons-linter d:/cssScan/extension/build/firefox)"
+      "Bash(npx --yes addons-linter d:/cssScan/extension/build/firefox)",
+      "Bash(tar -tf public/sparrow-firefox-source.zip)",
+      "Bash(unzip -t public/sparrow-firefox-source.zip)",
+      "Bash(unzip -l public/sparrow-firefox-source.zip)",
+      "Bash(grep -iE \"\\\\.env\\\\.local|/\\\\.env |\\\\.git/|node_modules|\\\\.mp4\")"
     ],
     "additionalDirectories": [
       "\\tmp"

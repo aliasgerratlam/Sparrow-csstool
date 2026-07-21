@@ -203,30 +203,36 @@ async function fetchLivePlanMetadata(
   }
 }
 
-// Re-read the synced session and mirror it into the snapshot the content script
-// watches. Called on demand (content script) and on Clerk cookie changes.
+/* Best-effort CONFIRM-ONLY Sync Host check (Chrome only). The authoritative auth
+   source is the web-app push bridge (MSG_AUTH_PUSH); Sync Host merely lets Chrome
+   confirm a signed-in session quickly (and overlay the live Kelviq plan) without
+   waiting on a push. It must NEVER write SIGNED_OUT: doing so on a transient Sync
+   Host failure — or when the extension origin isn't allow-listed in Clerk — would
+   clobber a valid pushed snapshot and lock a signed-in user out (the Chrome bug).
+   Sign-out is owned by the push bridge (the site posts a signed-out state) and by
+   the explicit signOut() action, both of which write SIGNED_OUT directly. */
 async function checkAuth() {
-  // Firefox: Sync Host can't resolve the session (see isFirefox), so it would
-  // write SIGNED_OUT and wipe the snapshot the push bridge just set. The push
-  // bridge is authoritative there — leave the stored snapshot untouched.
+  // Firefox: Sync Host can't resolve the session at all (see isFirefox) — skip
+  // entirely so we don't even load the Clerk bundle there.
   if (isFirefox) return
   const clerk = await loadSyncedClerk()
   const snapshot = snapshotFromClerkUser(clerk?.user ?? null)
+  // Confirm-only: never downgrade. If Sync Host didn't resolve a signed-in user,
+  // leave whatever the push bridge stored untouched.
+  if (!snapshot.isSignedIn || !snapshot.user) return
 
   // Overlay the live Kelviq plan so gating reflects the real subscription, not a
   // possibly-stale Clerk metadata mirror. Best-effort: on any failure we keep
   // the metadata plan already in the snapshot.
-  if (snapshot.isSignedIn && snapshot.user) {
-    let token: string | null = null
-    try {
-      token = (await clerk?.session?.getToken()) ?? null
-    } catch {
-      token = null
-    }
-    const livePlan = await fetchLivePlanMetadata(token)
-    if (livePlan) {
-      snapshot.user.metadata = { ...snapshot.user.metadata, ...livePlan }
-    }
+  let token: string | null = null
+  try {
+    token = (await clerk?.session?.getToken()) ?? null
+  } catch {
+    token = null
+  }
+  const livePlan = await fetchLivePlanMetadata(token)
+  if (livePlan) {
+    snapshot.user.metadata = { ...snapshot.user.metadata, ...livePlan }
   }
 
   await writeAuthSnapshot(snapshot)
