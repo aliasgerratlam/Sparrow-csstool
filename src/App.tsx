@@ -18,6 +18,7 @@ import { NavigationProvider } from '@/context/navigation-context'
 import { InstallGuideProvider } from '@/context/install-guide-context'
 import { AnnotationLimitSync } from '@/context/subscription-context'
 import { InstallGuideDialog } from '@/components/landing/InstallGuideDialog'
+import { ExtensionAuthBridge } from '@/components/auth/ExtensionAuthBridge'
 import { Seo } from '@/components/seo/Seo'
 import { LandingPage } from '@/components/landing/LandingPage'
 import { AccountPage } from '@/components/account/AccountPage'
@@ -207,6 +208,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* Broadcasts Clerk auth state to the browser extension (push bridge).
+            Above <Routes> so it stays mounted across route changes and fires on
+            any route where a user signs in. */}
+        <ExtensionAuthBridge />
         <SubscriptionProvider>
           <RouterBridge>
             {/* Wraps both routes so every download CTA (hero / CTA / footer) and

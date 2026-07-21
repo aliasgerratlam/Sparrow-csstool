@@ -6,7 +6,13 @@ import { resetAllRefonts } from '@/lib/site-refont'
 import { resetAllElementRefonts } from '@/lib/element-refont'
 import { revertAll as revertAllPreviews } from '@/lib/preview'
 import { getSessionIdFromUrl } from '@/lib/session'
+import {
+  isWebAppOrigin,
+  onAuthPush,
+  postExtReady,
+} from '@/lib/extension-auth-channel'
 import { ExtensionApp, type ExtApi } from './ExtensionApp'
+import { MSG_AUTH_PUSH } from './auth-bridge'
 import { installUiFonts, uninstallUiFonts } from './ui-fonts'
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -242,6 +248,32 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (!mounted) mount()
   else api.toggle()
 })
+
+// Auth push bridge. On the Sparrow web app, the page runs real Clerk and posts
+// its live auth state to the window; relay it to the background worker, which
+// mirrors it into the storage snapshot every tab's ExtensionAuthProvider reads.
+// This is how the extension learns who's signed in — cross-browser, and the
+// replacement for Clerk Sync Host on Firefox (where the per-install
+// moz-extension:// origin can't be added to Clerk's allowed_origins). Inert on
+// every other origin.
+if (isWebAppOrigin(location.origin)) {
+  onAuthPush((msg) => {
+    if (!contextAlive()) return
+    try {
+      chrome.runtime.sendMessage(
+        { type: MSG_AUTH_PUSH, isSignedIn: msg.isSignedIn, user: msg.user },
+        () => {
+          void chrome.runtime.lastError
+        },
+      )
+    } catch {
+      /* context invalidated between the check and the send — ignore. */
+    }
+  })
+  // Nudge the app to post its current state now, covering the case where the
+  // app mounted (and posted) before this relay listener existed.
+  postExtReady()
+}
 
 // Auto-open on a shared review link. When the page URL carries a live-session
 // id (?sparrow-session=<id>), a collaborator has opened someone's share link —

@@ -187,31 +187,28 @@ sign-in on the web app (cookie watch), cross-origin stylesheet recovery, and
 auto-opening on `?sparrow-session` share links. You can also grant it manually
 under `about:addons` → Sparrow → **Permissions**.
 
-**Auth caveat.** The Clerk Sync Host flow works in Firefox (the Clerk SDK uses
-the promise-based `browser.*` API via its bundled polyfill), but Clerk validates
-the request `Origin`, and Firefox gives each **install** a random internal UUID
-— so the origin to allowlist is per-machine. After installing, find the UUID on
-`about:debugging` (Internal UUID) and add it to your Clerk instance's
-`allowed_origins`:
+**Auth sync.** The extension learns who's signed in via a **web-app push
+bridge**: the web app (running real Clerk) posts its live auth state on the page
+window, a content-script relay on `trysparrowcss.com` forwards it to the
+background worker, and the worker mirrors it into the `chrome.storage` snapshot
+the content script reads. This works identically on Chrome and Firefox — the
+session is resolved by the web app in its own origin, so no extension origin
+ever hits Clerk's FAPI. **Clerk's `allowed_origins` no longer needs the
+per-install `moz-extension://` UUID**; signed-in Annotate now works on public
+Firefox installs. Clerk Sync Host remains as a Chrome-only fallback.
 
-```bash
-curl -X PATCH https://api.clerk.com/v1/instance \
-  -H "Authorization: Bearer sk_test_YOUR_SECRET_KEY" \
-  -H "Content-type: application/json" \
-  -d '{"allowed_origins": ["chrome-extension://mkbkmeemombaioeikegphonpbjliljbm", "moz-extension://YOUR-INTERNAL-UUID"]}'
-```
-
-(`allowed_origins` is replaced wholesale — always resend the Chrome origin too.)
-That's workable for a dev/team install; for public AMO distribution every user
-would have a different UUID, so signed-in Annotate isn't practical there yet —
-everything else works signed-out.
+On startup and (re)install the worker clears the stored snapshot and shows
+signed-out until the live session is re-confirmed (a Chrome Sync Host re-check,
+or the next web-app push on Firefox), so a stale cached user is never displayed.
 
 ### Notes
 
-- **Auth (Clerk) is required for Annotate** — sign-in runs in the popup and the
-  content script reads the session from `chrome.storage`. Annotations still save
-  to `localStorage` (per-page); they're loaded on sign-in and cleared on
-  sign-out. Live collaboration (Supabase) remains **compiled out** — there's no
-  cross-user Share/room in the extension.
+- **Auth (Clerk) is required for Annotate.** There is **no extension popup** —
+  clicking the toolbar icon toggles the in-page scanner; the "Sign in" button
+  opens the web app to sign in, and the session is pushed back to the extension
+  (see **Auth sync** above). Annotations still save to `localStorage` (per-page);
+  they're loaded on sign-in and cleared on sign-out. Live collaboration
+  (Supabase) remains **compiled out** — there's no cross-user Share/room in the
+  extension.
 - The content script is loaded on every page but stays dormant until you click
   the icon.

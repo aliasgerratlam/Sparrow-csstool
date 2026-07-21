@@ -25,6 +25,11 @@ export const MSG_OPEN_SIGNIN = 'sparrow-open-signin'
 export const MSG_SIGNOUT = 'sparrow-signout'
 /** Ask the background to re-read the synced web-app session and update the snapshot. */
 export const MSG_CHECK_AUTH = 'sparrow-check-auth'
+/** Push from the web-app relay content script (the auth push bridge): carries the
+    web app's live auth state ({ isSignedIn, user }) for the background to mirror
+    into the snapshot. This is the authoritative auth source (Sync Host is a
+    Chrome-only fallback). See src/lib/extension-auth-channel.ts. */
+export const MSG_AUTH_PUSH = 'sparrow-auth-push'
 /** Open a web-app page (default `/account`) in a NEW TAB. The content script has
     no router and shares the host page's window, so it can't navigate in-app —
     the background opens the deployed web app instead. Payload may carry `path`. */
@@ -73,6 +78,16 @@ export function snapshotFromClerkUser(user: ClerkUserLike | null): AuthSnapshot 
       metadata: user.publicMetadata ?? {},
     },
   }
+}
+
+/** Build the snapshot from a web-app push payload. The relayed `user` is already
+    the normalised AuthUser, so no Clerk mapping is needed — just validate it. */
+export function snapshotFromWebPayload(payload: {
+  isSignedIn?: boolean
+  user?: AuthUser | null
+}): AuthSnapshot {
+  if (!payload?.isSignedIn || !payload.user) return SIGNED_OUT
+  return { isSignedIn: true, user: payload.user }
 }
 
 /** Read the current snapshot (defaults to signed-out when unset). */

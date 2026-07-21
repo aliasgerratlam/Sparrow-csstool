@@ -1,26 +1,30 @@
-/* Service worker (MV3). Auth is shared with the Sparrow web app via Clerk's
-   Sync Host feature: the user signs in on the web app (localhost in dev), and
-   this worker reads that session — using the SAME Clerk publishable key + a
-   `syncHost` — and mirrors it into chrome.storage.local for the content script's
-   ExtensionAuthProvider to gate the Annotate tool.
+/* Service worker (MV3) / Firefox event page. Auth is shared with the Sparrow web
+   app. The AUTHORITATIVE source is the web-app PUSH BRIDGE: the web app posts its
+   live Clerk state, the content-script relay forwards it as MSG_AUTH_PUSH, and we
+   mirror it into chrome.storage.local for the content script's
+   ExtensionAuthProvider to gate the Annotate tool. Clerk Sync Host (same
+   publishable key + `syncHost`) is a Chrome-only fallback — it can't work on
+   Firefox (per-install moz-extension:// origin isn't allow-listed in Clerk).
 
    Jobs:
    1. Toggle the scanner on the active tab when the toolbar icon is clicked.
    2. Open the web app (sign-in) when the content script asks.
-   3. Re-check the synced session on demand and on Clerk cookie changes, writing
-      the auth snapshot.
-   4. Sign out (ends the shared session) and clear the snapshot.
-   5. Re-fetch cross-origin stylesheets the content script can't read under CORS. */
-import { createClerkClient } from '@clerk/chrome-extension/background'
+   3. Mirror the web-app push into the auth snapshot; on Chrome also re-check the
+      synced session on demand / on Clerk cookie changes.
+   4. On (re)install and browser start, clear the stale snapshot and re-validate.
+   5. Sign out (ends the shared session) and clear the snapshot.
+   6. Re-fetch cross-origin stylesheets the content script can't read under CORS. */
 import { AUTH_PROMPT_PARAM, type AuthPromptMode } from '@/lib/clerk'
 import {
   AUTH_STORAGE_KEY,
+  MSG_AUTH_PUSH,
   MSG_CHECK_AUTH,
   MSG_OPEN_ACCOUNT,
   MSG_OPEN_SIGNIN,
   MSG_SIGNOUT,
   SIGNED_OUT,
   snapshotFromClerkUser,
+  snapshotFromWebPayload,
   writeAuthSnapshot,
 } from './auth-bridge'
 
@@ -44,6 +48,17 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as
   | string
   | undefined
+
+/* Auth source of truth is the WEB-APP PUSH BRIDGE: the web app posts its live
+   Clerk auth state, the content-script relay forwards it here as MSG_AUTH_PUSH,
+   and we mirror it into the snapshot. Clerk Sync Host is kept only as a
+   Chrome-only fallback — on Firefox it can't read the session (the per-install
+   moz-extension:// origin isn't in Clerk's allowed_origins), so running it there
+   would resolve signed-out and clobber a valid pushed snapshot. getBrowserInfo
+   is a Firefox-only API, so its presence is a reliable Firefox probe. */
+const isFirefox =
+  typeof (chrome.runtime as { getBrowserInfo?: unknown }).getBrowserInfo ===
+  'function'
 
 /* Firefox MV3 treats host_permissions as OPT-IN: unlike Chrome, they are not
    granted at install. Without them the Clerk cookie watcher can't see the sync
@@ -135,6 +150,14 @@ function openWebApp(path?: string) {
 async function loadSyncedClerk() {
   if (!PUBLISHABLE_KEY) return null
   try {
+    // Imported lazily (not at module top level): @clerk/chrome-extension is a
+    // large bundle, and if evaluating it ever throws on a Firefox event page, a
+    // top-level import would abort the whole worker module BEFORE the toolbar
+    // click / message listeners register — making the icon do nothing. Loading
+    // it here keeps listener registration synchronous and unconditional.
+    const { createClerkClient } = await import(
+      '@clerk/chrome-extension/background'
+    )
     return await createClerkClient({
       publishableKey: PUBLISHABLE_KEY,
       syncHost: SYNC_HOST,
@@ -183,6 +206,10 @@ async function fetchLivePlanMetadata(
 // Re-read the synced session and mirror it into the snapshot the content script
 // watches. Called on demand (content script) and on Clerk cookie changes.
 async function checkAuth() {
+  // Firefox: Sync Host can't resolve the session (see isFirefox), so it would
+  // write SIGNED_OUT and wipe the snapshot the push bridge just set. The push
+  // bridge is authoritative there — leave the stored snapshot untouched.
+  if (isFirefox) return
   const clerk = await loadSyncedClerk()
   const snapshot = snapshotFromClerkUser(clerk?.user ?? null)
 
@@ -306,6 +333,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     openWebApp(msg.path as string | undefined)
     return
   }
+  if (msg.type === MSG_AUTH_PUSH) {
+    // Authoritative auth source: the web-app relay forwarded the site's live
+    // Clerk state. Mirror it straight into the snapshot (the relayed user is
+    // already the normalised AuthUser). The mirrored plan in user.metadata is
+    // enough for gating; live-plan overlay stays on the Chrome Sync Host path.
+    const snapshot = snapshotFromWebPayload({
+      isSignedIn: msg.isSignedIn as boolean | undefined,
+      user: msg.user,
+    })
+    void writeAuthSnapshot(snapshot)
+    return
+  }
   if (msg.type === MSG_CHECK_AUTH) {
     checkAuth().finally(() => sendResponse({ ok: true }))
     return true // async response
@@ -325,10 +364,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // When Clerk's session cookies change on the sync host (i.e. the user signs in
 // or out on the web app), re-sync automatically — this wakes the worker, so it
-// works even though MV3 service workers are ephemeral.
+// works even though MV3 service workers are ephemeral. (No-op on Firefox, where
+// checkAuth() short-circuits; the push bridge covers it there.)
 chrome.cookies.onChanged.addListener((change) => {
   const name = change.cookie?.name ?? ''
   if (name.startsWith('__session') || name.startsWith('__client')) {
     checkAuthDebounced()
   }
 })
+
+/* On (re)install and every browser start, never trust the persisted snapshot: a
+   user carried over from a previous session must not appear — the account may be
+   signed out or gone (the stale-cached-user bug), and on Firefox we can't Sync-
+   Host-verify it. Clear it so the provider shows signed-out, then re-validate:
+   Chrome re-confirms instantly via Sync Host; Firefox re-confirms from the next
+   web-app push (the sign-in flow opens a web-app tab, and any open one re-posts
+   on the relay's ready ping). */
+function invalidateStoredAuth() {
+  try {
+    chrome.storage.local.remove(AUTH_STORAGE_KEY, () => {
+      void chrome.runtime.lastError
+    })
+  } catch {
+    /* storage unavailable — nothing to clear. */
+  }
+  void checkAuth()
+}
+chrome.runtime.onInstalled.addListener(invalidateStoredAuth)
+chrome.runtime.onStartup.addListener(invalidateStoredAuth)
