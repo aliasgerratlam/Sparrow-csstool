@@ -25,6 +25,12 @@ export const MSG_OPEN_SIGNIN = 'sparrow-open-signin'
 export const MSG_SIGNOUT = 'sparrow-signout'
 /** Ask the background to re-read the synced web-app session and update the snapshot. */
 export const MSG_CHECK_AUTH = 'sparrow-check-auth'
+/** Ask the background for a fresh Clerk session token (JWT). Clerk can't run in
+    the content script, but the background worker can (Chrome, via Sync Host), so
+    it mints the token that authenticates Edge Function calls — e.g. the
+    annotation-quota reserve. Response: { token: string | null }. Firefox has no
+    Sync Host session, so it resolves null and callers fall back to local. */
+export const MSG_GET_TOKEN = 'sparrow-get-token'
 /** Push from the web-app relay content script (the auth push bridge): carries the
     web app's live auth state ({ isSignedIn, user }) for the background to mirror
     into the snapshot. This is the authoritative auth source (Sync Host is a

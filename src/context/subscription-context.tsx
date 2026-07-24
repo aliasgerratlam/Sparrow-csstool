@@ -4,6 +4,15 @@ import { limitsForPlan, PLAN_LIMITS, type PlanId, type PlanLimits } from '@/lib/
 import { store } from '@/hooks/use-annotations'
 import { useAuth } from '@/context/auth-context'
 import { useScanner } from '@/context/scanner-context'
+import { isKelviqConfigured } from '@/lib/kelviq'
+
+/* Whether subscription gating is in effect — so the server quota should apply.
+   On the web that's when Kelviq is configured (no Kelviq = ungated prototype =
+   unlimited, so the backend must stay off). The extension always ships with
+   gating on (it resolves the plan from Clerk metadata / kelviq-plan, never the
+   Kelviq client SDK), so the extension flag forces it on there. */
+const GATING_ACTIVE =
+  isKelviqConfigured || !!import.meta.env.VITE_IS_EXTENSION
 
 /* ─────────────────────────────────────────────────────────────────────────
    Subscription / entitlements context — the single gate the whole app reads.
@@ -112,21 +121,22 @@ export function AnnotationQuotaSync() {
   const { getToken, isAuthenticated, user } = useAuth()
   const { isActive, mode } = useScanner()
 
-  // Keep the store's quota context current. The backend is only usable with a
-  // signed-in user (we need a Clerk token); setQuotaContext ANDs this with
-  // whether Supabase + Kelviq are configured.
+  // Keep the store's quota context current. The backend applies only when the
+  // user is signed in (we need a Clerk token) AND gating is on; setQuotaContext
+  // further ANDs in whether the backend (Supabase) is reachable.
+  const active = isAuthenticated && GATING_ACTIVE
   useEffect(() => {
-    store.setQuotaContext({ getToken, active: isAuthenticated })
-  }, [getToken, isAuthenticated])
+    store.setQuotaContext({ getToken, active })
+  }, [getToken, active])
 
   // Pull the authoritative count when the user starts annotating (and on user
   // change), so the toolbar reflects the server total immediately — including
   // after a localStorage clear, which is the whole point of the move.
   useEffect(() => {
-    if (isActive && mode === 'annotate' && isAuthenticated) {
+    if (isActive && mode === 'annotate' && active) {
       void store.refreshQuota()
     }
-  }, [isActive, mode, isAuthenticated, user?.id])
+  }, [isActive, mode, active, user?.id])
   return null
 }
 

@@ -13,13 +13,17 @@
    which the function verifies server-side.
 ───────────────────────────────────────────────────────────────────────── */
 
-import { supabase } from './supabase'
-import { isKelviqConfigured } from './kelviq'
+import { supabase, isCollabEnabled } from './supabase'
 
-/** The backend quota is active only when Supabase + Kelviq are both configured
-    (isKelviqConfigured already requires Supabase). When false, callers fall
-    back to the local localStorage ledger (prototype behaviour). */
-export const isQuotaBackendActive: boolean = isKelviqConfigured
+/** Whether the quota BACKEND is reachable — i.e. Supabase is configured, so we
+    can invoke the Edge Function. This is deliberately NOT gated on the Kelviq
+    CLIENT key: the cap is resolved server-side via the Kelviq SERVER key, and
+    the browser extension (which never ships the Kelviq client SDK) must still be
+    able to reach the function. Whether the quota actually applies is decided by
+    the caller's `active` flag in setQuotaContext (see AnnotationQuotaSync, which
+    ANDs in "gating is on"), so a Supabase-but-ungated web setup stays unlimited.
+    When false, callers fall back to the local localStorage ledger. */
+export const isQuotaBackendActive: boolean = isCollabEnabled
 
 export type GetToken = () => Promise<string | null>
 

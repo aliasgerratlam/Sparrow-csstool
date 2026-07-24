@@ -9,6 +9,7 @@ import { AuthContext, type AuthUser } from '@/context/auth-context'
 import {
   AUTH_STORAGE_KEY,
   MSG_CHECK_AUTH,
+  MSG_GET_TOKEN,
   MSG_OPEN_SIGNIN,
   MSG_SIGNOUT,
   readAuthSnapshot,
@@ -157,8 +158,23 @@ export function ExtensionAuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!snapshot?.isSignedIn,
       user: (snapshot?.user ?? null) as AuthUser | null,
       signOut,
-      // The extension does no payments; nothing consumes this token.
-      getToken: async () => null,
+      // Clerk can't run in the content script, so ask the background worker
+      // (which can, via Sync Host on Chrome) to mint a fresh session token.
+      // Authenticates Edge Function calls — the annotation-quota reserve. On
+      // Firefox the background returns null and the store falls back to local.
+      getToken: () =>
+        new Promise<string | null>((resolve) => {
+          if (!contextAlive()) return resolve(null)
+          try {
+            chrome.runtime.sendMessage({ type: MSG_GET_TOKEN }, (res) => {
+              void chrome.runtime.lastError
+              const token = (res as { token?: unknown } | undefined)?.token
+              resolve(typeof token === 'string' ? token : null)
+            })
+          } catch {
+            resolve(null)
+          }
+        }),
       // No Clerk instance here — ask the background to re-sync the snapshot,
       // which is the extension's equivalent of pulling fresh user metadata.
       reloadUser: async () => {
