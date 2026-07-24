@@ -16,7 +16,10 @@ import { AuthProvider, useAuth, userDisplayName } from '@/context/auth-context'
 import { SubscriptionProvider } from '@/context/kelviq-provider'
 import { NavigationProvider } from '@/context/navigation-context'
 import { InstallGuideProvider } from '@/context/install-guide-context'
-import { AnnotationLimitSync } from '@/context/subscription-context'
+import {
+  AnnotationLimitSync,
+  AnnotationQuotaSync,
+} from '@/context/subscription-context'
 import { InstallGuideDialog } from '@/components/landing/InstallGuideDialog'
 import { ExtensionAuthBridge } from '@/components/auth/ExtensionAuthBridge'
 import { Seo } from '@/components/seo/Seo'
@@ -194,6 +197,7 @@ function IndexRoute() {
           <AnnotationAuthSync />
           <AuthAuthorSync />
           <AnnotationLimitSync />
+          <AnnotationQuotaSync />
           <LandingPage />
           <Scanner />
           <Overlays />

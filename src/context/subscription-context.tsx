@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect } from 'react'
 import { toast } from 'sonner'
 import { limitsForPlan, PLAN_LIMITS, type PlanId, type PlanLimits } from '@/lib/plans'
 import { store } from '@/hooks/use-annotations'
+import { useAuth } from '@/context/auth-context'
+import { useScanner } from '@/context/scanner-context'
 
 /* ─────────────────────────────────────────────────────────────────────────
    Subscription / entitlements context — the single gate the whole app reads.
@@ -97,6 +99,34 @@ export function AnnotationLimitSync() {
   useEffect(() => {
     store.setAnnotationLimit(annotationLimit)
   }, [annotationLimit])
+  return null
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Feeds the store the server-quota context (Clerk token + whether the backend
+   is active) so add() can reserve slots server-side, and refreshes the cached
+   count whenever annotate mode is (re)entered or the signed-in user changes.
+   Mount alongside AnnotationLimitSync, inside ScannerProvider + AuthProvider.
+───────────────────────────────────────────────────────────────────────── */
+export function AnnotationQuotaSync() {
+  const { getToken, isAuthenticated, user } = useAuth()
+  const { isActive, mode } = useScanner()
+
+  // Keep the store's quota context current. The backend is only usable with a
+  // signed-in user (we need a Clerk token); setQuotaContext ANDs this with
+  // whether Supabase + Kelviq are configured.
+  useEffect(() => {
+    store.setQuotaContext({ getToken, active: isAuthenticated })
+  }, [getToken, isAuthenticated])
+
+  // Pull the authoritative count when the user starts annotating (and on user
+  // change), so the toolbar reflects the server total immediately — including
+  // after a localStorage clear, which is the whole point of the move.
+  useEffect(() => {
+    if (isActive && mode === 'annotate' && isAuthenticated) {
+      void store.refreshQuota()
+    }
+  }, [isActive, mode, isAuthenticated, user?.id])
   return null
 }
 

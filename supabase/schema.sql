@@ -156,6 +156,50 @@ create index if not exists subscriptions_user_idx
 -- Functions use the service role (which bypasses RLS).
 alter table public.subscriptions enable row level security;
 
+-- ───────────────────────────────────────────────────────────────────────────
+-- Annotation events (server-side annotation quota ledger).
+-- Append-only: one row per annotation CREATION, keyed to the Clerk user id
+-- (verified server-side) + the domain the annotation was left on. The
+-- per-domain / 24h cap (Free 3 / Pro 10 / Max unlimited) is counted from this
+-- table by the `annotation-quota` Edge Function, so the usage count survives a
+-- localStorage clear / incognito profile and can't be reset from devtools.
+-- Deleting an annotation does NOT delete its event — the quota is a rate limit,
+-- not a live count (matches the client fallback semantics).
+-- Rows are written ONLY by the Edge Function (service role); RLS is on with NO
+-- anon policies (same as `subscriptions`).
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.annotation_events (
+  id            uuid        primary key default gen_random_uuid(),
+  clerk_user_id text        not null,
+  domain        text        not null,
+  created_at    timestamptz not null default now()
+);
+
+-- The count query filters by (user, domain, created_at window); index it.
+create index if not exists annotation_events_lookup_idx
+  on public.annotation_events (clerk_user_id, domain, created_at);
+
+alter table public.annotation_events enable row level security;
+
+-- Hygiene sweep: drop events older than 48h. The count query already filters by
+-- created_at (24h window), so this is cleanup only, not correctness — a row just
+-- past the window is harmless until swept.
+create or replace function public.delete_stale_annotation_events()
+returns void
+language sql
+as $$
+  delete from public.annotation_events where created_at < now() - interval '48 hours';
+$$;
+
+select cron.unschedule('sweep-annotation-events')
+  where exists (select 1 from cron.job where jobname = 'sweep-annotation-events');
+
+select cron.schedule(
+  'sweep-annotation-events',
+  '30 * * * *',
+  $$select public.delete_stale_annotation_events()$$
+);
+
 -- ── Auth follow-up (swap in once registered users exist) ─────────────────────
 -- Add an `author_id uuid references auth.users` column, then replace the open
 -- policies above with owner-scoped ones, e.g.:

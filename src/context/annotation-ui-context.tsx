@@ -58,6 +58,58 @@ interface AnnotationUIValue {
 
 const AnnotationUIContext = createContext<AnnotationUIValue | null>(null)
 
+/* The per-domain / 24h annotation-cap toast. Shown both when starting a new
+   draft at the cap (openDraft) and when a submit is denied server-side
+   (submitDraft) — the server count is authoritative and can differ from the
+   local pre-check (e.g. another device used a slot, or localStorage was wiped),
+   so submit must be able to raise it too. */
+function showLimitToast(limit: number, resetsInMs: number | null): void {
+  const resetTxt =
+    resetsInMs != null ? ` Try again in ~${formatReset(resetsInMs)}.` : ''
+  // Custom Sparrow-themed CTA (not sonner's default action button, whose dark
+  // styling out-specifies our utilities). Dismiss the toast, then route to the
+  // pricing cards (extension → opens the web app; see goToPricing).
+  let toastId: string | number = ''
+  toastId = toast(
+    `You've reached your limit of ${limit} annotation${limit === 1 ? '' : 's'} for this site.${resetTxt}`,
+    {
+      // `annot-limit-toast` paints the reddish "quota expired" alert look
+      // (styled in index.css); the warning glyph is an inline SVG so it needs
+      // no icon-lib import and inherits the alert red via currentColor.
+      className: 'annot-limit-toast',
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+          <line x1="12" x2="12" y1="9" y2="13" />
+          <line x1="12" x2="12.01" y1="17" y2="17" />
+        </svg>
+      ),
+      action: (
+        <button
+          type="button"
+          className="annot-upgrade-btn"
+          onClick={() => {
+            toast.dismiss(toastId)
+            goToPricing()
+          }}
+        >
+          Upgrade
+        </button>
+      ),
+    },
+  )
+}
+
 export function AnnotationUIProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editIntentId, setEditIntentId] = useState<string | null>(null)
@@ -119,50 +171,7 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
     // letting the store silently drop it on submit.
     if (!store.canAddAnnotation()) {
       const { limit, resetsInMs } = store.annotationQuota()
-      const resetTxt =
-        resetsInMs != null ? ` Try again in ~${formatReset(resetsInMs)}.` : ''
-      // Custom Sparrow-themed CTA (not sonner's default action button, whose
-      // dark styling out-specifies our utilities). Dismiss the toast, then route
-      // to the pricing cards (extension → opens the web app; see goToPricing).
-      let toastId: string | number = ''
-      toastId = toast(
-        `You've reached your limit of ${limit} annotation${limit === 1 ? '' : 's'} for this site.${resetTxt}`,
-        {
-          // `annot-limit-toast` paints the reddish "quota expired" alert look
-          // (styled in index.css); the warning glyph is an inline SVG so it needs
-          // no icon-lib import and inherits the alert red via currentColor.
-          className: 'annot-limit-toast',
-          icon: (
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-              <line x1="12" x2="12" y1="9" y2="13" />
-              <line x1="12" x2="12.01" y1="17" y2="17" />
-            </svg>
-          ),
-          action: (
-            <button
-              type="button"
-              className="annot-upgrade-btn"
-              onClick={() => {
-                toast.dismiss(toastId)
-                goToPricing()
-              }}
-            >
-              Upgrade
-            </button>
-          ),
-        },
-      )
+      showLimitToast(limit, resetsInMs)
       return
     }
     const prev = draftRef.current
@@ -187,11 +196,15 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
     setDraft((d) => (d ? { ...d, ...patch } : d))
   }, [])
 
-  const submitDraft = useCallback(() => {
+  const submitDraft = useCallback(async () => {
     const d = draftRef.current
     if (!d) return
     preview.revert(d.id)
-    store.add({
+    // store.add() is the authoritative quota gate (server reserve when the
+    // backend is active). A null result means the cap was hit — the local
+    // pre-check in openDraft can lag the server count (another device, or a
+    // wiped localStorage) — so surface the limit toast and keep the draft open.
+    const ann = await store.add({
       selector: d.selector,
       comment: d.comment,
       category: d.category,
@@ -199,6 +212,11 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       styling: d.styling,
       suggestedChanges: d.suggestedChanges,
     })
+    if (!ann) {
+      const { limit, resetsInMs } = store.annotationQuota()
+      showLimitToast(limit, resetsInMs)
+      return
+    }
     setDraft(null)
     setActiveId(null)
   }, [])
