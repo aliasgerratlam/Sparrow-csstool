@@ -17,14 +17,14 @@ import {
 import { useElementRect } from '@/hooks/use-element-rect'
 import { resolve } from '@/lib/selector-engine'
 import { markSeen } from '@/lib/reply-seen'
-import { formatReset } from '@/lib/annotation-quota'
+import { formatReset } from '@/lib/annotation-quota-api'
 import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Check, Pencil, SendHorizontal, Trash2, X } from 'lucide-react'
 import type { Annotation, Reply } from '@/lib/types'
 
-const CARD_BGS = ['#ffffff', '#f7a8a0', '#f8cf6b', '#84dda6', '#2f80ff']
+const CARD_BGS = ['#ffffff', '#ef4444', '#f8cf6b', '#84dda6', '#2f80ff']
 
 function cardColorOf(ann: Annotation): string {
   const bg = ann.styling?.background

@@ -156,6 +156,172 @@ create index if not exists subscriptions_user_idx
 -- Functions use the service role (which bypasses RLS).
 alter table public.subscriptions enable row level security;
 
+-- ───────────────────────────────────────────────────────────────────────────
+-- Annotation quota (server-authoritative per-user / per-domain cap).
+-- ONE COUNTER ROW per (clerk_user_id, domain) — not an event ledger. The cap
+-- NUMBER comes from the Kelviq entitlement (resolved server-side by the
+-- annotation-quota Edge Function); this table holds only the COUNT + the reset
+-- clock, keyed to the Clerk user id verified server-side. So the count survives
+-- a localStorage clear / incognito profile and can't be reset from devtools —
+-- which the old client-side ledger couldn't guarantee.
+--
+-- Reset model = FIXED 24h FROM EXHAUSTION: `exhausted_at` is stamped the moment
+-- `used` reaches the cap; 24h later the WHOLE counter resets to 0 (lazily, on
+-- the next reserve/status call). Before the cap is hit there is no countdown.
+--
+-- Rows are written ONLY by the Edge Function (service role) through the two
+-- SECURITY DEFINER functions below; RLS is on with NO anon policies (same
+-- lockdown as `subscriptions`).
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.annotation_quota (
+  clerk_user_id text        not null,
+  domain        text        not null,
+  used          integer     not null default 0,
+  exhausted_at  timestamptz,                       -- set when `used` hits the cap; null otherwise
+  updated_at    timestamptz not null default now(),
+  primary key (clerk_user_id, domain)
+);
+
+alter table public.annotation_quota enable row level security;
+
+-- Atomically reserve one annotation slot. p_cap = -1 means unlimited (Max).
+-- Returns the post-reserve count, ms until the WHOLE quota resets (non-null only
+-- once exhausted), and whether the reservation was allowed. The `for update`
+-- row lock serialises concurrent reserves so the count can't be raced past the
+-- cap. Applies the lazy 24h-from-exhaustion reset before deciding.
+create or replace function public.reserve_annotation(
+  p_user text,
+  p_domain text,
+  p_cap integer
+)
+returns table (used integer, resets_in_ms bigint, allowed boolean)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_used         integer;
+  v_exhausted_at timestamptz;
+  window_ms constant bigint := 24 * 60 * 60 * 1000;
+begin
+  -- Ensure the row exists, then lock it for the read-modify-write.
+  insert into public.annotation_quota (clerk_user_id, domain)
+    values (p_user, p_domain)
+    on conflict (clerk_user_id, domain) do nothing;
+
+  select aq.used, aq.exhausted_at
+    into v_used, v_exhausted_at
+    from public.annotation_quota aq
+    where aq.clerk_user_id = p_user and aq.domain = p_domain
+    for update;
+
+  -- Lazy reset: 24h after exhaustion the whole quota returns.
+  if v_exhausted_at is not null and now() - v_exhausted_at >= interval '24 hours' then
+    v_used := 0;
+    v_exhausted_at := null;
+  end if;
+
+  -- Unlimited: always allow, never track a reset clock.
+  if p_cap < 0 then
+    v_used := v_used + 1;
+    update public.annotation_quota
+      set used = v_used, exhausted_at = null, updated_at = now()
+      where clerk_user_id = p_user and domain = p_domain;
+    return query select v_used, null::bigint, true;
+    return;
+  end if;
+
+  -- At/over the cap: deny; report the time left on the reset clock.
+  if v_used >= p_cap then
+    update public.annotation_quota
+      set used = v_used, exhausted_at = v_exhausted_at, updated_at = now()
+      where clerk_user_id = p_user and domain = p_domain;
+    return query select
+      v_used,
+      greatest(0, window_ms - (extract(epoch from (now() - v_exhausted_at)) * 1000))::bigint,
+      false;
+    return;
+  end if;
+
+  -- Allow: consume a slot; stamp exhaustion if this one hit the cap.
+  v_used := v_used + 1;
+  if v_used >= p_cap then
+    v_exhausted_at := now();
+  end if;
+  update public.annotation_quota
+    set used = v_used, exhausted_at = v_exhausted_at, updated_at = now()
+    where clerk_user_id = p_user and domain = p_domain;
+  return query select
+    v_used,
+    case when v_exhausted_at is not null
+      then greatest(0, window_ms - (extract(epoch from (now() - v_exhausted_at)) * 1000))::bigint
+      else null::bigint end,
+    true;
+end;
+$$;
+
+-- Read-only status (+ lazy reset). Doesn't need the cap — the reset depends only
+-- on exhausted_at. Persists the reset so `used` stays truthful for the UI.
+create or replace function public.get_annotation_quota(
+  p_user text,
+  p_domain text
+)
+returns table (used integer, resets_in_ms bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_used         integer;
+  v_exhausted_at timestamptz;
+  window_ms constant bigint := 24 * 60 * 60 * 1000;
+begin
+  select aq.used, aq.exhausted_at
+    into v_used, v_exhausted_at
+    from public.annotation_quota aq
+    where aq.clerk_user_id = p_user and aq.domain = p_domain
+    for update;
+
+  if not found then
+    return query select 0, null::bigint;
+    return;
+  end if;
+
+  if v_exhausted_at is not null and now() - v_exhausted_at >= interval '24 hours' then
+    v_used := 0;
+    v_exhausted_at := null;
+    update public.annotation_quota
+      set used = 0, exhausted_at = null, updated_at = now()
+      where clerk_user_id = p_user and domain = p_domain;
+  end if;
+
+  return query select
+    v_used,
+    case when v_exhausted_at is not null
+      then greatest(0, window_ms - (extract(epoch from (now() - v_exhausted_at)) * 1000))::bigint
+      else null::bigint end;
+end;
+$$;
+
+-- Hygiene sweep (cleanup only — reset is computed on access): drop rows that
+-- have fully reset (used = 0) and haven't been touched in a week.
+create or replace function public.delete_idle_annotation_quota()
+returns void
+language sql
+as $$
+  delete from public.annotation_quota
+    where used = 0 and updated_at < now() - interval '7 days';
+$$;
+
+select cron.unschedule('sweep-annotation-quota')
+  where exists (select 1 from cron.job where jobname = 'sweep-annotation-quota');
+
+select cron.schedule(
+  'sweep-annotation-quota',
+  '15 3 * * *',
+  $$select public.delete_idle_annotation_quota()$$
+);
+
 -- ── Auth follow-up (swap in once registered users exist) ─────────────────────
 -- Add an `author_id uuid references auth.users` column, then replace the open
 -- policies above with owner-scoped ones, e.g.:

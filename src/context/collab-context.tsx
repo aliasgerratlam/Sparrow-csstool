@@ -15,8 +15,11 @@ import {
   buildShareUrl,
   canonicalPageUrl,
   getSessionIdFromUrl,
+  isSameSessionOrigin,
   isSessionHosted,
   markSessionHosted,
+  originOf,
+  shareUrlForPage,
 } from '@/lib/session'
 import {
   createSession,
@@ -89,6 +92,13 @@ interface CollabValue {
   shareUrl: string | null
   isHost: boolean
   sessionEnded: boolean
+  // Set when a share link is opened on a different origin than it was created on
+  // — collaboration is blocked and the CrossDomainDialog is shown.
+  crossDomain: { pageUrl: string; origin: string } | null
+  // The working link to rejoin the session on its ORIGINAL site (null unless
+  // crossDomain is set). Drives the dialog's "Open Original Website" action.
+  originalShareUrl: string | null
+  createNewSession: () => void
   startSession: () => Promise<string | null>
   // Join/leave + transient notifications (toasts)
   notifications: CollabNotification[]
@@ -119,6 +129,10 @@ export function CollabProvider({ children }: { children: ReactNode }) {
   // session is a full collaborator; only the host can mint/regenerate links.
   const isHost = !sessionId || isSessionHosted(sessionId)
   const [sessionEnded, setSessionEnded] = useState(false)
+  const [crossDomain, setCrossDomain] = useState<{
+    pageUrl: string
+    origin: string
+  } | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<CollabUser[]>([])
   const [cursorMap, setCursorMap] = useState<Record<string, RemoteCursor>>({})
   const [editingMap, setEditingMap] = useState<Record<string, RemoteEditing>>({})
@@ -148,6 +162,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isCollabEnabled || !supabase || !sessionId || !authReady) return
     if (sessionEnded) return
+    if (crossDomain) return
     const sb = supabase
     const me = identityRef.current
     if (!me) return
@@ -167,6 +182,18 @@ export function CollabProvider({ children }: { children: ReactNode }) {
         setSessionEnded(true)
         return
       }
+      // Bind the link to its origin: a session created on one site must not open
+      // on another (its id/channel are otherwise valid, so nothing else stops
+      // it). Reject BEFORE hydrating annotations or opening the channel, so no
+      // collaboration or annotation sync ever starts on the wrong site.
+      if (!isSameSessionOrigin(session.page_url)) {
+        setCrossDomain({
+          pageUrl: session.page_url,
+          origin: originOf(session.page_url) ?? session.page_url,
+        })
+        return
+      }
+      setCrossDomain(null)
       // Past its 3-day lifetime: remove the dead link from the backend (its
       // annotations are page-scoped and stay put). The host drops back to a
       // no-session state so Share mints a fresh link; everyone else is locked
@@ -328,7 +355,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
       rosterInitRef.current = false
       if (channel) void sb.removeChannel(channel)
     }
-  }, [sessionId, authReady, sessionEnded, pushNotification])
+  }, [sessionId, authReady, sessionEnded, crossDomain, pushNotification])
 
   // Re-broadcast presence when my name/role changes (keep roster labels fresh).
   useEffect(() => {
@@ -391,10 +418,17 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     if (!id) return null
     markSessionHosted(id)
     setSessionEnded(false)
+    setCrossDomain(null)
     setSessionId(id)
     // Reflect the link in the address bar without a navigation.
     history.replaceState(null, '', buildShareUrl(id))
     return buildShareUrl(id)
+  }, [])
+
+  // Leave a cross-domain-rejected link and land clean on the CURRENT site (drops
+  // the foreign session id), where Share can mint a session bound to this domain.
+  const createNewSession = useCallback(() => {
+    window.location.replace(canonicalPageUrl())
   }, [])
 
   const sendCursor = useCallback((x: number, y: number) => {
@@ -432,6 +466,13 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     () => (sessionId ? buildShareUrl(sessionId) : null),
     [sessionId],
   )
+  const originalShareUrl = useMemo(
+    () =>
+      crossDomain && sessionId
+        ? shareUrlForPage(crossDomain.pageUrl, sessionId)
+        : null,
+    [crossDomain, sessionId],
+  )
 
   const value = useMemo<CollabValue>(
     () => ({
@@ -446,6 +487,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
       shareUrl,
       isHost,
       sessionEnded,
+      crossDomain,
+      originalShareUrl,
+      createNewSession,
       startSession,
       notifications,
       notify: pushNotification,
@@ -462,6 +506,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
       shareUrl,
       isHost,
       sessionEnded,
+      crossDomain,
+      originalShareUrl,
+      createNewSession,
       startSession,
       notifications,
       pushNotification,

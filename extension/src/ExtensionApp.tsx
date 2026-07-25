@@ -7,7 +7,10 @@ import {
 } from '@/context/annotation-ui-context'
 import { CollabProvider } from '@/context/collab-context'
 import { useAuth, userDisplayName } from '@/context/auth-context'
-import { AnnotationLimitSync } from '@/context/subscription-context'
+import {
+  AnnotationLimitSync,
+  AnnotationQuotaSync,
+} from '@/context/subscription-context'
 import { getSessionIdFromUrl } from '@/lib/session'
 import { PortalContainerProvider } from '@/lib/portal-container'
 import { Scanner } from '@/components/scanner/Scanner'
@@ -151,6 +154,7 @@ export function ExtensionApp({
                   <AnnotationAuthSync />
                   <AuthAuthorSync />
                   <AnnotationLimitSync />
+                  <AnnotationQuotaSync />
                   <Scanner />
                   <SignInGate />
                   <Overlays />

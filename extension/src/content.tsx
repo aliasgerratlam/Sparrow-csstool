@@ -261,7 +261,12 @@ if (isWebAppOrigin(location.origin)) {
     if (!contextAlive()) return
     try {
       chrome.runtime.sendMessage(
-        { type: MSG_AUTH_PUSH, isSignedIn: msg.isSignedIn, user: msg.user },
+        {
+          type: MSG_AUTH_PUSH,
+          isSignedIn: msg.isSignedIn,
+          user: msg.user,
+          token: msg.token,
+        },
         () => {
           void chrome.runtime.lastError
         },

@@ -53,8 +53,11 @@ interface AuthValue {
   loading: boolean
   signOut: () => Promise<void>
   /** The signed-in user's Clerk session JWT (null when signed out / guest).
-      Used to authenticate calls to server functions, e.g. payment verification. */
-  getToken: () => Promise<string | null>
+      Used to authenticate calls to server functions, e.g. payment verification.
+      Pass `{ template }` to mint a JWT-template token instead of the 60s default
+      session token — the extension bridge uses this for a longer-lived token
+      (see EXTENSION_JWT_TEMPLATE). */
+  getToken: (opts?: { template?: string }) => Promise<string | null>
   /** Re-fetch the signed-in user from Clerk so freshly-mirrored publicMetadata
       (e.g. the plan the kelviq-webhook just wrote) is picked up without a full
       page reload. No-op when signed out / guest. */
@@ -149,7 +152,8 @@ function AuthBridge({ children }: { children: ReactNode }) {
   }, [clerk])
 
   const getToken = useCallback(
-    () => clerk.session?.getToken() ?? Promise.resolve(null),
+    (opts?: { template?: string }) =>
+      clerk.session?.getToken(opts) ?? Promise.resolve(null),
     [clerk],
   )
 

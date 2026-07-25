@@ -7,17 +7,19 @@ import { AnnotationCard } from './AnnotationCard'
 import { ReviewSidebar } from './ReviewSidebar'
 import { ClientBanner } from './ClientBanner'
 import { SessionEndedBanner } from './SessionEndedBanner'
+import { CrossDomainDialog } from './CrossDomainDialog'
 import { CollabToasts } from './CollabToasts'
 
 /* Annotation surfaces — mounted at app level so they work with the scanner
    active and when joining a live session via a share link. */
 export function AnnotationLayer() {
   const isClient = useRole() === 'client'
-  const { sessionEnded, isHost } = useCollab()
+  const { sessionEnded, isHost, crossDomain } = useCollab()
   return (
     <>
-      {isClient && !sessionEnded && <ClientBanner />}
+      {isClient && !sessionEnded && !crossDomain && <ClientBanner />}
       {sessionEnded && !isHost && <SessionEndedBanner />}
+      {crossDomain && <CrossDomainDialog />}
       <PinLayer />
       <CursorLayer />
       <EditingLayer />

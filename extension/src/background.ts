@@ -19,6 +19,7 @@ import {
   AUTH_STORAGE_KEY,
   MSG_AUTH_PUSH,
   MSG_CHECK_AUTH,
+  MSG_GET_TOKEN,
   MSG_OPEN_ACCOUNT,
   MSG_OPEN_SIGNIN,
   MSG_SIGNOUT,
@@ -162,6 +163,21 @@ async function loadSyncedClerk() {
       publishableKey: PUBLISHABLE_KEY,
       syncHost: SYNC_HOST,
     })
+  } catch {
+    return null
+  }
+}
+
+/* Mint a fresh Clerk session token (JWT) for the content script, which can't run
+   Clerk itself. Used to authenticate Edge Function calls (e.g. the
+   annotation-quota reserve). Chrome only: on Firefox loadSyncedClerk() can't
+   resolve the Sync Host session, so this returns null and the store fails open
+   (allows the annotation). Best-effort — any failure resolves null. */
+async function getSessionToken(): Promise<string | null> {
+  if (isFirefox) return null
+  try {
+    const clerk = await loadSyncedClerk()
+    return (await clerk?.session?.getToken()) ?? null
   } catch {
     return null
   }
@@ -347,12 +363,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const snapshot = snapshotFromWebPayload({
       isSignedIn: msg.isSignedIn as boolean | undefined,
       user: msg.user,
+      token: msg.token as string | null | undefined,
     })
     void writeAuthSnapshot(snapshot)
     return
   }
   if (msg.type === MSG_CHECK_AUTH) {
     checkAuth().finally(() => sendResponse({ ok: true }))
+    return true // async response
+  }
+  if (msg.type === MSG_GET_TOKEN) {
+    getSessionToken()
+      .then((token) => sendResponse({ token }))
+      .catch(() => sendResponse({ token: null }))
     return true // async response
   }
   if (msg.type === MSG_SIGNOUT) {

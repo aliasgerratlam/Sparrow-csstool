@@ -20,3 +20,8 @@ verify_jwt = false
 
 [functions.kelviq-plan]
 verify_jwt = false
+
+# annotation-quota also does its own Clerk-token auth (x-clerk-token), so the
+# gateway must not enforce a JWT or it 401s the CORS preflight.
+[functions.annotation-quota]
+verify_jwt = false
