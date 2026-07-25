@@ -9,13 +9,7 @@ import { supabase, isCollabEnabled, ANNOTATIONS_TABLE } from '@/lib/supabase'
 import { canonicalPageUrl } from '@/lib/session'
 import { fromRow, toRow, type AnnotationRow } from '@/lib/annotation-mapper'
 import {
-  canCreate,
   currentDomain,
-  msUntilReset,
-  recordCreate,
-  usedInWindow,
-} from '@/lib/annotation-quota'
-import {
   fetchQuotaStatus,
   isQuotaBackendActive,
   reserveAnnotation,
@@ -40,14 +34,14 @@ const PAGE = canonicalPageUrl()
 let items: Annotation[] = []
 let role: Role = 'author'
 // Per-domain / 24h annotation cap, fed from the live subscription entitlement
-// (see AnnotationLimitSync). Defaults to unlimited so nothing blocks before the
-// limit is known or when gating is off (prototype mode).
+// (see AnnotationLimitSync). Used for the display fallback before the server
+// count loads; the authoritative gate is the server reserve in add().
 let annotationLimit = Infinity
 // Server-authoritative quota (see annotation-quota-api + AnnotationQuotaSync).
-// When active, the count lives on the backend keyed to the Clerk identity, so it
-// survives a localStorage clear; the local ledger (annotation-quota.ts) is only
-// the offline/unconfigured fallback. `quotaCache` is the last server snapshot
-// the UI reads; `add()` is the authoritative gate via reserveAnnotation().
+// When active, the count lives on the backend keyed to the Clerk identity, so
+// it survives a localStorage clear. There is NO local ledger fallback — if the
+// backend is unreachable, add() fails OPEN (allows the annotation). `quotaCache`
+// is the last server snapshot the UI reads.
 let quotaGetToken: GetToken | null = null
 let quotaBackendActive = false
 let quotaCache: QuotaStatus | null = null
@@ -319,7 +313,7 @@ export interface AnnotationDraft {
 }
 
 /* Build + insert the annotation locally (optimistic), then mirror to Supabase.
-   The quota is already reserved (server) or recorded (local) by the caller. */
+   The quota was already reserved server-side by add(). */
 function commitAdd(partial: AnnotationDraft): Annotation {
   const ann: Annotation = {
     id: newId(),
@@ -342,14 +336,19 @@ function commitAdd(partial: AnnotationDraft): Annotation {
 }
 
 /** Create an annotation, subject to the per-domain / 24h cap (Free 3 / Pro 10 /
-    Max unlimited). Async because the authoritative gate is a server reserve when
-    the quota backend is active. Returns the new annotation, or null when the cap
-    is reached / the caller isn't an author.
+    Max unlimited). Async because the authoritative gate is a server reserve.
+    Returns the new annotation, or null when the cap is reached / not an author.
 
     Backend active → reserve server-side first; on denial cache the count and
-    return null; on success cache + create. Backend inactive OR the reserve call
-    errors (network / function down) → fall back to the local ledger so the tool
-    still works. */
+    return null; on success cache + create. Backend inactive (prototype /
+    unconfigured) → create ungated.
+
+    STRICT enforcement: when gating is on and the user is signed in but we can't
+    confirm the credit with the server (no token / backend unreachable), we fail
+    CLOSED (return null) rather than open — otherwise the cap could be bypassed
+    simply by blocking the check. The trade-off is that a genuine outage (or an
+    environment that can't mint a token, e.g. the Firefox extension) blocks the
+    annotation instead of allowing it. */
 export async function add(partial: AnnotationDraft): Promise<Annotation | null> {
   if (role !== 'author') return null
   const host = currentDomain()
@@ -363,24 +362,25 @@ export async function add(partial: AnnotationDraft): Promise<Annotation | null> 
         resetsInMs: res.resetsInMs,
       }
       if (!res.allowed) {
-        notify() // refresh quota-aware UI with the server count
+        notify() // refresh quota-aware UI with the authoritative server count
         return null
       }
       return commitAdd(partial)
     } catch {
-      // Backend unreachable — fall through to the local ledger (still usable).
+      // Signed in + gating on, but the credit couldn't be confirmed (no token /
+      // backend unreachable). Fail CLOSED so the cap can't be bypassed.
+      notify()
+      return null
     }
   }
 
-  // Local fallback (prototype/unconfigured, or the reserve call errored).
-  if (!canCreate(host, annotationLimit)) return null
-  recordCreate(host)
   return commitAdd(partial)
 }
 
 /* ── Annotation quota (per-domain / 24h) ─────────────────────────────────── */
 
-/** Set the current per-domain cap (Infinity = unlimited). */
+/** Set the current per-domain cap (Infinity = unlimited). Used for the display
+    fallback before the server count loads. */
 export function setAnnotationLimit(limit: number): void {
   if (limit === annotationLimit) return
   annotationLimit = limit
@@ -389,7 +389,7 @@ export function setAnnotationLimit(limit: number): void {
 
 /** Inject the server-quota context (React-free, like setAnnotationLimit). When
     `active` (and the backend is configured), the count is resolved server-side;
-    otherwise the local ledger is used. */
+    otherwise the app is ungated (prototype) — there is no local ledger. */
 export function setQuotaContext(ctx: {
   getToken: GetToken
   active: boolean
@@ -399,7 +399,8 @@ export function setQuotaContext(ctx: {
 }
 
 /** Refresh the server quota snapshot into `quotaCache` and notify the UI. No-op
-    when the backend is inactive (the local computation is always live). */
+    when the backend is inactive. Fails silently (keeps the last cache) on a
+    transient error. */
 export async function refreshQuota(): Promise<void> {
   if (!quotaBackendActive || !quotaGetToken) return
   try {
@@ -410,20 +411,22 @@ export async function refreshQuota(): Promise<void> {
   }
 }
 
-/** Whether the author may add another annotation on this domain right now. When
-    the backend is active this reads the cached server count (the authoritative
-    gate is the reserve in add()); a not-yet-loaded cache allows the attempt. */
+/** Whether the author may add another annotation on this domain right now. Reads
+    the cached server count when the backend is active (the authoritative gate is
+    the reserve in add()); a not-yet-loaded cache allows the attempt. When the
+    backend is inactive the app is ungated, so an author may always add. */
 export function canAddAnnotation(): boolean {
   if (role !== 'author') return false
   if (quotaBackendActive) {
     if (!quotaCache) return true
     return !Number.isFinite(quotaCache.limit) || quotaCache.used < quotaCache.limit
   }
-  return canCreate(currentDomain(), annotationLimit)
+  return true
 }
 
 /** Quota snapshot for UI ("used / cap · resets in …"). Reads the server cache
-    when the backend is active, else the local ledger. */
+    when the backend is active; before it loads, shows the entitlement cap with
+    0 used. When the backend is inactive, unlimited (no cap shown). */
 export function annotationQuota(): {
   used: number
   limit: number
@@ -431,14 +434,9 @@ export function annotationQuota(): {
 } {
   if (quotaBackendActive) {
     if (quotaCache) return { ...quotaCache }
-    // Cache not loaded yet — show the entitlement cap with 0 used.
     return { used: 0, limit: annotationLimit, resetsInMs: null }
   }
-  return {
-    used: usedInWindow(currentDomain()),
-    limit: annotationLimit,
-    resetsInMs: msUntilReset(currentDomain()),
-  }
+  return { used: 0, limit: Infinity, resetsInMs: null }
 }
 
 const CLIENT_WRITABLE: Record<string, boolean> = { status: true }

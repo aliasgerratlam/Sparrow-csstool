@@ -171,8 +171,8 @@ async function loadSyncedClerk() {
 /* Mint a fresh Clerk session token (JWT) for the content script, which can't run
    Clerk itself. Used to authenticate Edge Function calls (e.g. the
    annotation-quota reserve). Chrome only: on Firefox loadSyncedClerk() can't
-   resolve the Sync Host session, so this returns null and the caller falls back
-   to the local quota ledger. Best-effort — any failure resolves null. */
+   resolve the Sync Host session, so this returns null and the store fails open
+   (allows the annotation). Best-effort — any failure resolves null. */
 async function getSessionToken(): Promise<string | null> {
   if (isFirefox) return null
   try {
@@ -363,6 +363,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const snapshot = snapshotFromWebPayload({
       isSignedIn: msg.isSignedIn as boolean | undefined,
       user: msg.user,
+      token: msg.token as string | null | undefined,
     })
     void writeAuthSnapshot(snapshot)
     return

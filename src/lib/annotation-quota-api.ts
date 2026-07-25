@@ -1,53 +1,60 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Annotation quota — client helper for the server-authoritative count.
 
-   The per-domain / 24h cap number comes from the Kelviq entitlement, but the
-   usage COUNT now lives on the backend (the `annotation-quota` Edge Function,
-   keyed to the Clerk identity), so it survives a localStorage clear / incognito
-   profile and can't be reset from devtools. This module invokes that function;
-   the local ledger in annotation-quota.ts is kept only as the offline /
-   unconfigured fallback (see isQuotaBackendActive).
+   The cap NUMBER still comes from the subscription entitlement, but the COUNT
+   and the reset clock now live on the backend (the `annotation-quota` Edge
+   Function), keyed to the verified Clerk identity — so the cap survives a
+   localStorage clear / incognito and can't be reset from devtools. There is no
+   longer any localStorage ledger. Enforcement is STRICT: when the user is signed
+   in and gating is on but the credit can't be confirmed (no token / backend
+   unreachable), the store fails CLOSED (blocks the annotation) so the cap can't
+   be bypassed by blocking the check.
 
-   Mirrors the invoke / edgeErrorMessage pattern from kelviq-checkout.ts. Every
-   call is authenticated with the caller's Clerk session token (x-clerk-token),
-   which the function verifies server-side.
+   Mirrors the invoke / edgeErrorMessage pattern from kelviq-checkout.ts.
+
+     fetchQuotaStatus  → action:'status'  (read the current count)
+     reserveAnnotation → action:'reserve' (server records the slot on allow)
+
+   Gated on `isQuotaBackendActive` = isCollabEnabled (Supabase reachable). NOT on
+   the Kelviq CLIENT key: the cap is resolved server-side via the Kelviq SERVER
+   key, and the extension never ships the client SDK.
 ───────────────────────────────────────────────────────────────────────── */
 
 import { supabase, isCollabEnabled } from './supabase'
 
-/** Whether the quota BACKEND is reachable — i.e. Supabase is configured, so we
-    can invoke the Edge Function. This is deliberately NOT gated on the Kelviq
-    CLIENT key: the cap is resolved server-side via the Kelviq SERVER key, and
-    the browser extension (which never ships the Kelviq client SDK) must still be
-    able to reach the function. Whether the quota actually applies is decided by
-    the caller's `active` flag in setQuotaContext (see AnnotationQuotaSync, which
-    ANDs in "gating is on"), so a Supabase-but-ungated web setup stays unlimited.
-    When false, callers fall back to the local localStorage ledger. */
-export const isQuotaBackendActive: boolean = isCollabEnabled
+/** Whether the server quota can be used at all (Supabase configured). */
+export const isQuotaBackendActive = isCollabEnabled
 
 export type GetToken = () => Promise<string | null>
 
+/** Quota snapshot as the app consumes it — `limit` uses Infinity for unlimited. */
 export interface QuotaStatus {
   used: number
-  /** Cap; Infinity = unlimited. */
   limit: number
-  /** ms until at least one slot frees up, or null when nothing is queued. */
   resetsInMs: number | null
 }
 
+/** A reserve outcome: the status after the attempt + whether it was allowed. */
 export interface ReserveResult extends QuotaStatus {
   allowed: boolean
 }
 
-/** The function returns `limit: number | null` (null = unlimited). Normalise
-    null → Infinity so the client uses one numeric representation everywhere. */
+const FUNCTION = 'annotation-quota'
+
+/** Server sends `null` for unlimited; the app uses one numeric type (Infinity). */
 function normLimit(v: unknown): number {
-  return typeof v === 'number' ? v : Infinity
+  return v === null || v === undefined ? Infinity : Number(v)
 }
 
-/** supabase-js surfaces a non-2xx Edge Function response as a FunctionsHttpError
-    whose `.message` is generic; the actionable detail is in the response body
-    (`{ error, reason }`) reachable via `error.context`. Pull that out. */
+function normResets(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/** supabase-js surfaces a non-2xx Edge response as a FunctionsHttpError whose
+    `.message` is generic; the actionable `{ error, reason }` is in the response
+    body reachable via `error.context`. Pull it out (same as kelviq-checkout). */
 async function edgeErrorMessage(error: unknown): Promise<string> {
   const ctx = (error as { context?: unknown })?.context
   if (ctx instanceof Response) {
@@ -68,55 +75,89 @@ async function edgeErrorMessage(error: unknown): Promise<string> {
   return 'Quota request failed'
 }
 
-interface QuotaResponse {
-  used?: number
-  limit?: number | null
-  resetsInMs?: number | null
-  allowed?: boolean
+/** Ask for the Clerk token, retrying briefly. Right after sign-in the session
+    can settle a beat after auth reports signed-in, so a single getToken() may
+    resolve null for a signed-in user. Retry a few times (short backoff) so that
+    race reliably yields the token and the user is enforced — rather than falling
+    open. Returns null only when there's genuinely no token (signed out, or an
+    environment that can't mint one, e.g. the Firefox extension). */
+async function resolveToken(getToken: GetToken): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const token = await getToken()
+    if (token) return token
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+  }
+  return null
 }
 
-/** Invoke the annotation-quota function with the Clerk token attached. Throws
-    on any error (callers catch and fall back to the local ledger). */
+/** Invoke the quota function with the Clerk token attached. Throws when the
+    backend isn't configured, no token is available, or the call errors — callers
+    decide the fallback. */
 async function invoke(
   body: { action: 'status' | 'reserve'; domain: string },
   getToken: GetToken,
-): Promise<QuotaResponse> {
+): Promise<Record<string, unknown>> {
   if (!isQuotaBackendActive || !supabase) {
     throw new Error('Quota backend is not configured')
   }
-  const token = await getToken()
-  const { data, error } = await supabase.functions.invoke('annotation-quota', {
-    headers: token ? { 'x-clerk-token': token } : undefined,
+  // getToken() can resolve null even while auth reports signed-in (Clerk session
+  // not ready yet; on the extension, Firefox / a Sync Host miss). Without the
+  // token the function can only ever 401 ("Missing x-clerk-token header"), so
+  // skip the round-trip and let callers fail open — same net behaviour, no
+  // pointless request or console noise.
+  const token = await resolveToken(getToken)
+  if (!token) throw new Error('No Clerk session token available')
+  const { data, error } = await supabase.functions.invoke(FUNCTION, {
+    headers: { 'x-clerk-token': token },
     body,
   })
   if (error) throw new Error(await edgeErrorMessage(error))
-  return (data ?? {}) as QuotaResponse
+  return (data ?? {}) as Record<string, unknown>
 }
 
-/** Read the current usage for a domain (no write). */
+/** Read the current server-side quota for a domain. */
 export async function fetchQuotaStatus(
   domain: string,
   getToken: GetToken,
 ): Promise<QuotaStatus> {
-  const d = await invoke({ action: 'status', domain }, getToken)
+  const data = await invoke({ action: 'status', domain }, getToken)
   return {
-    used: d.used ?? 0,
-    limit: normLimit(d.limit),
-    resetsInMs: d.resetsInMs ?? null,
+    used: Number(data.used ?? 0),
+    limit: normLimit(data.limit),
+    resetsInMs: normResets(data.resetsInMs),
   }
 }
 
-/** Attempt to reserve one slot. On `allowed:true` the server has already
-    recorded the event; on `allowed:false` nothing was written. */
+/** Reserve one slot server-side. On `allowed:true` the server already recorded
+    the event; on `false` nothing was written and the cap is reached. */
 export async function reserveAnnotation(
   domain: string,
   getToken: GetToken,
 ): Promise<ReserveResult> {
-  const d = await invoke({ action: 'reserve', domain }, getToken)
+  const data = await invoke({ action: 'reserve', domain }, getToken)
   return {
-    allowed: !!d.allowed,
-    used: d.used ?? 0,
-    limit: normLimit(d.limit),
-    resetsInMs: d.resetsInMs ?? null,
+    allowed: !!data.allowed,
+    used: Number(data.used ?? 0),
+    limit: normLimit(data.limit),
+    resetsInMs: normResets(data.resetsInMs),
   }
+}
+
+/** The domain the cap is scoped to (the hostname the annotation is left on). */
+export function currentDomain(): string {
+  try {
+    return window.location.hostname || 'localhost'
+  } catch {
+    return 'localhost'
+  }
+}
+
+/** Human "resets in …" label — minutes under an hour, rounded-up hours above.
+    (Moved here from the removed localStorage ledger; purely presentational.) */
+export function formatReset(ms: number): string {
+  const mins = Math.max(1, Math.ceil(ms / 60_000))
+  if (mins < 60) return `${mins}m`
+  return `${Math.ceil(ms / 3_600_000)}h`
 }

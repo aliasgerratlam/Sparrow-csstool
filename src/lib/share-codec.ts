@@ -24,7 +24,15 @@ const A: KeyMap = {
   replies: 'r',
   pageUrl: 'u',
 }
-const SEL: KeyMap = { primary: 'p', nthPath: 'n', id: 'i', tag: 't' }
+const SEL: KeyMap = {
+  primary: 'p',
+  nthPath: 'n',
+  id: 'i',
+  tag: 't',
+  ofTypePath: 'o',
+  attrs: 'A',
+  text: 'x',
+}
 const STY: KeyMap = {
   fontSize: 'fs',
   fontFamily: 'ff',

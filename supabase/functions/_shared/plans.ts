@@ -1,18 +1,17 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   Per-tier annotation caps — server-side copy of the numbers the browser reads
-   from src/lib/plans.ts (`PLAN_LIMITS[*].annotationLimit`).
+   Server-side per-tier annotation caps for the annotation-quota Edge Function.
 
-   ⚠️ SYNC NOTE: these MUST match the web app's PLAN_LIMITS caps. This is a
-   deliberate, minimal duplication (Deno can't import the Vite `@/` app module),
-   kept tiny so drift is obvious. If you change a cap here, change it there too —
-   and in the extension (see memory `kelviq-subscriptions` /
-   `sync-tool-changes-to-extension`). `null` = unlimited (Max).
+   Deno can't import the Vite app's `@/lib/plans` module, so the cap numbers are
+   duplicated here. ⚠️ KEEP IN SYNC with `src/lib/plans.ts` (PLAN_LIMITS[*].
+   annotationLimit) AND the extension — a mismatch would enforce a different cap
+   on the server than the UI shows. `null` = unlimited (the app's Infinity).
 
-   Deno (Supabase Edge Function) — never goes through the app's `tsc -b`.
+   This is Deno (Supabase Edge Functions), not the Vite/React app — it never
+   goes through `tsc -b`.
 ───────────────────────────────────────────────────────────────────────── */
 
 export const ANNOTATION_CAP: Record<'free' | 'pro' | 'max', number | null> = {
   free: 3,
   pro: 10,
-  max: null,
+  max: null, // null = unlimited
 }

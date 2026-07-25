@@ -23,10 +23,16 @@ export const EXT_AUTH_QUERY = 'sparrow-ext-auth-query'
 export interface ExtAuthPushMessage {
   source: typeof EXT_AUTH_PUSH
   isSignedIn: boolean
-  /** The normalised AuthUser (same shape the extension snapshot stores), or null.
-      No session token is ever sent — the mirrored plan in `user.metadata` is
-      enough for gating; live-plan overlay stays a Chrome-Sync-Host nicety. */
+  /** The normalised AuthUser (same shape the extension snapshot stores), or null. */
   user: AuthUser | null
+  /** A longer-lived Clerk JWT-template token (EXTENSION_JWT_TEMPLATE) the
+      extension uses to authenticate Edge Function calls (the annotation-quota
+      reserve). The extension can't mint one itself — on host pages it has no
+      Clerk, and on Firefox no Sync Host — so the web app, which runs real Clerk
+      on its allow-listed origin, mints it and pushes it here. null when signed
+      out or the template isn't configured. It IS a bearer credential, so it only
+      travels this first-party, origin-allow-listed channel (never logged). */
+  token: string | null
 }
 
 interface ExtAuthQueryMessage {
@@ -51,16 +57,18 @@ export function isWebAppOrigin(origin: string): boolean {
   return WEB_APP_ORIGIN_RE.test(origin) || isLocalhostOrigin(origin)
 }
 
-/** Web app: broadcast the current auth state to any listening relay. */
+/** Web app: broadcast the current auth state (and token) to any listening relay. */
 export function postAuthToExtension(payload: {
   isSignedIn: boolean
   user: AuthUser | null
+  token: string | null
 }): void {
   try {
     const msg: ExtAuthPushMessage = {
       source: EXT_AUTH_PUSH,
       isSignedIn: payload.isSignedIn,
       user: payload.user,
+      token: payload.token,
     }
     window.postMessage(msg, window.location.origin)
   } catch {

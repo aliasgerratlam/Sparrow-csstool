@@ -88,12 +88,24 @@ export type Category =
   | 'Accessibility'
   | 'General'
 
-/** Serializable record locating an element across reloads/shares. */
+/** Serializable record locating an element across reloads/shares.
+
+    `primary`/`nthPath`/`id`/`tag` are the original position-based anchor. The
+    fields below are optional resilience signals (added later; old records omit
+    them) that let `resolve` re-find an element in a DOM that differs from the one
+    the record was minted against — e.g. another collaborator's browser at a
+    different viewport. See src/lib/selector-engine.ts. */
 export interface SelectorRecord {
   primary: string
   nthPath: string
   id: string | null
   tag: string
+  /** Positional path built from `:nth-of-type` (survives different-tag siblings). */
+  ofTypePath?: string
+  /** Whitelisted identifying attributes (normalized). */
+  attrs?: Record<string, string>
+  /** Normalized, truncated text fingerprint of the element. */
+  text?: string
 }
 
 export interface AnnotationStyling {

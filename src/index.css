@@ -1990,6 +1990,20 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
   background: linear-gradient(135deg,#7c6cff,#6366f1); color: #fff;
   font-size: .58rem; font-weight: 700;
 }
+/* Cross-domain rejection dialog — reuses the .annot-share-dialog shell so it
+   matches the app's indigo chrome (same gradient, radius, shadow, typography).
+   Primary action inherits the brand .annot-share-copy gradient. */
+.annot-crossdomain-actions {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 4px;
+}
+.annot-crossdomain-actions .annot-share-copy { padding: 11px 18px; font-size: .8rem; }
+.annot-crossdomain-secondary {
+  background: var(--a-surface); border: 1px solid var(--a-border); color: var(--a-text);
+  border-radius: 10px; padding: 11px 18px; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background .14s, border-color .14s, box-shadow .14s;
+}
+.annot-crossdomain-secondary:hover { border-color: var(--a-accent); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+
 /* Live-session: start button + "new session" footer */
 .annot-share-start {
   flex: 1; background: linear-gradient(135deg,#7c6cff,#6366f1); border: none; color: #fff;

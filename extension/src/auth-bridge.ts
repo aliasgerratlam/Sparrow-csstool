@@ -14,6 +14,11 @@ export interface AuthSnapshot {
   isSignedIn: boolean
   /** The normalised AuthUser (same shape the web app uses), or null. */
   user: AuthUser | null
+  /** A longer-lived Clerk JWT-template token pushed by the web app, used to
+      authenticate Edge Function calls (annotation-quota). Only the push bridge
+      sets it; the Chrome Sync Host path (snapshotFromClerkUser) leaves it unset
+      and mints fresh tokens on demand instead. null/undefined when unavailable. */
+  token?: string | null
 }
 
 export const SIGNED_OUT: AuthSnapshot = { isSignedIn: false, user: null }
@@ -28,8 +33,10 @@ export const MSG_CHECK_AUTH = 'sparrow-check-auth'
 /** Ask the background for a fresh Clerk session token (JWT). Clerk can't run in
     the content script, but the background worker can (Chrome, via Sync Host), so
     it mints the token that authenticates Edge Function calls — e.g. the
-    annotation-quota reserve. Response: { token: string | null }. Firefox has no
-    Sync Host session, so it resolves null and callers fall back to local. */
+    annotation-quota reserve. Response: { token: string | null }. This is the
+    Chrome-only fallback used when no pushed JWT-template token is available;
+    Firefox has no Sync Host session, so it resolves null and the extension falls
+    back to the pushed token (and, absent that, the store fails CLOSED). */
 export const MSG_GET_TOKEN = 'sparrow-get-token'
 /** Push from the web-app relay content script (the auth push bridge): carries the
     web app's live auth state ({ isSignedIn, user }) for the background to mirror
@@ -87,13 +94,20 @@ export function snapshotFromClerkUser(user: ClerkUserLike | null): AuthSnapshot 
 }
 
 /** Build the snapshot from a web-app push payload. The relayed `user` is already
-    the normalised AuthUser, so no Clerk mapping is needed — just validate it. */
+    the normalised AuthUser, so no Clerk mapping is needed — just validate it.
+    Carries the pushed JWT-template token (the extension's token source on host
+    pages / Firefox); null when the web app couldn't mint one. */
 export function snapshotFromWebPayload(payload: {
   isSignedIn?: boolean
   user?: AuthUser | null
+  token?: string | null
 }): AuthSnapshot {
   if (!payload?.isSignedIn || !payload.user) return SIGNED_OUT
-  return { isSignedIn: true, user: payload.user }
+  return {
+    isSignedIn: true,
+    user: payload.user,
+    token: typeof payload.token === 'string' ? payload.token : null,
+  }
 }
 
 /** Read the current snapshot (defaults to signed-out when unset). */

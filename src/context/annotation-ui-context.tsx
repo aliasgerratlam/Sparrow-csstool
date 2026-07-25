@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { getUniqueSelector, resolve } from '@/lib/selector-engine'
 import * as preview from '@/lib/preview'
 import { store } from '@/hooks/use-annotations'
-import { formatReset } from '@/lib/annotation-quota'
+import { formatReset } from '@/lib/annotation-quota-api'
 import { goToPricing } from '@/context/subscription-context'
 import type { Annotation } from '@/lib/types'
 

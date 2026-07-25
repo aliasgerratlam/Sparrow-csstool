@@ -121,9 +121,9 @@ export function AnnotationQuotaSync() {
   const { getToken, isAuthenticated, user } = useAuth()
   const { isActive, mode } = useScanner()
 
-  // Keep the store's quota context current. The backend applies only when the
-  // user is signed in (we need a Clerk token) AND gating is on; setQuotaContext
-  // further ANDs in whether the backend (Supabase) is reachable.
+  // The backend applies only when the user is signed in (we need a Clerk token)
+  // AND gating is on; setQuotaContext further ANDs in whether the backend
+  // (Supabase) is reachable.
   const active = isAuthenticated && GATING_ACTIVE
   useEffect(() => {
     store.setQuotaContext({ getToken, active })

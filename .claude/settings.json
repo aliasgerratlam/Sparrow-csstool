@@ -192,7 +192,26 @@
       "Bash(tar -tf public/sparrow-firefox-source.zip)",
       "Bash(unzip -t public/sparrow-firefox-source.zip)",
       "Bash(unzip -l public/sparrow-firefox-source.zip)",
-      "Bash(grep -iE \"\\\\.env\\\\.local|/\\\\.env |\\\\.git/|node_modules|\\\\.mp4\")"
+      "Bash(grep -iE \"\\\\.env\\\\.local|/\\\\.env |\\\\.git/|node_modules|\\\\.mp4\")",
+      "Bash(git show *)",
+      "Bash(git --no-pager diff -- src/lib/types.ts src/lib/share-codec.ts)",
+      "Bash(grep -oE 'VITE_SUPABASE_ANON_KEY=.{0,6}' .env.local)",
+      "Bash(VITE_CLERK_PUBLISHABLE_KEY= npm run dev)",
+      "Bash(tee /c/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/e20236ac-3f2f-418d-9326-102c4fcbe679/scratchpad/dev.log)",
+      "Bash(sleep 3; grep -oE 'http://localhost:[0-9]+' /c/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/e20236ac-3f2f-418d-9326-102c4fcbe679/tasks/b6dumfqzz.output | head -1)",
+      "Read(//c/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/e20236ac-3f2f-418d-9326-102c4fcbe679/tasks/**)",
+      "Bash(grep -nA6 'export .*createSession' src/lib/session-api.ts)",
+      "Bash(grep -oE 'eyJhbGciOiJIUzI1Ni[A-Za-z0-9._-]{0,30}' content.js)",
+      "Bash(grep -oE 'sb_publishable_[A-Za-z0-9]{0,20}' content.js)",
+      "Bash(grep -oE 'eyJhbGciOiJIUzI1Ni[A-Za-z0-9._-]{0,20}' content.js)",
+      "PowerShell(npm install)",
+      "PowerShell($env:VITE_CLERK_PUBLISHABLE_KEY=''; npm run dev)",
+      "Bash(node seed.mjs seed)",
+      "Bash(node -e \"console.log\\(require\\('playwright-core/package.json'\\).version\\)\")",
+      "Bash(node seed.mjs delete 15f5b648-c072-4e35-b152-eee20fe478ba abe4c7a1-ec52-45f1-abbc-f201b15c47f5)",
+      "Bash(sed -i \"s|localhost:5174|localhost:5173|; s|15f5b648-c072-4e35-b152-eee20fe478ba|3ce88b5c-182f-4d8a-acc4-140211fab89e|; s|abe4c7a1-ec52-45f1-abbc-f201b15c47f5|9bcf08db-700f-4ee1-a326-d6e149d5e8b9|\" drive.mjs)",
+      "PowerShell(& \".\\\\node_modules\\\\.bin\\\\supabase.cmd\" functions deploy annotation-quota --no-verify-jwt 2>&1)",
+      "Bash(npm test *)"
     ],
     "additionalDirectories": [
       "\\tmp"

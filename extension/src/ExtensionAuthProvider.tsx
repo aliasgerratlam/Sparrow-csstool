@@ -28,6 +28,42 @@ function contextAlive(): boolean {
   }
 }
 
+/** Decode a JWT's `exp` (seconds) WITHOUT verifying — purely to avoid handing
+    over an already-expired token (the Edge Function verifies for real). Treats a
+    missing / unparseable / past-exp token as expired, with a 30s skew so we never
+    hand over one about to lapse mid-request. */
+function isJwtExpired(token: string | null | undefined): boolean {
+  if (!token) return true
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return true
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const exp = (JSON.parse(json) as { exp?: unknown })?.exp
+    if (typeof exp !== 'number') return true
+    return Date.now() >= exp * 1000 - 30_000
+  } catch {
+    return true
+  }
+}
+
+/** Chrome-only fallback: ask the background worker to mint a fresh Clerk session
+    token via Sync Host. Resolves null on Firefox (no Sync Host session) or any
+    failure — the caller then relies on the pushed token, or fails closed. */
+function requestSyncHostToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!contextAlive()) return resolve(null)
+    try {
+      chrome.runtime.sendMessage({ type: MSG_GET_TOKEN }, (res) => {
+        void chrome.runtime.lastError
+        const token = (res as { token?: unknown } | undefined)?.token
+        resolve(typeof token === 'string' ? token : null)
+      })
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
 /** Ask the background to re-read the web app's synced Clerk session. Bound to
     `focus`/`visibilitychange`, so it can fire on an orphaned script after the
     extension reloads — every chrome.* touch there throws synchronously and
@@ -158,23 +194,17 @@ export function ExtensionAuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!snapshot?.isSignedIn,
       user: (snapshot?.user ?? null) as AuthUser | null,
       signOut,
-      // Clerk can't run in the content script, so ask the background worker
-      // (which can, via Sync Host on Chrome) to mint a fresh session token.
-      // Authenticates Edge Function calls — the annotation-quota reserve. On
-      // Firefox the background returns null and the store falls back to local.
-      getToken: () =>
-        new Promise<string | null>((resolve) => {
-          if (!contextAlive()) return resolve(null)
-          try {
-            chrome.runtime.sendMessage({ type: MSG_GET_TOKEN }, (res) => {
-              void chrome.runtime.lastError
-              const token = (res as { token?: unknown } | undefined)?.token
-              resolve(typeof token === 'string' ? token : null)
-            })
-          } catch {
-            resolve(null)
-          }
-        }),
+      // Token for Edge Function calls (the annotation-quota reserve). Clerk can't
+      // run in the content script, so we can't mint one here. Prefer the
+      // longer-lived JWT-template token the web app pushed into the snapshot — it
+      // works on BOTH browsers, including Firefox where Sync Host can't mint. Fall
+      // back to a fresh Sync Host token (Chrome only) when there's no pushed token
+      // or it has expired. When neither is available the store fails CLOSED.
+      getToken: async () => {
+        const pushed = snapshot?.token
+        if (pushed && !isJwtExpired(pushed)) return pushed
+        return requestSyncHostToken()
+      },
       // No Clerk instance here — ask the background to re-sync the snapshot,
       // which is the extension's equivalent of pulling fresh user metadata.
       reloadUser: async () => {

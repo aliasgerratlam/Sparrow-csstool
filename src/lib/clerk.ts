@@ -25,6 +25,25 @@ export const AUTH_PROMPT_PARAM = 'sparrow-auth'
 export type AuthPromptMode = 'signin' | 'signup'
 
 /* ─────────────────────────────────────────────────────────────────────────
+   Extension auth token — the Clerk JWT the browser extension uses to
+   authenticate quota (and other) Edge Function calls.
+
+   Plain Clerk session tokens live only 60s and can only be minted where Clerk
+   runs (the web-app tab), so the extension — which runs on arbitrary host pages
+   with no Clerk and, on Firefox, no Sync Host — can't mint one on demand. The
+   fix: the web app mints a LONGER-LIVED JWT-template token and pushes it to the
+   extension over the auth bridge (see extension-auth-channel.ts). Our Edge
+   Functions verify with `@clerk/backend` verifyToken(), which only checks the
+   signature + `sub`, so a template token authenticates the same Clerk user.
+
+   REQUIRES a Clerk JWT template named exactly this (Dashboard → JWT Templates),
+   with Token lifetime = 86400s (24h). A blank template already carries `sub`;
+   no custom claims are needed. Trade-off: it's a bearer credential held in
+   extension storage for up to 24h — re-minted on every web-app auth push so
+   active users always carry a fresh one. */
+export const EXTENSION_JWT_TEMPLATE = 'extension'
+
+/* ─────────────────────────────────────────────────────────────────────────
    Clerk appearance — makes the hosted sign-in/up modal match the Sparrow
    tool chrome (Plus Jakarta Sans, sparrow-blue accent, glassy card, the
    #4f7cff→#7c5cff gradient used on the primary buttons and mode-rail). Passed
