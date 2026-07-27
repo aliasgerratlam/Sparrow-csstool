@@ -316,6 +316,7 @@ html {
     0 4px 12px rgba(18, 17, 41, 0.07),
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
     inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
 }
 #scanner-badge {
   color: #10b981;
@@ -1852,6 +1853,12 @@ body.annot-cursor, body.annot-cursor * { cursor: pointer !important; }
 }
 .annot-submit-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
 .annot-submit-btn svg, .annot-reply-send svg { display: block; }
+/* In-flight submit: the send glyph swaps for a spinner. Own keyframes (not
+   Tailwind's animate-spin) so it also runs inside the extension's Shadow DOM.
+   Slightly less dimmed than a plain disabled button — it reads as busy, not off. */
+.annot-submit-btn[aria-busy='true'] { opacity: .75; cursor: progress; }
+.annot-submit-spin { animation: annotSubmitSpin .8s linear infinite; }
+@keyframes annotSubmitSpin { to { transform: rotate(360deg); } }
 /* Upgrade CTA inside the annotation-cap toast — same 3D-ledge Sparrow-blue
    treatment as the card's submit button, sized as a text pill. Rendered as a
    custom node (not sonner's [data-button]) so sonner's dark default doesn't win. */

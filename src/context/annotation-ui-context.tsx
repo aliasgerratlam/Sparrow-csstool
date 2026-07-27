@@ -33,7 +33,9 @@ interface AnnotationUIValue {
   clearEditIntent: () => void
   openDraft: (el: Element) => void
   updateDraft: (patch: Partial<Annotation>) => void
-  submitDraft: () => void
+  // Async: the draft is committed through store.add(), which reserves a quota
+  // slot on the backend. Callers await it to show progress / lock the button.
+  submitDraft: () => Promise<void>
   closeCard: () => void
   // Sidebar
   sidebarOpen: boolean
