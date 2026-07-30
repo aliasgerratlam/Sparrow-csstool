@@ -10,6 +10,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ArrowButton } from '@/components/landing/parts'
 import { PresenceBar } from './PresenceBar'
 import { ShareDialog } from '@/components/annotate/ShareDialog'
+import { NotificationBell } from '@/components/annotate/NotificationBell'
 import { UserMenu } from '@/components/auth/UserMenu'
 
 export function ScannerToolbar() {
@@ -21,20 +22,22 @@ export function ScannerToolbar() {
   const [shareOpen, setShareOpen] = useState(false)
   const [preparing, setPreparing] = useState(false)
 
-  // Share = make sure a link exists (start the session silently if needed),
-  // then open a popover showing the link. No "live" wording.
+  // Share = open the popover, making sure a link exists (start the session
+  // silently if needed). No "live" wording.
   const onShare = async () => {
+    // Open FIRST, then mint. Minting is a network round trip now (Clerk verify +
+    // plan lookup + insert), so awaiting it first would leave the user staring at
+    // a dead button; the dialog has a "Preparing your share link…" state for
+    // exactly this, and shows the error/retry state if it fails.
+    setShareOpen(true)
     if (enabled && !shareUrl) {
       setPreparing(true)
       try {
         await startSession()
       } finally {
-        // A failed session start must not wedge the button in "Sharing…";
-        // the dialog opens either way and shows its error/retry state.
         setPreparing(false)
       }
     }
-    setShareOpen(true)
   }
 
   // Close every open scanner surface (inspector panel, frozen selection,
@@ -103,6 +106,7 @@ export function ScannerToolbar() {
           ))}
         {mode === 'annotate' && (
           <>
+            <NotificationBell onRequireAuth={requireAuth} />
             <Button
               id="scanner-review-btn"
               variant="ghost"
@@ -135,7 +139,11 @@ export function ScannerToolbar() {
           <X size={16} strokeWidth={2.5} />
         </Button>
       </div>
-      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} />
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        preparing={preparing}
+      />
     </div>
   )
 }

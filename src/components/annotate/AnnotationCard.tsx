@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
@@ -16,15 +17,28 @@ import {
 } from '@/hooks/use-annotations'
 import { useElementRect } from '@/hooks/use-element-rect'
 import { resolve } from '@/lib/selector-engine'
-import { markSeen } from '@/lib/reply-seen'
+import { markPinSeen, markSeen, unreadReplyIds } from '@/lib/reply-seen'
 import { formatReset } from '@/lib/annotation-quota-api'
-import { fmtDate } from '@/lib/format'
+import { authorHue, authorInitials, fmtDate, fmtReplyTime } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Check, Loader2, Pencil, SendHorizontal, Trash2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  SendHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react'
 import type { Annotation, Reply } from '@/lib/types'
 
 const CARD_BGS = ['#ffffff', '#ef4444', '#f8cf6b', '#84dda6', '#2f80ff']
+
+// How long the "new reply" highlight stays on: three runs of the .8s
+// annotReplyFlash keyframe in index.css, plus a beat so the last pulse finishes.
+const REPLY_FLASH_MS = 2600
 
 function cardColorOf(ann: Annotation): string {
   const bg = ann.styling?.background
@@ -87,6 +101,14 @@ export function AnnotationCard() {
   // the store per-keystroke, same rationale as the comment draft above.
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
+  // The replies disclosure is controlled so unread replies can force it open
+  // (see the reveal effect below) while manual toggling still works.
+  const [repliesOpen, setRepliesOpen] = useState(false)
+  // Replies that were unread when this card opened — highlighted for a moment so
+  // the eye lands on them instead of scanning the whole thread.
+  const [newReplyIds, setNewReplyIds] = useState<Set<string>>(new Set())
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const firstNewRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const [editing, setEditing] = useState(false)
   // Submitting a draft round-trips to the backend (server-authoritative quota
@@ -150,6 +172,13 @@ export function AnnotationCard() {
     setCommentDraft(wantsEdit && ann && !isDraft ? ann.comment : null)
     setEditingReplyId(null)
     setReplyDraft('')
+    // Drop any unsent reply text too — it belongs to the thread we just left.
+    setReplyText('')
+    // Collapse the thread back down; the reveal effect below is declared after
+    // this one, so on a card switch with unread replies it re-opens in the same
+    // commit and wins.
+    setRepliesOpen(false)
+    setNewReplyIds(new Set())
     if (wantsEdit) ui.clearEditIntent()
     const prevId = ann && !isDraft ? ann.id : null
     return () => commitPendingEdit(prevId)
@@ -172,10 +201,41 @@ export function AnnotationCard() {
   // both on open and if a new reply streams in while it stays open. `myReplyName`
   // (below) is the same identity used to author replies, so self-replies are
   // ignored. Drafts have no replies, so they're skipped.
+  //
+  // Before clearing, capture WHICH replies were unread: dismissing the pin's dot
+  // is the only signal the user gets, so the thread auto-expands and the new
+  // replies flash — otherwise the dot vanishes on open while the replies stay
+  // collapsed and the news is lost. Safe against the broad `ann` dep: once
+  // markSeen has run, unreadReplyIds() is empty, so unrelated updates to the
+  // annotation (status, comment edit, our own reply) never re-flash.
   useEffect(() => {
     if (!ann || isDraft) return
-    markSeen(ann, ui.author.trim() || (ro ? 'Client' : 'Author'))
+    const me = store.myDisplayName(ui.author)
+    const fresh = unreadReplyIds(ann, me)
+    markSeen(ann, me)
+    // Opening the card is also what dismisses this pin from the notification
+    // bell — do it here so a pin and its replies clear together.
+    markPinSeen(ann)
+    if (!fresh.length) return
+    setRepliesOpen(true)
+    setNewReplyIds(new Set(fresh))
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setNewReplyIds(new Set()), REPLY_FLASH_MS)
   }, [ann, isDraft, ro, ui.author])
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    },
+    [],
+  )
+
+  // Bring the first highlighted reply into view inside the card's scroll area.
+  // 'nearest' keeps it from yanking the host page (the card itself is fixed).
+  useEffect(() => {
+    if (!newReplyIds.size) return
+    firstNewRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [newReplyIds])
 
   if (!ann) return null
 
@@ -233,17 +293,19 @@ export function AnnotationCard() {
     const msg = replyText.trim()
     if (!msg) return
     store.addReply(ann.id, {
-      author: ui.author.trim() || (ro ? 'Client' : 'Author'),
+      author: store.myDisplayName(ui.author),
       message: msg,
     })
     setReplyText('')
   }
 
   const replies = ann.replies || []
+  // Oldest highlighted reply, in thread order — the one we scroll to.
+  const firstNewId = replies.find((r) => newReplyIds.has(r.id))?.id ?? null
 
   // The identity this user's replies are stamped with (matches sendReply). A
   // reply may only be rewritten by whoever authored it.
-  const myReplyName = ui.author.trim() || (ro ? 'Client' : 'Author')
+  const myReplyName = store.myDisplayName(ui.author)
   const canEditReply = (r: Reply) => (r.author || '').trim() === myReplyName
 
   const startEditReply = (r: Reply) => {
@@ -433,88 +495,138 @@ export function AnnotationCard() {
         )}
 
         {!isDraft && (
-          <details className="annot-section">
-            <summary>Replies ({replies.length})</summary>
+          <details
+            className="annot-section"
+            open={repliesOpen}
+            onToggle={(e) => setRepliesOpen(e.currentTarget.open)}
+          >
+            <summary>
+              <MessageSquare className="size-3.5" aria-hidden="true" />
+              <span className="annot-section-title">Replies</span>
+              <span
+                className={
+                  'annot-reply-count' + (replies.length ? '' : ' is-zero')
+                }
+              >
+                {replies.length}
+              </span>
+              <ChevronDown className="size-3.5 annot-section-chev" aria-hidden="true" />
+            </summary>
             <div className="annot-replies">
               {replies.length ? (
                 replies.map((r) => (
-                  <div key={r.id} className="annot-reply">
-                    <div className="annot-reply-head">
-                      <strong>{r.author || 'Anonymous'}</strong>
-                      <div className="annot-reply-meta">
-                        <span className="annot-reply-date">{fmtDate(r.createdAt)}</span>
-                        {editingReplyId !== r.id && canEditReply(r) && (
-                          <Button
-                            variant="ghost"
-                            className="annot-reply-edit"
-                            title="Edit reply"
-                            onClick={() => startEditReply(r)}
+                  <div
+                    key={r.id}
+                    ref={r.id === firstNewId ? firstNewRef : undefined}
+                    className={
+                      'annot-reply' +
+                      (newReplyIds.has(r.id) ? ' is-new' : '') +
+                      (canEditReply(r) ? ' is-mine' : '')
+                    }
+                  >
+                    <span
+                      className="annot-avatar"
+                      style={{ '--av-h': String(authorHue(r.author)) } as CSSProperties}
+                      aria-hidden="true"
+                    >
+                      {authorInitials(r.author)}
+                    </span>
+                    <div className="annot-reply-bubble">
+                      <div className="annot-reply-head">
+                        <strong>{r.author || 'Anonymous'}</strong>
+                        <div className="annot-reply-meta">
+                          <span
+                            className="annot-reply-date"
+                            title={fmtDate(r.createdAt)}
                           >
-                            <Pencil className="size-3" aria-hidden="true" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {editingReplyId === r.id ? (
-                      <div className="annot-reply-edit-box">
-                        <Textarea
-                          className="annot-input annot-reply-ta"
-                          rows={2}
-                          autoFocus
-                          value={replyDraft}
-                          onChange={(e) => setReplyDraft(e.target.value)}
-                          onKeyDown={stopKeyLeak}
-                          onKeyUp={stopKeyLeak}
-                        />
-                        <div className="annot-reply-edit-actions">
-                          <Button
-                            variant="ghost"
-                            className="annot-reply-cancel"
-                            title="Cancel"
-                            onClick={cancelEditReply}
-                          >
-                            <X className="size-3.5" />
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="annot-edit-done"
-                            title="Save reply"
-                            disabled={!replyDraft.trim()}
-                            onClick={saveEditReply}
-                          >
-                            <Check className="size-3.5" />
-                            Save
-                          </Button>
+                            {fmtReplyTime(r.createdAt)}
+                          </span>
+                          {editingReplyId !== r.id && canEditReply(r) && (
+                            <Button
+                              variant="ghost"
+                              className="annot-reply-edit"
+                              title="Edit reply"
+                              onClick={() => startEditReply(r)}
+                            >
+                              <Pencil className="size-3" aria-hidden="true" />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div className="annot-reply-msg">{r.message}</div>
-                    )}
+                      {editingReplyId === r.id ? (
+                        <div className="annot-reply-edit-box">
+                          <Textarea
+                            className="annot-input annot-reply-ta"
+                            rows={2}
+                            autoFocus
+                            value={replyDraft}
+                            onChange={(e) => setReplyDraft(e.target.value)}
+                            onKeyDown={stopKeyLeak}
+                            onKeyUp={stopKeyLeak}
+                          />
+                          <div className="annot-reply-edit-actions">
+                            <Button
+                              variant="ghost"
+                              className="annot-reply-cancel"
+                              title="Cancel"
+                              onClick={cancelEditReply}
+                            >
+                              <X className="size-3.5" />
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="annot-edit-done"
+                              title="Save reply"
+                              disabled={!replyDraft.trim()}
+                              onClick={saveEditReply}
+                            >
+                              <Check className="size-3.5" />
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="annot-reply-msg">{r.message}</div>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
-                <div className="annot-empty">No replies yet.</div>
+                <div className="annot-empty">
+                  <MessageSquare className="size-4" aria-hidden="true" />
+                  No replies yet — start the thread.
+                </div>
               )}
             </div>
             <div className="annot-reply-input">
-              <Textarea
-                className="annot-input annot-reply-ta"
-                rows={2}
-                placeholder="Write a reply…"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={stopKeyLeak}
-                onKeyUp={stopKeyLeak}
-              />
-              <Button
-                variant="ghost"
-                className="annot-reply-send"
-                title="Send reply"
-                onClick={sendReply}
+              <span
+                className="annot-avatar annot-avatar-me"
+                style={{ '--av-h': String(authorHue(myReplyName)) } as CSSProperties}
+                aria-hidden="true"
               >
-                <SendHorizontal className="size-4" aria-hidden="true" />
-              </Button>
+                {authorInitials(myReplyName)}
+              </span>
+              <div className="annot-reply-composer">
+                <Textarea
+                  className="annot-input annot-reply-ta"
+                  rows={2}
+                  placeholder="Write a reply…"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={stopKeyLeak}
+                  onKeyUp={stopKeyLeak}
+                />
+                <Button
+                  variant="ghost"
+                  className="annot-reply-send"
+                  title="Send reply"
+                  disabled={!replyText.trim()}
+                  onClick={sendReply}
+                >
+                  <SendHorizontal className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
           </details>
         )}

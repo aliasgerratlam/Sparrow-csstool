@@ -25,3 +25,7 @@ verify_jwt = false
 # gateway must not enforce a JWT or it 401s the CORS preflight.
 [functions.annotation-quota]
 verify_jwt = false
+
+# session-create likewise authenticates with x-clerk-token itself.
+[functions.session-create]
+verify_jwt = false

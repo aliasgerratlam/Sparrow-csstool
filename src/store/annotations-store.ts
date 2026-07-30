@@ -6,7 +6,7 @@ import type {
   Status,
 } from '@/lib/types'
 import { supabase, isCollabEnabled, ANNOTATIONS_TABLE } from '@/lib/supabase'
-import { canonicalPageUrl } from '@/lib/session'
+import { canonicalPageUrl, isSameDocument } from '@/lib/session'
 import { fromRow, toRow, type AnnotationRow } from '@/lib/annotation-mapper'
 import {
   currentDomain,
@@ -29,7 +29,14 @@ import {
 export const STATUSES: Status[] = ['Open', 'Resolved']
 const STATUS_OK = new Set<string>(STATUSES)
 
-const PAGE = canonicalPageUrl()
+/* The page identity that scopes annotations everywhere: the localStorage
+   bucket, the Supabase `page_url` column, the realtime filter, and the
+   applyRemote* guard. Derived locally at boot — but a share-link joiner ADOPTS
+   the session's stored page_url (setPageScope), because host and joiners
+   agreeing on this string is what makes collaboration work at all. When they
+   disagree there is no error anywhere; each side just quietly reads and writes
+   its own private scope and sees only its own pins. */
+let pageUrl = canonicalPageUrl()
 
 let items: Annotation[] = []
 let role: Role = 'author'
@@ -50,7 +57,7 @@ const listeners = new Set<() => void>()
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 function storageKey(): string {
-  return (role === 'client' ? 'annot:client:' : 'annot:') + PAGE
+  return (role === 'client' ? 'annot:client:' : 'annot:') + pageUrl
 }
 
 function newId(): string {
@@ -137,7 +144,7 @@ function pushDelete(id: string): void {
 /** Apply a remote INSERT/UPDATE: upsert into `items` by id, no write-back. */
 export function applyRemoteUpsert(row: AnnotationRow): void {
   const ann = fromRow(row)
-  if (ann.pageUrl && ann.pageUrl !== PAGE) return
+  if (ann.pageUrl && ann.pageUrl !== pageUrl) return
   const i = index(ann.id)
   if (i >= 0) {
     // Skip no-op churn when the incoming row matches what we already have.
@@ -167,7 +174,7 @@ export async function hydrateFromDb(): Promise<void> {
     const res = await supabase
       .from(ANNOTATIONS_TABLE)
       .select('*')
-      .eq('page_url', PAGE)
+      .eq('page_url', pageUrl)
     if (res.error) {
       console.warn('[collab] hydrate failed', res.error.message)
       return
@@ -224,7 +231,7 @@ function sanitizeItem(a: unknown): Annotation | null {
   if (!r.id || typeof r.id !== 'string') return null
   return {
     id: r.id,
-    pageUrl: typeof r.pageUrl === 'string' ? r.pageUrl : PAGE,
+    pageUrl: typeof r.pageUrl === 'string' ? r.pageUrl : pageUrl,
     selector: r.selector ?? null,
     comment: typeof r.comment === 'string' ? r.comment : '',
     category: r.category ?? 'General',
@@ -243,17 +250,63 @@ function sanitizeItem(a: unknown): Annotation | null {
   }
 }
 
-export function load(): void {
+function readStored(key: string): Annotation[] {
   try {
-    const raw = localStorage.getItem(storageKey())
-    if (raw) {
-      const arr = JSON.parse(raw)
-      if (Array.isArray(arr))
-        items = arr.map(sanitizeItem).filter((a): a is Annotation => a !== null)
-    }
+    const raw = localStorage.getItem(key)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    if (!Array.isArray(arr)) return []
+    return arr.map(sanitizeItem).filter((a): a is Annotation => a !== null)
   } catch {
-    /* corrupt storage */
+    return [] /* corrupt storage */
   }
+}
+
+export function load(): void {
+  const stored = readStored(storageKey())
+  if (stored.length) items = stored
+}
+
+/* ── Page scope ─────────────────────────────────────────────────────────────
+   The one string host and joiners must agree on. See the `pageUrl` note above. */
+
+/** The page identity currently scoping annotations. */
+export function pageScope(): string {
+  return pageUrl
+}
+
+/** Adopt a share link's stored `page_url` as the local page identity.
+    The session row records the canonical url the HOST created it on, so making
+    that authoritative removes the whole class of "each participant sees only
+    their own pins" bugs — where two clients canonicalise the same address
+    differently (a surviving ?sparrow-session=, a tracking param one side
+    carries) and silently read/write disjoint scopes.
+
+    Only adopted when both identities address the SAME document: this heals
+    query-canonicalisation drift, never merges two genuinely different pages,
+    whose annotations must stay separate. Anything already written under the
+    stale identity is re-homed and re-pushed, so rows stranded by an earlier
+    mismatch rejoin the shared set instead of staying invisible to everyone. */
+export function setPageScope(next: string): void {
+  if (!next || next === pageUrl) return
+  if (!isSameDocument(next, pageUrl)) return
+  const prev = pageUrl
+  pageUrl = next
+
+  const stranded = items.filter((a) => !a.pageUrl || a.pageUrl === prev)
+  const byId = new Map<string, Annotation>()
+  for (const a of items) {
+    byId.set(
+      a.id,
+      !a.pageUrl || a.pageUrl === prev ? { ...a, pageUrl: next } : a,
+    )
+  }
+  // Fold in whatever the correctly-keyed bucket already holds; in-memory wins
+  // (it is at least as fresh, and hydrateFromDb reconciles against the DB next).
+  for (const a of readStored(storageKey())) if (!byId.has(a.id)) byId.set(a.id, a)
+  items = [...byId.values()]
+  emit()
+  stranded.forEach((a) => pushUpsert({ ...a, pageUrl: next }))
 }
 
 /* Re-read from localStorage and notify listeners WITHOUT persisting. Used when
@@ -318,7 +371,7 @@ export interface AnnotationDraft {
 function commitAdd(partial: AnnotationDraft): Annotation {
   const ann: Annotation = {
     id: newId(),
-    pageUrl: PAGE,
+    pageUrl: pageUrl,
     selector: partial.selector || null,
     comment: partial.comment || '',
     category: partial.category || 'General',
@@ -558,6 +611,14 @@ export function canEdit(ann: Annotation, authorName: string): boolean {
   if (role !== 'author') return false
   const owner = (ann.author || '').trim()
   return !owner || owner === (authorName || '').trim()
+}
+
+/* The name this browser writes as. `ui.author` is the signed-in display name
+   (or a typed one); when it's blank we fall back to the role, matching what
+   addReply/commitAdd stamp onto records. This is the identity the seen-ledgers
+   compare against, so every caller must derive it the same way. */
+export function myDisplayName(author: string): string {
+  return (author || '').trim() || (role === 'client' ? 'Client' : 'Author')
 }
 
 /* Stable display numbering — pins/cards/sidebar rows must show the SAME number

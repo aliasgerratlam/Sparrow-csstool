@@ -6,8 +6,9 @@
 ───────────────────────────────────────────────────────────────────────── */
 
 const SESSION_PARAM = 'sparrow-session'
-/* Links minted before the rename used ?session=<id>; sessions live up to 3
-   days, so keep reading (and stripping) the old name until those expire. */
+/* Links minted before the rename used ?session=<id>. A Max link never expires,
+   so there's no date after which the old name is guaranteed dead — keep reading
+   (and stripping) it indefinitely. */
 const LEGACY_SESSION_PARAM = 'session'
 
 /* Volatile marketing/analytics params that ride along on a URL without changing
@@ -41,6 +42,36 @@ function stripToPageIdentity(u: URL): void {
     if (key.toLowerCase().startsWith('utm_')) u.searchParams.delete(key)
   }
   u.hash = ''
+}
+
+/* String-level equivalent of stripToPageIdentity, used when `new URL()` isn't
+   usable (throws / missing). Returning the raw href there — as this fallback
+   used to — defeats the entire point of canonicalisation: a joiner's
+   ?sparrow-session= survives into their page identity, so their hydrate query,
+   realtime filter and page_url writes all use a scope NOBODY else shares. The
+   symptom is silent and total: every participant sees only their own pins. */
+function stripToPageIdentityString(href: string): string {
+  const noHash = (href.split('#')[0] ?? '') as string
+  const q = noHash.indexOf('?')
+  if (q < 0) return noHash
+  const kept = noHash
+    .slice(q + 1)
+    .split('&')
+    .filter((pair) => {
+      if (!pair) return false
+      let key = pair.split('=')[0] ?? ''
+      try {
+        key = decodeURIComponent(key)
+      } catch {
+        /* malformed escape — match on the raw key */
+      }
+      key = key.toLowerCase()
+      if (key === SESSION_PARAM || key === LEGACY_SESSION_PARAM) return false
+      if (key.startsWith('utm_')) return false
+      return !TRACKING_PARAMS.includes(key)
+    })
+  const base = noHash.slice(0, q)
+  return kept.length ? base + '?' + kept.join('&') : base
 }
 
 /** Read the session id from the current URL's query string, if present. */
@@ -77,7 +108,11 @@ export function buildShareUrl(id: string): string {
     u.searchParams.set(SESSION_PARAM, id)
     return u.toString()
   } catch {
-    return location.origin + location.pathname + '?' + SESSION_PARAM + '=' + id
+    // Keep the meaningful params (they identify the page) — dropping them here,
+    // as this fallback used to, hands the joiner a different page identity than
+    // the host's, and the two sides never see each other's annotations.
+    const base = stripToPageIdentityString(location.href)
+    return base + (base.includes('?') ? '&' : '?') + SESSION_PARAM + '=' + id
   }
 }
 
@@ -87,13 +122,38 @@ export function buildShareUrl(id: string): string {
    volatile tracking params (utm_*, gclid, _gl, …) that one side may carry and the
    other may not. Without this the two sides disagree and annotations never sync. */
 export function canonicalPageUrl(): string {
+  return canonicalizeUrl(location.href)
+}
+
+/** canonicalPageUrl for an arbitrary url string (pure — this is the unit under
+    test). BOTH branches must produce the same identity for the same address:
+    if the `URL` fast path and the string fallback ever disagree, two clients on
+    the same page derive different identities and silently stop syncing. */
+export function canonicalizeUrl(href: string): string {
   try {
-    const u = new URL(location.href)
+    const u = new URL(href)
     stripToPageIdentity(u)
     return u.origin + u.pathname + u.search
   } catch {
-    return location.href.split('#')[0] as string
+    return stripToPageIdentityString(href)
   }
+}
+
+/** True when two page urls address the same document — same origin and path,
+    differing only in query/hash noise. Used to decide whether a share link's
+    stored page_url may be adopted as the local page identity: same document =
+    a canonicalisation disagreement worth healing, different document = two
+    genuinely different pages whose annotations must stay separate. */
+export function isSameDocument(a: string, b: string): boolean {
+  const norm = (s: string): string => {
+    try {
+      const u = new URL(s)
+      return u.origin + u.pathname
+    } catch {
+      return ((s.split('#')[0] ?? '').split('?')[0] ?? '') as string
+    }
+  }
+  return norm(a) === norm(b)
 }
 
 /** The origin (scheme + host + port) of a stored URL, or null if it can't be
@@ -133,6 +193,21 @@ export function shareUrlForPage(pageUrl: string, id: string): string {
   } catch {
     return pageUrl
   }
+}
+
+/** True when a session has passed its lifetime (its link is dead).
+    A NULL/absent `expires_at` means "never expires" (Max) — see the
+    enforce_session_expiry trigger in supabase/schema.sql. An unparseable value
+    is treated as not-expired: guessing "dead" would lock everyone out of a live
+    room over a bad string. NOTE this is a CLIENT-clock check, so it's advisory;
+    the pg_cron sweep is what actually deletes the row. Lives here rather than in
+    session-api.ts so it stays testable without pulling in the Supabase client. */
+export function isSessionExpired(session: {
+  expires_at?: string | null
+}): boolean {
+  if (!session.expires_at) return false
+  const at = Date.parse(session.expires_at)
+  return Number.isFinite(at) && at <= Date.now()
 }
 
 /* Sessions started in this browser are remembered so the host stays the author

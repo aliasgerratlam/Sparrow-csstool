@@ -8,20 +8,40 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCollab } from '@/context/collab-context'
+import { useEntitlements, goToPricing } from '@/context/subscription-context'
 import { copyToClipboard } from '@/lib/clipboard'
+import { fmtDate } from '@/lib/format'
+import { shareExpiryLabel } from '@/lib/plans'
 
 /* A plain "here's your link" popover. The session is created by the caller
-   before opening, so this is purely presentational — show the URL and copy it. */
+   before opening (or while it's open — see `preparing`), so this is purely
+   presentational: show the URL, its real expiry, and copy it. */
 export const ShareDialog = memo(function ShareDialog({
   open,
   onOpenChange,
+  preparing = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** True while the caller's startSession() is still in flight. */
+  preparing?: boolean
 }) {
-  const { enabled, shareUrl, startSession } = useCollab()
+  const {
+    enabled,
+    shareUrl,
+    startSession,
+    regenerateSession,
+    sessionExpiresAt,
+    shareError,
+    shareDegraded,
+    isHost,
+  } = useCollab()
+  const { shareExpiryMs } = useEntitlements()
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [retrying, setRetrying] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+
+  const busy = preparing || retrying
 
   const onCopy = async () => {
     if (!shareUrl) return
@@ -38,6 +58,22 @@ export const ShareDialog = memo(function ShareDialog({
       setRetrying(false)
     }
   }
+
+  const onRegenerate = async () => {
+    setRegenerating(true)
+    try {
+      await regenerateSession()
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  /* Expiry copy comes from the session ROW, not from the entitlement, whenever a
+     link exists. The row is what the backend actually stamped, so this stays
+     honest if the plan lookup and the DB ever disagree — and it's what a joiner
+     sees too. The entitlement is only the pre-mint pitch. */
+  const neverExpires = !!shareUrl && sessionExpiresAt === null
+  const canUpgrade = Number.isFinite(shareExpiryMs)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,8 +100,20 @@ export const ShareDialog = memo(function ShareDialog({
               <DialogDescription asChild>
                 <p>
                   Anyone with this link can open this review and collaborate in
-                  real time. This link expires 3 days after it’s created — after
-                  that you can generate a new one, and your annotations stay put.
+                  real time.{' '}
+                  {neverExpires ? (
+                    <>This link never expires.</>
+                  ) : sessionExpiresAt ? (
+                    <>
+                      It expires <b>{fmtDate(sessionExpiresAt)}</b> — after that
+                      you can generate a new one, and your annotations stay put.
+                    </>
+                  ) : (
+                    <>
+                      After it expires you can generate a new one, and your
+                      annotations stay put.
+                    </>
+                  )}
                 </p>
               </DialogDescription>
               <div className="annot-share-row">
@@ -88,6 +136,27 @@ export const ShareDialog = memo(function ShareDialog({
                       : '⧉ Copy'}
                 </Button>
               </div>
+
+              {shareDegraded && (
+                <p className="annot-share-warn over">
+                  This link lasts 24 hours — we couldn’t confirm your plan. Check
+                  your connection and generate a new link to get your full
+                  duration.
+                </p>
+              )}
+              {!shareDegraded && canUpgrade && (
+                <p className="annot-share-warn">
+                  Your plan gives share links {shareExpiryLabel(shareExpiryMs)}.{' '}
+                  <button
+                    type="button"
+                    className="annot-share-new"
+                    onClick={goToPricing}
+                  >
+                    See plans for longer links →
+                  </button>
+                </p>
+              )}
+
               <div className="annot-share-steps">
                 <h4>Sharing with someone who doesn’t have Sparrow yet?</h4>
                 <ol>
@@ -105,17 +174,32 @@ export const ShareDialog = memo(function ShareDialog({
                   </li>
                 </ol>
               </div>
+
+              {isHost && (
+                <div className="annot-share-foot">
+                  <button
+                    type="button"
+                    className="annot-share-new"
+                    disabled={regenerating}
+                    onClick={() => void onRegenerate()}
+                    title="Retires the current link and creates a fresh one. Your annotations stay put."
+                  >
+                    {regenerating ? 'Creating a new link…' : '↻ Create a new link'}
+                  </button>
+                </div>
+              )}
             </>
           ) : enabled ? (
             <>
               <DialogDescription asChild>
                 <p>
-                  {retrying
+                  {busy
                     ? 'Preparing your share link…'
-                    : 'Couldn’t create a share link — check your connection and try again.'}
+                    : (shareError ??
+                      'Couldn’t create a share link — check your connection and try again.')}
                 </p>
               </DialogDescription>
-              {!retrying && (
+              {!busy && (
                 <div className="annot-share-row">
                   <Button
                     variant="ghost"

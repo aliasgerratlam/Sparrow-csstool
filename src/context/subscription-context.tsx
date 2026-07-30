@@ -10,8 +10,12 @@ import { isKelviqConfigured } from '@/lib/kelviq'
    On the web that's when Kelviq is configured (no Kelviq = ungated prototype =
    unlimited, so the backend must stay off). The extension always ships with
    gating on (it resolves the plan from Clerk metadata / kelviq-plan, never the
-   Kelviq client SDK), so the extension flag forces it on there. */
-const GATING_ACTIVE =
+   Kelviq client SDK), so the extension flag forces it on there.
+
+   Exported so every "should we ask the backend?" decision reads ONE expression —
+   the annotation quota (AnnotationQuotaSync) and share-link minting (startSession
+   in collab-context) must agree, or one of them silently stops enforcing. */
+export const GATING_ACTIVE =
   isKelviqConfigured || !!import.meta.env.VITE_IS_EXTENSION
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -73,6 +77,11 @@ export const UNGATED_VALUE: SubscriptionValue = {
   fontMode: true,
   assets: true,
   annotationLimit: Infinity,
+  // NOT Infinity: prototype mode has no Clerk token, so a link is minted by the
+  // anon insert, which Postgres caps at the Free duration (enforce_session_expiry
+  // can't tell a prototype deployment from a Free user — both are the anon key).
+  // Claiming "never expires" here would promise what the DB overrides.
+  shareExpiryMs: PLAN_LIMITS.free.shareExpiryMs,
   planId: 'free',
   subscription: null,
   isLoading: false,

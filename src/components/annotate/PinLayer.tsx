@@ -40,9 +40,9 @@ export function PinLayer() {
   const { sessionEnded } = useCollab()
   const visible =
     ((isActive && mode === 'annotate') || role === 'client') && !sessionEnded
-  // Identity the current user's replies are stamped with — mirrors AnnotationCard,
-  // so our own replies never light up our own pin.
-  const myName = ui.author.trim() || (role === 'client' ? 'Client' : 'Author')
+  // Identity the current user's replies are stamped with, so our own replies
+  // never light up our own pin.
+  const myName = store.myDisplayName(ui.author)
 
   // Open annotations only — resolved ones live in the review list. Numbering is
   // creation-ordered (displayNumbers) so every collaborator sees the same "#4".

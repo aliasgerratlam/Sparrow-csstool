@@ -14,11 +14,11 @@ const FAQS = [
   },
   {
     q: 'Is there a free plan?',
-    a: "Yes, and it doesn't expire. Free includes the full CSS inspector, the ruler, the website color overview, and 3 annotations per site per day. Paid plans add site-wide color and font swapping, asset downloads, color format switching, and higher annotation limits.",
+    a: "Yes, and it doesn't expire. Free includes the full CSS inspector, the ruler, the website color overview, 3 annotations per site per day, and share links that stay live for 24 hours. Paid plans add site-wide color and font swapping, asset downloads, color format switching, higher annotation limits, and longer-lived share links.",
   },
   {
     q: 'How much does a paid plan cost?',
-    a: 'Pro is $9/month ($90/year) and unlocks site-wide color and font swapping, asset downloads, color format switching, and 10 annotations per site per day. Max is $19/month ($190/year) and adds unlimited annotations and unlimited client review links. Paying yearly works out to two months free versus monthly.',
+    a: 'Pro is $9/month ($90/year) and unlocks site-wide color and font swapping, asset downloads, color format switching, 10 annotations per site per day, and 30-day share links. Max is $19/month ($190/year) and adds unlimited annotations and share links that never expire. Paying yearly works out to two months free versus monthly.',
   },
   {
     q: 'Can I upgrade, downgrade, or cancel anytime?',
@@ -34,7 +34,7 @@ const FAQS = [
   },
   {
     q: 'How does sharing feedback work?',
-    a: "Pin your comments, click Share, and send the link. Anyone who opens it sees your annotations in place on the page and can reply or resolve items with live cursors when you're reviewing together. Share links expire after 3 days for safety, but your annotations are saved and you can mint a fresh link anytime.",
+    a: "Pin your comments, click Share, and send the link. Anyone who opens it sees your annotations in place on the page and can reply or resolve items with live cursors when you're reviewing together. How long a link stays live depends on your plan — 24 hours on Free, 30 days on Pro, and never expiring on Max. Whatever happens to the link, your annotations are saved and you can mint a fresh one anytime.",
   },
   {
     q: 'Can clients mess up my annotations?',
