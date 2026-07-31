@@ -260,7 +260,15 @@
       "PowerShell($p = \\(Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { $proc = Get-Process -Id $p -ErrorAction SilentlyContinue; if \\($proc -and $proc.StartTime -gt \\(Get-Date \"2026-07-30 11:00\"\\)\\) { Stop-Process -Id $p -Force; \"stopped my dev server \\(pid $p\\)\" } else { \"5173 owned by an older process \\(pid $p\\) - left alone\" } } else { \"nothing listening on 5173\" })",
       "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./package.json'\\).scripts,null,1\\)\\)\")",
       "PowerShell(npm test 2>&1)",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.json','utf8'\\)\\); console.log\\('settings.json: valid JSON'\\)\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.json','utf8'\\)\\); console.log\\('settings.json: valid JSON'\\)\")",
+      "Bash(git commit *)",
+      "Bash(./node_modules/.bin/supabase --version)",
+      "Bash(./node_modules/.bin/supabase db *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { $g.Source } else { \"gh not installed\" })",
+      "Bash(git fetch *)",
+      "PowerShell(& \".\\\\node_modules\\\\.bin\\\\supabase.cmd\" functions deploy session-create --project-ref kxfhtngartcqghtcwwiz 2>&1)"
     ],
     "additionalDirectories": [
       "\\tmp"
