@@ -39,9 +39,10 @@ let role: Role = 'author'
 let annotationLimit = Infinity
 // Server-authoritative quota (see annotation-quota-api + AnnotationQuotaSync).
 // When active, the count lives on the backend keyed to the Clerk identity, so
-// it survives a localStorage clear. There is NO local ledger fallback — if the
-// backend is unreachable, add() fails OPEN (allows the annotation). `quotaCache`
-// is the last server snapshot the UI reads.
+// it survives a localStorage clear. There is NO local ledger fallback — when
+// gating is on but the server credit can't be confirmed (no token / backend
+// unreachable), add() fails CLOSED (blocks) so the cap can't be bypassed.
+// `quotaCache` is the last server snapshot the UI reads.
 let quotaGetToken: GetToken | null = null
 let quotaBackendActive = false
 let quotaCache: QuotaStatus | null = null

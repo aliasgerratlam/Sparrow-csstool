@@ -21,7 +21,7 @@ import { formatReset } from '@/lib/annotation-quota-api'
 import { fmtDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Check, Pencil, SendHorizontal, Trash2, X } from 'lucide-react'
+import { Check, Loader2, Pencil, SendHorizontal, Trash2, X } from 'lucide-react'
 import type { Annotation, Reply } from '@/lib/types'
 
 const CARD_BGS = ['#ffffff', '#ef4444', '#f8cf6b', '#84dda6', '#2f80ff']
@@ -89,6 +89,10 @@ export function AnnotationCard() {
   const [replyDraft, setReplyDraft] = useState('')
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const [editing, setEditing] = useState(false)
+  // Submitting a draft round-trips to the backend (server-authoritative quota
+  // reserve + Supabase mirror), so the button shows a spinner and locks out
+  // repeat clicks until it settles — otherwise a double-click burns two slots.
+  const [submitting, setSubmitting] = useState(false)
   // While editing a SAVED annotation the textarea binds to this local draft, not
   // the store item — so nothing hits the DB per keystroke and a peer's realtime
   // echo can't revert what's being typed. Committed on Done/close/card-switch.
@@ -210,6 +214,19 @@ export function AnnotationCard() {
     const next = ann.status === 'Resolved' ? 'Open' : 'Resolved'
     store.setStatus(ann.id, next)
     if (next === 'Resolved') ui.closeCard()
+  }
+
+  // Await the submit so the spinner covers the whole round-trip: a denied
+  // reserve keeps the draft open (the cap toast explains why), so the button
+  // has to come back to life rather than stay stuck.
+  const submitDraft = async () => {
+    if (submitting || !canSubmit) return
+    setSubmitting(true)
+    try {
+      await ui.submitDraft()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const sendReply = () => {
@@ -522,11 +539,16 @@ export function AnnotationCard() {
             <Button
               variant="ghost"
               className="annot-submit-btn"
-              title="Submit & attach pin"
-              disabled={!canSubmit}
-              onClick={ui.submitDraft}
+              title={submitting ? 'Submitting…' : 'Submit & attach pin'}
+              disabled={!canSubmit || submitting}
+              aria-busy={submitting}
+              onClick={submitDraft}
             >
-              <SendHorizontal className="size-4" aria-hidden="true" />
+              {submitting ? (
+                <Loader2 className="size-4 annot-submit-spin" aria-hidden="true" />
+              ) : (
+                <SendHorizontal className="size-4" aria-hidden="true" />
+              )}
             </Button>
           </div>
         )}
