@@ -124,10 +124,13 @@ export function PrivacyPolicyPage() {
       <LegalSection heading="5. Data retention">
         <p>
           We keep account information for as long as your account is active.
-          Collaboration sessions expire and are automatically deleted after three
-          days; annotations attached to a page persist until you delete them or
-          request deletion of your account. Billing records are retained by our
-          Merchant of Record as required for tax and accounting purposes.
+          Collaboration sessions expire and are automatically deleted at the end
+          of the lifetime granted by the plan they were created on — 24 hours on
+          Free and 30 days on Pro; sessions created on Max do not expire and are
+          retained until deleted. Annotations attached to a page persist until
+          you delete them or request deletion of your account. Billing records
+          are retained by our Merchant of Record as required for tax and
+          accounting purposes.
         </p>
       </LegalSection>
 

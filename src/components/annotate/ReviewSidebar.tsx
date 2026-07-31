@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import { useScanner } from '@/context/scanner-context'
 import {
@@ -8,12 +14,18 @@ import {
   store,
 } from '@/hooks/use-annotations'
 import { resolve } from '@/lib/selector-engine'
-import { fmtDate } from '@/lib/format'
+import {
+  authorHue,
+  authorInitials,
+  fmtDate,
+  fmtReplyTime,
+} from '@/lib/format'
 import { STATUSES } from '@/store/annotations-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Check,
+  ChevronDown,
   Filter,
   Link2,
   MessageSquare,
@@ -305,19 +317,35 @@ export function ReviewSidebar() {
               <MessageSquare className="size-3.5" aria-hidden="true" />
               {ann.replies.length}{' '}
               {ann.replies.length === 1 ? 'reply' : 'replies'}
+              <ChevronDown
+                className="size-3.5 annot-li-replies-chev"
+                aria-hidden="true"
+              />
             </summary>
             <div className="annot-li-reply-list">
               {ann.replies.map((r) => (
                 <div key={r.id} className="annot-li-reply">
-                  <div className="annot-li-reply-head">
-                    <strong>{r.author || 'Anonymous'}</strong>
-                    {r.createdAt && (
-                      <span className="annot-li-reply-date">
-                        {fmtDate(r.createdAt)}
-                      </span>
-                    )}
+                  <span
+                    className="annot-avatar"
+                    style={{ '--av-h': String(authorHue(r.author)) } as CSSProperties}
+                    aria-hidden="true"
+                  >
+                    {authorInitials(r.author)}
+                  </span>
+                  <div className="annot-li-reply-bubble">
+                    <div className="annot-li-reply-head">
+                      <strong>{r.author || 'Anonymous'}</strong>
+                      {r.createdAt && (
+                        <span
+                          className="annot-li-reply-date"
+                          title={fmtDate(r.createdAt)}
+                        >
+                          {fmtReplyTime(r.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="annot-li-reply-msg">{r.message}</div>
                   </div>
-                  <div className="annot-li-reply-msg">{r.message}</div>
                 </div>
               ))}
             </div>

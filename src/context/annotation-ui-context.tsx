@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { getUniqueSelector, resolve } from '@/lib/selector-engine'
 import * as preview from '@/lib/preview'
 import { store } from '@/hooks/use-annotations'
+import { markPinSeen } from '@/lib/reply-seen'
 import { formatReset } from '@/lib/annotation-quota-api'
 import { goToPricing } from '@/context/subscription-context'
 import type { Annotation } from '@/lib/types'
@@ -219,6 +220,12 @@ export function AnnotationUIProvider({ children }: { children: ReactNode }) {
       showLimitToast(limit, resetsInMs)
       return
     }
+    // Our own pin must never show up in our own notification bell. The bell's
+    // author-name check usually covers it, but `ui.author` can still be blank on
+    // the first render (before AuthAuthorSync lands) and a later display-name
+    // change would otherwise resurface old self-authored pins — so record it
+    // explicitly at creation.
+    markPinSeen(ann)
     setDraft(null)
     setActiveId(null)
   }, [])

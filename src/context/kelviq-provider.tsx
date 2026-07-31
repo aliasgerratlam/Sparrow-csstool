@@ -43,7 +43,12 @@ import {
    the browser extension, which resolves entitlements through a separate provider
    (ExtensionSubscriptionProvider) and is unaffected. We spread this over the
    web value while preserving the real planId/subscription, so /account and the
-   pricing cards still reflect the visitor's actual subscription. */
+   pricing cards still reflect the visitor's actual subscription.
+
+   NOTE: shareExpiryMs is deliberately NOT here. Unlike the tool gates it isn't a
+   locked feature but a data-retention rule, and it's enforced in Postgres for
+   every caller — demo-unlocking it would make every anonymous web link immortal
+   while the DB still capped it, so the dialog would promise what it can't keep. */
 const DEMO_UNLOCK = {
   colorFormat: true,
   colorMode: true,
@@ -184,6 +189,11 @@ function KelviqEntitlements({ children }: { children: ReactNode }) {
       fontMode: !loading && kq.hasAccess(FEATURE_IDS.fontMode),
       assets: !loading && kq.hasAccess(FEATURE_IDS.assets),
       annotationLimit,
+      // Derived from the plan id, not a Kelviq entitlement (no dashboard config).
+      // Fail-closed to Free while entitlements load, like annotationLimit above.
+      shareExpiryMs: loading
+        ? PLAN_LIMITS.free.shareExpiryMs
+        : limitsForPlan(planId).shareExpiryMs,
       subscription,
       isLoading: loading,
       refresh: async () => {
