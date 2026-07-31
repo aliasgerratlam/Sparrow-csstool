@@ -216,7 +216,14 @@
       "Bash(node -e *)",
       "Bash(node extension/scripts/gen-icons.mjs)",
       "Bash(unzip -p public/sparrow-chrome.zip manifest.json)",
-      "Bash(unzip -p public/sparrow-firefox.zip manifest.json)"
+      "Bash(unzip -p public/sparrow-firefox.zip manifest.json)",
+      "Bash(grep -qE '^\\\\s+[0-9]+\\\\s+\\\\S+\\\\s+\\\\S+\\\\s+manifest\\\\.json$')",
+      "Bash(git log *)",
+      "Bash(unzip -p /tmp/committed.zip manifest.json)",
+      "Bash(unzip -p /tmp/branch.zip manifest.json)",
+      "Bash(grep -o '\"[A-Z][a-z][^\"]\\\\{6,30\\\\}\"')",
+      "Bash(grep -oi \"expire[^<'\\\\`\\\\\"]\\\\{0,30\\\\}\")",
+      "Bash(git commit -q -m ' *)"
     ],
     "additionalDirectories": [
       "\\tmp"
