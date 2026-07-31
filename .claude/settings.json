@@ -223,7 +223,8 @@
       "Bash(unzip -p /tmp/branch.zip manifest.json)",
       "Bash(grep -o '\"[A-Z][a-z][^\"]\\\\{6,30\\\\}\"')",
       "Bash(grep -oi \"expire[^<'\\\\`\\\\\"]\\\\{0,30\\\\}\")",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(git merge *)"
     ],
     "additionalDirectories": [
       "\\tmp"
