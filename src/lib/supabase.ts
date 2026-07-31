@@ -17,6 +17,13 @@ export const supabase: SupabaseClient | null =
       })
     : null
 
+/* The raw credentials, for the one caller that can't go through supabase-js: a
+   write issued from `beforeunload` needs `fetch(..., { keepalive: true })` to
+   outlive the document, and supabase-js has no per-request fetch options.
+   Empty strings when unconfigured (guard with `isCollabEnabled`). */
+export const SUPABASE_URL = (url ?? '').replace(/\/+$/, '')
+export const SUPABASE_ANON_KEY = anonKey ?? ''
+
 /** True when Supabase credentials are present and realtime collab is live. */
 export const isCollabEnabled = supabase != null
 

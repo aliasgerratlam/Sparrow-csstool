@@ -15,11 +15,17 @@
  * both sides.
  *
  * Run AFTER the bundles are built (npm run build:ext writes extension/dist/).
- * `npm run package:ext` chains both. The build/ output is gitignored, but each
- * build/<target>/ folder is also zipped into the web app's public/ so the
- * landing-page install CTAs can serve it as a same-origin download; those zips
- * ARE committed (public/ is not gitignored) and should be regenerated whenever
- * the extension source changes.
+ * `npm run package:ext` chains both.
+ *
+ * Two kinds of output, don't mix them up:
+ *   - build/<target>/     gitignored, for "Load unpacked" during development.
+ *                         build/chromium/ keeps `key` so the locally-loaded id
+ *                         stays stable (matches Clerk allowed_origins).
+ *   - public/<zip>        ONE zip per target, the artifact you upload to that
+ *                         browser's web store. Committed (public/ is not
+ *                         gitignored) and must be regenerated + committed
+ *                         whenever the extension source changes, or the version
+ *                         served from the site lags behind your working tree.
  *
  *   node extension/scripts/package-ext.mjs
  */
@@ -33,24 +39,19 @@ const buildDir = path.join(extDir, 'build')
 const publicDir = path.resolve(extDir, '..', 'public')
 const BACKGROUND_ENTRY = 'dist/background.js'
 
-// The downloadable zip served from the web app for each target. These names
-// must match the URLs in src/lib/extension-download.ts.
+// The single store-submission zip per target. Exactly one per browser on
+// purpose: a second "load unpacked" zip alongside it only invites uploading the
+// wrong file. Development installs the build/<target>/ folder directly, so no
+// zip is needed for that.
 const ZIP_NAMES = {
   chromium: 'sparrow-chrome.zip',
   firefox: 'sparrow-firefox.zip',
 }
 
-// Store-submission zips. Web stores (Chrome Web Store, Edge Add-ons) reject the
-// `key` field — they assign the published extension its own id — so the store
-// build strips it. The load-unpacked ZIP_NAMES keep `key` so the locally-loaded
-// id stays stable (matches Clerk allowed_origins; see extension/README.md).
-// Firefox's build already carries no `key`, so its store zip == its unpacked zip.
-const STORE_ZIP_NAMES = {
-  chromium: 'sparrow-chrome-store.zip',
-}
-
-/** Per-target manifest transform applied ONLY to the store build, on top of the
- *  normal target transform. */
+/** Per-target manifest transform applied to the zipped (store) copy only, on
+ *  top of the normal target transform. Targets absent here are zipped straight
+ *  from build/<target>/ — Firefox needs no changes, since its build already
+ *  carries no `key`. */
 const STORE_TRANSFORMS = {
   chromium: (m) => {
     delete m.key // Chrome Web Store / Edge reject `key`; the store owns the id
@@ -191,23 +192,26 @@ for (const [target, transform] of Object.entries(TARGETS)) {
     await cp(path.join(extDir, dir), path.join(outDir, dir), { recursive: true })
   }
 
-  const zipName = ZIP_NAMES[target]
-  await zipFolder(outDir, path.join(publicDir, zipName))
-
-  console.log(`packaged ${target}: build/${target}/ → public/${zipName} (background: ${Object.keys(manifest.background).join(', ')})`)
-
-  // Store-submission variant (key stripped) — separate folder so the load-unpacked
-  // build keeps its stable id.
-  const storeZipName = STORE_ZIP_NAMES[target]
-  if (storeZipName) {
-    const storeDir = path.join(buildDir, `${target}-store`)
-    await mkdir(storeDir, { recursive: true })
-    const storeManifest = STORE_TRANSFORMS[target](structuredClone(manifest))
-    await writeFile(path.join(storeDir, 'manifest.json'), JSON.stringify(storeManifest, null, 2) + '\n', 'utf8')
+  // The zip is cut from a separate folder when the target needs store-only
+  // manifest edits, so build/<target>/ stays exactly what you Load unpacked.
+  const storeTransform = STORE_TRANSFORMS[target]
+  let zipSrcDir = outDir
+  if (storeTransform) {
+    zipSrcDir = path.join(buildDir, `${target}-store`)
+    await mkdir(zipSrcDir, { recursive: true })
+    const storeManifest = storeTransform(structuredClone(manifest))
+    await writeFile(path.join(zipSrcDir, 'manifest.json'), JSON.stringify(storeManifest, null, 2) + '\n', 'utf8')
     for (const dir of ASSET_DIRS) {
-      await cp(path.join(extDir, dir), path.join(storeDir, dir), { recursive: true })
+      await cp(path.join(extDir, dir), path.join(zipSrcDir, dir), { recursive: true })
     }
-    await zipFolder(storeDir, path.join(publicDir, storeZipName))
-    console.log(`packaged ${target} (store): build/${target}-store/ → public/${storeZipName} (no key)`)
   }
+
+  const zipName = ZIP_NAMES[target]
+  await zipFolder(zipSrcDir, path.join(publicDir, zipName))
+
+  const from = path.relative(extDir, zipSrcDir).split(path.sep).join('/')
+  console.log(
+    `packaged ${target}: build/${target}/ (load unpacked) · ${from}/ → public/${zipName} (store)` +
+      ` [background: ${Object.keys(manifest.background).join(', ')}]`,
+  )
 }

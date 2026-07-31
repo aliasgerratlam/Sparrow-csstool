@@ -211,7 +211,12 @@
       "Bash(node seed.mjs delete 15f5b648-c072-4e35-b152-eee20fe478ba abe4c7a1-ec52-45f1-abbc-f201b15c47f5)",
       "Bash(sed -i \"s|localhost:5174|localhost:5173|; s|15f5b648-c072-4e35-b152-eee20fe478ba|3ce88b5c-182f-4d8a-acc4-140211fab89e|; s|abe4c7a1-ec52-45f1-abbc-f201b15c47f5|9bcf08db-700f-4ee1-a326-d6e149d5e8b9|\" drive.mjs)",
       "PowerShell(& \".\\\\node_modules\\\\.bin\\\\supabase.cmd\" functions deploy annotation-quota --no-verify-jwt 2>&1)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(grep -iE \"^\\(sharp|jimp|pngjs|canvas\\)$\")",
+      "Bash(node -e *)",
+      "Bash(node extension/scripts/gen-icons.mjs)",
+      "Bash(unzip -p public/sparrow-chrome.zip manifest.json)",
+      "Bash(unzip -p public/sparrow-firefox.zip manifest.json)"
     ],
     "additionalDirectories": [
       "\\tmp"
