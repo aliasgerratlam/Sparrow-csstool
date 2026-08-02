@@ -273,7 +273,12 @@
       "PowerShell(foreach \\($f in @\\('sparrow-chrome.zip','sparrow-firefox.zip'\\)\\) { try { $r = Invoke-WebRequest -Uri \"https://trysparrowcss.com/$f\" -Method Head -UseBasicParsing -TimeoutSec 20; \"$f served: $\\($r.Headers['Content-Length']\\) bytes\" } catch { \"$f FAILED: $\\($_.Exception.Message\\)\" } })",
       "PowerShell(foreach \\($f in @\\('sparrow-chrome.zip','sparrow-firefox.zip'\\)\\) { try { $r = Invoke-WebRequest -Uri \"https://trysparrowcss.com/$f\" -Method Head -UseBasicParsing -TimeoutSec 20 -MaximumRedirection 0 } catch { $resp = $_.Exception.Response; \"$f -> $\\($resp.StatusCode.value__\\) Location: $\\($resp.Headers['Location']\\)\" } })",
       "WebFetch(domain:chromewebstore.google.com)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(git check-ignore *)",
+      "Bash(curl -s -L https://www.trysparrowcss.com/ -o /tmp/live.html -w \"status=%{http_code}\\\\n\")",
+      "Bash(curl -s \"https://addons.mozilla.org/api/v5/addons/addon/sparrow-css-toolkit/\" -H \"Accept: application/json\")",
+      "Bash(curl -s -L \"https://www.trysparrowcss.com/assets/index-qr_4yVzW.js\" -o /tmp/live.js -w \"status=%{http_code} bytes=%{size_download}\\\\n\")",
+      "Bash(curl -s -L \"https://chromewebstore.google.com/detail/biogbnhkebjenaaajncehpkapdpdfdcd\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\)\" -o \"C:/Users/ALLIZW~1/AppData/Local/Temp/claude/d--cssScan/9259b1e9-c641-44b2-a6fc-9cae764b5f0d/scratchpad/cws.html\" -w \"status=%{http_code}\\\\n\")"
     ],
     "additionalDirectories": [
       "\\tmp"
