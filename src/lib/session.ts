@@ -32,15 +32,56 @@ const TRACKING_PARAMS = [
   'ref_src',
 ]
 
+/* True for a query key that must not survive into the page identity. */
+function isIdentityNoiseKey(rawKey: string): boolean {
+  let key = rawKey
+  try {
+    key = decodeURIComponent(key)
+  } catch {
+    /* malformed escape — match on the raw key */
+  }
+  key = key.toLowerCase()
+  if (key === SESSION_PARAM || key === LEGACY_SESSION_PARAM) return true
+  if (key.startsWith('utm_')) return true
+  return TRACKING_PARAMS.includes(key)
+}
+
+/* Filter a raw query string (leading '?' optional) down to the params that
+   identify the page, returning it in the same form `URL.search` uses ('' when
+   nothing is left).
+
+   Deliberately pure string work, for two reasons. It is the ONE place the
+   drop-list is applied, so the `URL` fast path and the string fallback below can
+   never disagree. And it does NOT route through `URLSearchParams`: mutating
+   `url.searchParams` is not reliably reflected back into `url.search` in every
+   environment this ships to — a browser-extension content script most of all —
+   and iterating `searchParams.keys()` is no safer. When either silently no-ops
+   there is no error at all: the session param survives into the page identity
+   and that client reads and writes a scope nobody else shares. */
+function filterIdentityQuery(search: string): string {
+  const q = search.startsWith('?') ? search.slice(1) : search
+  if (!q) return ''
+  const kept = q
+    .split('&')
+    .filter((pair) => pair !== '' && !isIdentityNoiseKey(pair.split('=')[0] ?? ''))
+  return kept.length ? '?' + kept.join('&') : ''
+}
+
+/* True when a url string still carries identity noise — the post-check that
+   catches a fast path which ran without throwing but didn't actually strip. */
+function hasIdentityNoise(url: string): boolean {
+  const q = url.indexOf('?')
+  if (q < 0) return false
+  return url
+    .slice(q + 1)
+    .split('&')
+    .some((pair) => pair !== '' && isIdentityNoiseKey(pair.split('=')[0] ?? ''))
+}
+
 /* Drop the session params, the hash, and any volatile tracking params (incl. the
    whole utm_* family) from a URL, leaving a stable page identity. Mutates `u`. */
 function stripToPageIdentity(u: URL): void {
-  u.searchParams.delete(SESSION_PARAM)
-  u.searchParams.delete(LEGACY_SESSION_PARAM)
-  for (const p of TRACKING_PARAMS) u.searchParams.delete(p)
-  for (const key of [...u.searchParams.keys()]) {
-    if (key.toLowerCase().startsWith('utm_')) u.searchParams.delete(key)
-  }
+  u.search = filterIdentityQuery(u.search)
   u.hash = ''
 }
 
@@ -54,24 +95,27 @@ function stripToPageIdentityString(href: string): string {
   const noHash = (href.split('#')[0] ?? '') as string
   const q = noHash.indexOf('?')
   if (q < 0) return noHash
-  const kept = noHash
-    .slice(q + 1)
-    .split('&')
-    .filter((pair) => {
-      if (!pair) return false
-      let key = pair.split('=')[0] ?? ''
-      try {
-        key = decodeURIComponent(key)
-      } catch {
-        /* malformed escape — match on the raw key */
-      }
-      key = key.toLowerCase()
-      if (key === SESSION_PARAM || key === LEGACY_SESSION_PARAM) return false
-      if (key.startsWith('utm_')) return false
-      return !TRACKING_PARAMS.includes(key)
-    })
-  const base = noHash.slice(0, q)
-  return kept.length ? base + '?' + kept.join('&') : base
+  return noHash.slice(0, q) + filterIdentityQuery(noHash.slice(q))
+}
+
+/* Absolute-url sniff that doesn't go through `new URL` — used where a bad input
+   should be handed back untouched rather than decorated. */
+function looksAbsolute(url: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(url)
+}
+
+/* Append the session param to an already-canonical page url. Concatenation
+   rather than `searchParams.set` for the same reason as filterIdentityQuery: a
+   `set` that doesn't take would mint a "share link" carrying no session id, and
+   the link would silently open a fresh, empty page instead of the room. */
+function withSessionParam(pageUrl: string, id: string): string {
+  return (
+    pageUrl +
+    (pageUrl.includes('?') ? '&' : '?') +
+    SESSION_PARAM +
+    '=' +
+    encodeURIComponent(id)
+  )
 }
 
 /** Read the session id from the current URL's query string, if present. */
@@ -102,18 +146,9 @@ export function newSessionId(): string {
     would give a joiner a different page_url than the host's annotations
     (mismatch → they'd see zero annotations and no live sync). */
 export function buildShareUrl(id: string): string {
-  try {
-    const u = new URL(location.href)
-    stripToPageIdentity(u)
-    u.searchParams.set(SESSION_PARAM, id)
-    return u.toString()
-  } catch {
-    // Keep the meaningful params (they identify the page) — dropping them here,
-    // as this fallback used to, hands the joiner a different page identity than
-    // the host's, and the two sides never see each other's annotations.
-    const base = stripToPageIdentityString(location.href)
-    return base + (base.includes('?') ? '&' : '?') + SESSION_PARAM + '=' + id
-  }
+  // Built ON TOP of the page identity rather than re-deriving it, so the link a
+  // joiner opens can't canonicalise to anything but the scope the host writes to.
+  return withSessionParam(canonicalPageUrl(), id)
 }
 
 /* The page identity used to scope annotations + the realtime room. It MUST be
@@ -130,13 +165,18 @@ export function canonicalPageUrl(): string {
     if the `URL` fast path and the string fallback ever disagree, two clients on
     the same page derive different identities and silently stop syncing. */
 export function canonicalizeUrl(href: string): string {
+  let fast: string
   try {
     const u = new URL(href)
     stripToPageIdentity(u)
-    return u.origin + u.pathname + u.search
+    fast = u.origin + u.pathname + u.search
   } catch {
     return stripToPageIdentityString(href)
   }
+  /* Belt and braces: a fast path that ran without throwing but left the session
+     param in place is the worst outcome — no error, and that client silently
+     gets a private scope. If anything is still there, take the string path. */
+  return hasIdentityNoise(fast) ? stripToPageIdentityString(href) : fast
 }
 
 /** True when two page urls address the same document — same origin and path,
@@ -186,13 +226,13 @@ export function isSameSessionOrigin(
     canonical page url (session + tracking params already stripped), so we just
     append the session param — mirrors buildShareUrl for a different page. */
 export function shareUrlForPage(pageUrl: string, id: string): string {
-  try {
-    const u = new URL(pageUrl)
-    u.searchParams.set(SESSION_PARAM, id)
-    return u.toString()
-  } catch {
-    return pageUrl
-  }
+  // Nothing sensible to decorate — hand it back untouched (the caller shows it
+  // as a recovery link).
+  if (!looksAbsolute(pageUrl)) return pageUrl
+  // Re-canonicalise first: a stored value written by a client whose page
+  // identity was stale still carries a session param, and appending a second
+  // one would produce a link that resolves to the wrong room.
+  return withSessionParam(canonicalizeUrl(pageUrl), id)
 }
 
 /** True when a session has passed its lifetime (its link is dead).

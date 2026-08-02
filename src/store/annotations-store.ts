@@ -6,7 +6,7 @@ import type {
   Status,
 } from '@/lib/types'
 import { supabase, isCollabEnabled, ANNOTATIONS_TABLE } from '@/lib/supabase'
-import { canonicalPageUrl, isSameDocument } from '@/lib/session'
+import { canonicalPageUrl, canonicalizeUrl, isSameDocument } from '@/lib/session'
 import { fromRow, toRow, type AnnotationRow } from '@/lib/annotation-mapper'
 import {
   currentDomain,
@@ -56,8 +56,12 @@ let quotaCache: QuotaStatus | null = null
 const listeners = new Set<() => void>()
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
+function storagePrefix(): string {
+  return role === 'client' ? 'annot:client:' : 'annot:'
+}
+
 function storageKey(): string {
-  return (role === 'client' ? 'annot:client:' : 'annot:') + pageUrl
+  return storagePrefix() + pageUrl
 }
 
 function newId(): string {
@@ -262,9 +266,72 @@ function readStored(key: string): Annotation[] {
   }
 }
 
+/* Buckets this page's annotations were written into under a STALE page identity.
+   A client that canonicalised the page differently (the shipped extension's
+   ?sparrow-session= leaking into the identity is the case this was written for)
+   keyed its bucket on that string, so every later read misses it and the pins
+   simply vanish. Find any bucket whose scope canonicalises to the identity we
+   use NOW — that is, a stale spelling of THIS page and never another page,
+   whose annotations must stay separate. */
+function findStrandedBuckets(): { key: string; items: Annotation[] }[] {
+  const prefix = storagePrefix()
+  const current = storageKey()
+  let keys: string[]
+  try {
+    keys = Object.keys(localStorage)
+  } catch {
+    return [] /* privacy mode */
+  }
+  const out: { key: string; items: Annotation[] }[] = []
+  for (const key of keys) {
+    if (key === current || !key.startsWith(prefix)) continue
+    // Also excludes the sibling 'annot:'-prefixed keys (hosted-sessions,
+    // reply-seen, pin-seen, and the client bucket): none of them canonicalise
+    // to a page identity.
+    if (canonicalizeUrl(key.slice(prefix.length)) !== pageUrl) continue
+    const stored = readStored(key)
+    if (stored.length) out.push({ key, items: stored })
+  }
+  return out
+}
+
 export function load(): void {
   const stored = readStored(storageKey())
-  if (stored.length) items = stored
+  const stranded = findStrandedBuckets()
+  if (!stored.length && !stranded.length) return
+  if (!stranded.length) {
+    items = stored
+    return
+  }
+
+  const byId = new Map<string, Annotation>()
+  for (const a of stored) byId.set(a.id, a)
+  const adopted: Annotation[] = []
+  for (const bucket of stranded) {
+    for (const a of bucket.items) {
+      if (byId.has(a.id)) continue
+      const rehomed = { ...a, pageUrl }
+      byId.set(a.id, rehomed)
+      adopted.push(rehomed)
+    }
+  }
+  items = [...byId.values()]
+
+  // Persist the merge BEFORE dropping the stale keys (save() is synchronous;
+  // scheduleSave's 300ms debounce could lose the lot to a quick tab close).
+  save()
+  for (const bucket of stranded) {
+    try {
+      localStorage.removeItem(bucket.key)
+    } catch {
+      /* leaving it costs a re-merge next load, nothing worse */
+    }
+  }
+  // Re-home the Supabase rows these were written as too — same ids, corrected
+  // page_url — so they rejoin the shared set instead of staying orphaned under
+  // a scope no client queries.
+  adopted.forEach(pushUpsert)
+  notify()
 }
 
 /* ── Page scope ─────────────────────────────────────────────────────────────

@@ -268,7 +268,12 @@
       "Bash(gh api *)",
       "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { $g.Source } else { \"gh not installed\" })",
       "Bash(git fetch *)",
-      "PowerShell(& \".\\\\node_modules\\\\.bin\\\\supabase.cmd\" functions deploy session-create --project-ref kxfhtngartcqghtcwwiz 2>&1)"
+      "PowerShell(& \".\\\\node_modules\\\\.bin\\\\supabase.cmd\" functions deploy session-create --project-ref kxfhtngartcqghtcwwiz 2>&1)",
+      "Bash(awk '{print $5, $9}')",
+      "PowerShell(foreach \\($f in @\\('sparrow-chrome.zip','sparrow-firefox.zip'\\)\\) { try { $r = Invoke-WebRequest -Uri \"https://trysparrowcss.com/$f\" -Method Head -UseBasicParsing -TimeoutSec 20; \"$f served: $\\($r.Headers['Content-Length']\\) bytes\" } catch { \"$f FAILED: $\\($_.Exception.Message\\)\" } })",
+      "PowerShell(foreach \\($f in @\\('sparrow-chrome.zip','sparrow-firefox.zip'\\)\\) { try { $r = Invoke-WebRequest -Uri \"https://trysparrowcss.com/$f\" -Method Head -UseBasicParsing -TimeoutSec 20 -MaximumRedirection 0 } catch { $resp = $_.Exception.Response; \"$f -> $\\($resp.StatusCode.value__\\) Location: $\\($resp.Headers['Location']\\)\" } })",
+      "WebFetch(domain:chromewebstore.google.com)",
+      "Bash(npx vitest *)"
     ],
     "additionalDirectories": [
       "\\tmp"

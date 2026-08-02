@@ -25,6 +25,22 @@ export function Hero() {
       {/* the container itself is pointer-transparent so hovers in its empty
           gutters fall through to the columns; its children stay interactive */}
       <Container className="pointer-events-none relative z-10 text-center [&>*]:pointer-events-auto">
+        {/* Product Hunt "Featured" badge — sits above the title. The embed is
+            served from api.producthunt.com, so it renders at its natural
+            250x54 and is left out of the layout flow width-wise. */}
+        <a
+          href="https://www.producthunt.com/products/sparrow-css-inspector-annotator?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-sparrow-14"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-auto mb-8 block w-[250px]"
+        >
+          <img
+            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1202695&theme=light&t=1785648077740"
+            alt="Sparrow - Inspect CSS, pin feedback &amp; share live reviews | Product Hunt"
+            width={250}
+            height={54}
+          />
+        </a>
         <h1 className="mx-auto text-balance font-abeezee text-4xl font-extrabold leading-[1.08] tracking-tight text-sparrow-ink md:text-6xl lg:text-[80px]">
           Everything you need to <span className="hl-word text-sparrow-blue hl-pop">understand</span> any website
         </h1>

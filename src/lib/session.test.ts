@@ -119,6 +119,58 @@ describe('canonicalizeUrl', () => {
       globalThis.URL = RealUrl
     }
   })
+
+  /* The reported cross-browser bug. In the extension's content script the `URL`
+     fast path ran WITHOUT throwing but the strip didn't take, so canonicalizeUrl
+     returned origin+pathname+search with ?sparrow-session= still on it. Nothing
+     errored: that client hydrated, filtered realtime, and wrote page_url under a
+     scope no one else used, so Firefox and Chromium each saw only their own pins
+     while cursors (keyed on the session id, not page_url) kept working. */
+  it('recovers when the URL fast path silently fails to strip', () => {
+    const RealUrl = globalThis.URL
+    class InertUrl extends RealUrl {
+      // A `search` setter that doesn't take — mirrors a `searchParams` mutation
+      // that never propagates back into the url.
+      override set search(_v: string) {
+        /* swallowed */
+      }
+      override get search(): string {
+        return super.search
+      }
+    }
+    // @ts-expect-error — swapping in a deliberately broken URL implementation.
+    globalThis.URL = InertUrl
+    try {
+      expect(
+        canonicalizeUrl(
+          `${ORIGIN}/products/shirt?variant=blue&sparrow-session=${SESSION_ID}#top`,
+        ),
+      ).toBe(`${ORIGIN}/products/shirt?variant=blue`)
+      expect(canonicalizeUrl(`${ORIGIN}/p?sparrow-session=${SESSION_ID}`)).toBe(
+        `${ORIGIN}/p`,
+      )
+    } finally {
+      globalThis.URL = RealUrl
+    }
+  })
+})
+
+/* Share links must round-trip: whatever buildShareUrl hands out has to
+   canonicalise back to the page identity the host writes annotations under. */
+describe('buildShareUrl / shareUrlForPage round-trip', () => {
+  it('a generated link canonicalises back to the page it was built for', () => {
+    const link = shareUrlForPage(PAGE_URL, SESSION_ID)
+    expect(canonicalizeUrl(link)).toBe(canonicalizeUrl(PAGE_URL))
+  })
+
+  it('does not double-append onto a stored url that still carries a session param', () => {
+    const stale = `${ORIGIN}/products/shirt?variant=blue&sparrow-session=stale-id`
+    const link = shareUrlForPage(stale, SESSION_ID)
+    expect(link).toBe(
+      `${ORIGIN}/products/shirt?variant=blue&sparrow-session=${SESSION_ID}`,
+    )
+    expect(canonicalizeUrl(link)).toBe(`${ORIGIN}/products/shirt?variant=blue`)
+  })
 })
 
 describe('isSameDocument', () => {
