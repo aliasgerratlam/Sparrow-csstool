@@ -1,4 +1,5 @@
 import { memo, useState } from 'react'
+import { Check, Clock, Copy, Link2, RefreshCw, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,13 @@ import { useEntitlements, goToPricing } from '@/context/subscription-context'
 import { copyToClipboard } from '@/lib/clipboard'
 import { fmtDate } from '@/lib/format'
 import { shareExpiryLabel } from '@/lib/plans'
+
+/* Backdrop for the dialog — matches the sign-in board's dim (see Auth design). */
+const DIALOG_OVERLAY = {
+  background: 'rgba(9,9,11,.42)',
+  backdropFilter: 'blur(3px)',
+  WebkitBackdropFilter: 'blur(3px)',
+} as const
 
 /* A plain "here's your link" popover. The session is created by the caller
    before opening (or while it's open — see `preparing`), so this is purely
@@ -80,18 +88,25 @@ export const ShareDialog = memo(function ShareDialog({
       <DialogContent
         showCloseButton={false}
         className="border-0 bg-transparent p-0 shadow-none sm:max-w-[560px]"
+        // Inline (not stylesheet) so the dim paints inside the extension's
+        // shadow root too — see SignInGate's overlayStyle.
+        overlayStyle={DIALOG_OVERLAY}
       >
         <div className="annot-share-dialog">
           <div className="annot-share-head">
+            <span className="annot-share-ico" aria-hidden="true">
+              <Link2 className="size-[18px]" strokeWidth={1.9} />
+            </span>
             <DialogTitle asChild>
               <h3>Share link</h3>
             </DialogTitle>
             <Button
               variant="ghost"
               className="annot-share-x"
+              aria-label="Close"
               onClick={() => onOpenChange(false)}
             >
-              ✕
+              <X className="size-[15px]" strokeWidth={1.9} aria-hidden="true" />
             </Button>
           </div>
 
@@ -121,24 +136,36 @@ export const ShareDialog = memo(function ShareDialog({
                   id="annot-share-url"
                   type="text"
                   readOnly
+                  aria-label="Share link URL"
                   value={shareUrl}
                   onFocus={(e) => e.currentTarget.select()}
                 />
                 <Button
                   variant="ghost"
                   className="annot-share-copy"
+                  data-state={copied}
                   onClick={() => void onCopy()}
                 >
-                  {copied === 'ok'
-                    ? '✓ Copied'
-                    : copied === 'fail'
-                      ? '✕ Copy failed — select the link'
-                      : '⧉ Copy'}
+                  {copied === 'ok' ? (
+                    <Check className="size-3.5" strokeWidth={2.4} aria-hidden="true" />
+                  ) : copied === 'fail' ? (
+                    <X className="size-3.5" strokeWidth={2.4} aria-hidden="true" />
+                  ) : (
+                    <Copy className="size-3.5" strokeWidth={2} aria-hidden="true" />
+                  )}
+                  <span aria-live="polite">
+                    {copied === 'ok'
+                      ? 'Copied'
+                      : copied === 'fail'
+                        ? 'Copy failed — select the link'
+                        : 'Copy'}
+                  </span>
                 </Button>
               </div>
 
               {shareDegraded && (
                 <p className="annot-share-warn over">
+                  <Clock className="size-3.5" aria-hidden="true" />
                   This link lasts 24 hours — we couldn’t confirm your plan. Check
                   your connection and generate a new link to get your full
                   duration.
@@ -184,7 +211,11 @@ export const ShareDialog = memo(function ShareDialog({
                     onClick={() => void onRegenerate()}
                     title="Retires the current link and creates a fresh one. Your annotations stay put."
                   >
-                    {regenerating ? 'Creating a new link…' : '↻ Create a new link'}
+                    <RefreshCw
+                      className={'size-3.5' + (regenerating ? ' annot-spin' : '')}
+                      aria-hidden="true"
+                    />
+                    {regenerating ? 'Creating a new link…' : 'Create a new link'}
                   </button>
                 </div>
               )}
@@ -206,7 +237,8 @@ export const ShareDialog = memo(function ShareDialog({
                     className="annot-share-copy"
                     onClick={() => void onRetry()}
                   >
-                    ↻ Try again
+                    <RefreshCw className="size-3.5" aria-hidden="true" />
+                    Try again
                   </Button>
                 </div>
               )}

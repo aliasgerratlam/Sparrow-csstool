@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import {
   Check,
   ChevronDown,
+  Clock,
   Filter,
   Link2,
   MessageSquare,
@@ -281,7 +282,18 @@ export function ReviewSidebar() {
     <div
       key={ann.id}
       className={'annot-li' + (missing ? ' orphan' : '')}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open pin ${num}: ${ann.comment || 'no comment'}`}
       onClick={() => {
+        ui.openCard(ann.id)
+        ui.focusAnnotation(ann)
+      }}
+      onKeyDown={(e) => {
+        // Only the row itself — Enter/Space on the nested buttons keep their own meaning.
+        if (e.target !== e.currentTarget) return
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
         ui.openCard(ann.id)
         ui.focusAnnotation(ann)
       }}
@@ -304,7 +316,10 @@ export function ReviewSidebar() {
             {ann.status}
           </span>
           {ann.createdAt && (
-            <span className="annot-li-date">{fmtDate(ann.createdAt)}</span>
+            <span className="annot-li-date">
+              <Clock className="size-3" aria-hidden="true" />
+              {fmtDate(ann.createdAt)}
+            </span>
           )}
           {ann.author && <span className="annot-li-author">{ann.author}</span>}
         </div>
@@ -429,9 +444,15 @@ export function ReviewSidebar() {
   }
 
   return (
-    <div id="annot-sidebar" className="open">
+    <div
+      id="annot-sidebar"
+      className="open"
+      role="complementary"
+      aria-label="Review panel"
+    >
       <div className="annot-sb-head">
-        <Logo height={30} title="Sparrow" />
+        <Logo mark height={26} title="Sparrow" />
+        <h2 className="annot-sb-title">Review</h2>
         <Button
           variant="ghost"
           className="annot-sb-close"
@@ -460,6 +481,7 @@ export function ReviewSidebar() {
           <Search className="annot-sb-search-icon size-4" />
           <Input
             type="text"
+            aria-label="Search comments"
             placeholder="Search comments…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -488,7 +510,10 @@ export function ReviewSidebar() {
         {listed.length ? (
           listed.map(renderItem)
         ) : orphans.length === 0 ? (
-          <div className="annot-empty">No annotations match.</div>
+          <div className="annot-empty">
+            <MessageSquare className="size-5" aria-hidden="true" />
+            <span>No annotations match.</span>
+          </div>
         ) : null}
       </div>
       {orphans.length > 0 && (

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { LogOut, Menu, X } from 'lucide-react'
-import sparrowLogo from '@/assets/sparrow-logo.png'
-import { ArrowButton } from './parts'
+import { LogOut } from 'lucide-react'
 import { useAuth } from '@/context/auth-context'
+import { useExtensionDownload } from '@/hooks/use-extension-download'
 import { cn } from '@/lib/format'
+import { BrandMark, Icon } from './lp'
 
 const NAV = [
-  { label: 'Home', href: '#home' },
   { label: 'How it works', href: '#how-it-works' },
   { label: 'Features', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
@@ -16,25 +15,31 @@ const NAV = [
 
 const CONTACT_EMAIL = 'hello@trysparrowcss.com'
 
+const NAV_LINK =
+  'rounded-full px-3.5 py-2 text-sm font-medium text-lp-text transition-colors hover:bg-lp-blue/[0.08] hover:text-lp-ink'
+const MOBILE_LINK =
+  'block rounded-[10px] px-4 py-3.5 text-base font-medium text-lp-ink hover:bg-lp-blue/[0.08]'
+
 export function LandingHeader() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { openLoginDialog, isAuthenticated, signOut } = useAuth()
+  const { getExtension } = useExtensionDownload()
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
   // Reused on /account, /privacy, /terms too. Those pages don't carry the
-  // landing sections, so the anchors (#home, #features …) must point back at the
+  // landing sections, so the anchors (#features …) must point back at the
   // landing page ("/#features") rather than scroll in place. `onAccount` also
-  // swaps the right-side CTA to Sign out (you're already on your account).
+  // swaps the sign-in action to Sign out (you're already on your account).
   const onAccount = pathname.startsWith('/account')
   const onLanding = pathname === '/'
   const navBase = onLanding ? '' : '/'
   const handleSignOut = () => void signOut().then(() => navigate('/'))
 
   // On the landing page, smooth-scroll to the section without letting the
-  // browser append the "#home"/"#features" hash to the URL. On the other pages
-  // the anchors navigate client-side to the landing page, where RouterBridge
+  // browser append the "#features" hash to the URL. On the other pages the
+  // anchors navigate client-side to the landing page, where RouterBridge
   // scrolls to the target section once it mounts.
   const handleNavClick = (href: string) => (e: React.MouseEvent) => {
     e.preventDefault()
@@ -53,104 +58,105 @@ export function LandingHeader() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Sign-in slot: Sign out on /account, "My account" once signed in, else Sign in.
+  const accountAction =
+    onAccount && isAuthenticated ? (
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className={cn(
+          'lp-btn hidden items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-medium text-lp-ink hover:bg-white/90 lg:inline-flex',
+        )}
+      >
+        <LogOut className="size-4" />
+        Sign out
+      </button>
+    ) : isAuthenticated ? (
+      <a
+        href="/account"
+        onClick={(e) => {
+          e.preventDefault()
+          navigate('/account')
+        }}
+        className="lp-btn hidden rounded-full px-4 py-2.5 text-sm font-medium text-lp-ink transition-colors hover:bg-white/90 lg:inline-flex"
+      >
+        My account
+      </a>
+    ) : (
+      <button
+        type="button"
+        onClick={() => openLoginDialog()}
+        className="lp-btn hidden rounded-full px-4 py-2.5 text-sm font-medium text-lp-ink hover:bg-white/90 lg:inline-flex"
+      >
+        Sign in
+      </button>
+    )
+
   return (
     <header
       id="landing-header"
-      className={cn(
-        'fixed inset-x-0 top-0 z-50 px-4 md:px-8',
-        'transition-[padding] duration-300 ease-out',
-        scrolled ? 'pt-2' : 'pt-4',
-      )}
+      className="lp-root fixed inset-x-0 top-0 z-50 px-5 pt-4 md:px-8 lg:pt-6"
     >
       <nav
         aria-label="Primary"
         className={cn(
-          'mx-auto flex items-center justify-between rounded-[15px] backdrop-blur-xl backdrop-saturate-[180%]',
-          'transition-[max-width,padding,background-color,box-shadow] duration-300 ease-out',
-          // At the very top the pill blends into the hero's sky — no white box,
-          // ring, or shadow. Once scrolled it lifts into a frosted white pill so
-          // it stays legible over the content passing beneath it.
-          scrolled
-            ? 'max-w-[1120px] bg-white/75 px-4 py-2 pb-[14px] shadow-lg shadow-black/5 ring-1 ring-black/[0.06] md:px-3'
-            : 'max-w-[1280px] bg-transparent px-5 py-3 md:px-4',
+          'lp-glass mx-auto flex h-14 max-w-[1200px] items-center justify-between rounded-full border border-white/85 pr-1.5 pl-3.5 shadow-[0_8px_28px_-12px_rgba(37,99,235,0.3)] transition-colors duration-300 lg:h-16 lg:pr-3 lg:pl-5',
+          scrolled ? 'bg-white/75' : 'bg-white/60 lg:bg-white/55',
         )}
       >
-        <div className="flex items-center gap-10">
-          <a
-            href={`${navBase}#home`}
-            onClick={handleNavClick('#home')}
-            aria-label="Sparrow home"
-          >
-            <img
-              src={sparrowLogo}
-              alt="Sparrow"
-              draggable={false}
-              className="h-14 w-auto"
-            />
-          </a>
+        <a
+          href={`${navBase}#home`}
+          onClick={handleNavClick('#home')}
+          aria-label="Sparrow home"
+          className="flex items-center gap-2 text-lp-ink lg:gap-2.5"
+        >
+          <BrandMark size={34} className="shadow-[0_6px_16px_-4px_rgba(37,99,235,0.6)]" />
+          <span className="text-[17px] font-semibold tracking-[-0.01em] lg:text-lg">
+            Sparrow
+          </span>
+        </a>
 
-          {/* Desktop nav — revealed at lg; below that the 5 links + Sign-in
-              button don't fit the pill without wrapping, so tablets get the
-              hamburger menu instead. */}
-          <ul className="hidden items-center gap-8 lg:flex">
-            {NAV.map((item) => (
-              <li key={item.label}>
-                <a
-                  href={`${navBase}${item.href}`}
-                  onClick={handleNavClick(item.href)}
-                  className="font-abeezee text-base font-semibold text-sparrow-ink/90 transition-colors hover:text-sparrow-blue"
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
-            <li>
+        {/* Desktop nav — the five links + two actions need lg; below that the
+            pill carries just the install CTA and the menu button. */}
+        <ul className="hidden items-center gap-1 text-sm font-medium lg:flex">
+          {NAV.map((item) => (
+            <li key={item.label}>
               <a
-                href={`mailto:${CONTACT_EMAIL}`}
-                className="font-abeezee text-base font-semibold text-sparrow-ink/90 transition-colors hover:text-sparrow-blue"
+                href={`${navBase}${item.href}`}
+                onClick={handleNavClick(item.href)}
+                className={NAV_LINK}
               >
-                Contact
+                {item.label}
               </a>
             </li>
-          </ul>
-        </div>
+          ))}
+          <li>
+            <a href={`mailto:${CONTACT_EMAIL}`} className={NAV_LINK}>
+              Contact
+            </a>
+          </li>
+        </ul>
 
-        <div className="flex items-center gap-2">
-          {onAccount && isAuthenticated ? (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="cursor-pointer hidden items-center gap-1.5 rounded-[10px] px-4 py-2 font-abeezee text-sm font-semibold text-sparrow-ink transition-colors hover:bg-black/5 lg:inline-flex"
-            >
-              <LogOut className="size-4" />
-              Sign out
-            </button>
-          ) : isAuthenticated ? (
-            <ArrowButton
-              variant="blue"
-              href="/account"
-              className="hidden px-4 py-2 text-sm lg:inline-flex [&_svg]:size-4"
-            >
-              My account
-            </ArrowButton>
-          ) : (
-            <ArrowButton
-              variant="blue"
-              onClick={openLoginDialog}
-              className="hidden px-4 py-2 text-sm lg:inline-flex [&_svg]:size-4"
-            >
-              Sign in
-            </ArrowButton>
-          )}
+        <div className="flex items-center gap-1 lg:gap-2">
+          {accountAction}
+          {/* Opens the extension's store listing for the visitor's browser. */}
+          <button
+            type="button"
+            onClick={() => getExtension()}
+            className="lp-btn flex h-11 items-center rounded-full bg-lp-blue px-4 text-sm font-medium text-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.55)] hover:bg-lp-blue-700 lg:px-5"
+          >
+            <span className="lg:hidden">Get it free</span>
+            <span className="hidden lg:inline">Add to browser — free</span>
+          </button>
           <button
             type="button"
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
             aria-controls="landing-mobile-menu"
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex size-10 items-center justify-center rounded-[10px] text-sparrow-ink hover:bg-black/5 lg:hidden"
+            className="lp-btn flex size-11 items-center justify-center rounded-full bg-white/70 text-lp-ink lg:hidden"
           >
-            {open ? <X className="size-6" /> : <Menu className="size-6" />}
+            <Icon name={open ? 'close' : 'menu'} size={20} />
           </button>
         </div>
       </nav>
@@ -159,20 +165,20 @@ export function LandingHeader() {
       <div
         id="landing-mobile-menu"
         className={cn(
-          'mx-auto mt-2 max-w-[1680px] overflow-hidden rounded-[15px] border border-black/5 bg-white/80 backdrop-blur-xl backdrop-saturate-[180%] transition-all lg:hidden',
-          open ? 'max-h-96 opacity-100' : 'pointer-events-none max-h-0 border-transparent opacity-0',
+          'lp-glass mx-auto mt-2 max-w-[1200px] origin-top overflow-hidden rounded-2xl border border-white/95 bg-white/85 shadow-[0_24px_48px_-16px_rgba(30,64,175,0.35)] transition-[opacity,translate,scale] duration-200 lg:hidden',
+          open
+            ? 'translate-y-0 scale-100 opacity-100'
+            : 'pointer-events-none -translate-y-2 scale-95 opacity-0',
         )}
+        inert={!open}
       >
-        <ul className="flex flex-col gap-1 p-4">
+        <ul className="flex flex-col p-2">
           {NAV.map((item) => (
             <li key={item.label}>
               <a
                 href={`${navBase}${item.href}`}
-                onClick={(e) => {
-                  setOpen(false)
-                  handleNavClick(item.href)(e)
-                }}
-                className="block rounded-lg px-3 py-2 font-abeezee text-base font-semibold text-sparrow-ink hover:bg-black/5"
+                onClick={handleNavClick(item.href)}
+                className={MOBILE_LINK}
               >
                 {item.label}
               </a>
@@ -182,11 +188,12 @@ export function LandingHeader() {
             <a
               href={`mailto:${CONTACT_EMAIL}`}
               onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 font-abeezee text-base font-semibold text-sparrow-ink hover:bg-black/5"
+              className={MOBILE_LINK}
             >
               Contact
             </a>
           </li>
+          <li aria-hidden="true" className="mx-2 my-1.5 h-px bg-[rgba(9,9,11,0.08)]" />
           <li>
             {onAccount && isAuthenticated ? (
               <button
@@ -195,30 +202,34 @@ export function LandingHeader() {
                   setOpen(false)
                   handleSignOut()
                 }}
-                className="cursor-pointer mt-1 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 font-abeezee text-sm font-semibold text-sparrow-ink ring-1 ring-inset ring-black/10 hover:bg-black/5"
+                className={cn(MOBILE_LINK, 'flex w-full items-center gap-2 text-lp-blue')}
               >
                 <LogOut className="size-4" />
                 Sign out
               </button>
             ) : isAuthenticated ? (
-              <ArrowButton
-                variant="blue"
+              <a
                 href="/account"
-                className="mt-1 w-full"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setOpen(false)
+                  navigate('/account')
+                }}
+                className={cn(MOBILE_LINK, 'text-lp-blue')}
               >
                 My account
-              </ArrowButton>
+              </a>
             ) : (
-              <ArrowButton
-                variant="blue"
+              <button
+                type="button"
                 onClick={() => {
                   setOpen(false)
                   openLoginDialog()
                 }}
-                className="mt-1 w-full"
+                className={cn(MOBILE_LINK, 'w-full text-left text-lp-blue')}
               >
                 Sign in
-              </ArrowButton>
+              </button>
             )}
           </li>
         </ul>

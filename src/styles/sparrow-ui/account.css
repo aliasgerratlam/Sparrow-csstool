@@ -1,0 +1,555 @@
+/* ─── Account menu + sign-in popup ───────────────────────────────────────────
+   Surfaces: "Account menu" (Account.dc.html) and "Sign in popup" (Auth.dc.html).
+   Markup: components/auth/UserMenu.tsx, extension/src/SignInGate.tsx.
+   Legacy .auth-user-* / .ext-signin-* rules in src/index.css are out-ranked with
+   a two-class selector (.sp-acct-pop .x) and reset explicitly. The popover sits
+   inside the nowrap session pill, so it re-enables wrapping. Extension: `:root`
+   -> `:host`, rem -> px; nothing relies on `body`. */
+
+@keyframes sp-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ═════════ account button (avatar + pins-used ring) ═════════ */
+.sp-acct {
+  position: relative;
+  display: inline-flex;
+  font-family: var(--sp-font);
+}
+.sp-acct .sp-acct-chip {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 100ms ease;
+}
+.sp-acct .sp-acct-chip:active {
+  transform: scale(0.96);
+}
+.sp-acct .sp-acct-chip:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+.sp-acct .sp-acct-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.sp-acct .sp-acct-ring-track {
+  stroke: var(--sp-div);
+}
+.sp-acct .sp-acct-ring-fill {
+  stroke: var(--sp-blue);
+  transition: stroke-dasharray 300ms ease;
+}
+.sp-acct .sp-acct-avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--sp-violet);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  box-shadow: none;
+  transition: filter 150ms ease;
+}
+.sp-acct .sp-acct-chip:hover .sp-acct-avatar {
+  filter: brightness(1.08);
+}
+.sp-acct .sp-acct-avatar.sp-acct-avatar-lg {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+/* ═════════ popover ═════════ */
+.sp-acct .sp-acct-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 14px);
+  z-index: 999996;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  min-width: 0;
+  box-sizing: border-box;
+  display: block;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--sp-line);
+  border-radius: 12px;
+  box-shadow:
+    0 28px 56px -20px rgba(15, 23, 42, 0.32),
+    0 4px 12px -4px rgba(15, 23, 42, 0.08);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+  color: var(--sp-fg);
+  font-family: var(--sp-font);
+  text-align: left;
+  white-space: normal;
+  animation: sp-pop-in 150ms ease both;
+}
+
+.sp-acct-pop .sp-acct-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+.sp-acct-pop .sp-acct-who {
+  min-width: 0;
+}
+.sp-acct-pop .sp-acct-name {
+  padding: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--sp-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sp-acct-pop .sp-acct-email {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* plan card */
+.sp-acct-pop .sp-acct-plan {
+  margin: 0 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--sp-line-soft);
+}
+.sp-acct-pop .sp-acct-plan-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sp-acct-pop .sp-acct-plan-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--sp-line);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+.sp-acct-pop .sp-acct-plan-note {
+  font-size: 12px;
+  color: var(--sp-muted);
+}
+.sp-acct-pop .sp-acct-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sp-text);
+}
+.sp-acct-pop .sp-acct-row-pins {
+  margin-top: 14px;
+}
+.sp-acct-pop .sp-acct-row-share {
+  margin-top: 12px;
+}
+.sp-acct-pop .sp-acct-val {
+  font-family: var(--sp-mono);
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+.sp-acct-pop .sp-acct-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sp-acct-pop .sp-acct-seg {
+  flex: 1 1 0;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--sp-line);
+  transition: background-color 300ms ease;
+}
+.sp-acct-pop .sp-acct-seg.on {
+  background: var(--sp-blue);
+}
+.sp-acct-pop .sp-acct-upgrade {
+  margin: 14px 0 0;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sp-blue);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    transform 100ms ease;
+}
+.sp-acct-pop .sp-acct-upgrade:hover {
+  background: var(--sp-blue-700);
+}
+.sp-acct-pop .sp-acct-upgrade:active {
+  transform: scale(0.98);
+}
+
+/* menu items */
+.sp-acct-pop .sp-acct-list {
+  display: block;
+  padding: 8px;
+}
+.sp-acct-pop .sp-acct-item {
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #18181b;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 100ms ease;
+}
+.sp-acct-pop .sp-acct-item:hover {
+  background: var(--sp-fill);
+  color: #18181b;
+}
+.sp-acct-pop .sp-acct-item:active {
+  transform: scale(0.98);
+}
+.sp-acct-pop .sp-acct-item .sp-acct-ico {
+  flex: none;
+  color: var(--sp-icon);
+}
+.sp-acct-pop .sp-acct-item .sp-acct-ext {
+  flex: none;
+  margin-left: auto;
+  color: #a1a1aa;
+}
+.sp-acct-pop .sp-acct-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--sp-line-soft);
+}
+.sp-acct-pop .sp-acct-item.sp-acct-danger,
+.sp-acct-pop .sp-acct-item.sp-acct-danger .sp-acct-ico {
+  color: var(--sp-red);
+}
+.sp-acct-pop .sp-acct-item.sp-acct-danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--sp-red);
+}
+/* Inside the clipped popover an outward ring would be cut off — draw it inset. */
+.sp-acct-pop .sp-acct-item:focus-visible,
+.sp-acct-pop .sp-acct-upgrade:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: -2px;
+}
+
+/* ═════════ sign-in popup (extension SignInGate) ═════════ */
+[data-slot='dialog-content'].sp-auth-shell {
+  width: 392px;
+  outline: none;
+}
+.sp-auth-card {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 32px 64px -24px rgba(9, 9, 11, 0.5);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+  color: var(--sp-fg);
+  font-family: var(--sp-font);
+  text-align: left;
+}
+.sp-auth-card *,
+.sp-auth-card *::before,
+.sp-auth-card *::after {
+  box-sizing: border-box;
+}
+.sp-auth-card .sp-auth-x {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-muted);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 100ms ease;
+}
+.sp-auth-card .sp-auth-x:hover,
+.sp-auth-card .sp-auth-link:hover {
+  background: var(--sp-fill);
+  color: var(--sp-fg);
+}
+.sp-auth-card .sp-auth-x:active,
+.sp-auth-card .sp-auth-btn:active {
+  transform: scale(0.98);
+}
+
+.sp-auth-card .sp-auth-tile {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--sp-blue);
+  box-shadow: 0 10px 24px -10px rgba(37, 99, 235, 0.9);
+}
+.sp-auth-card .sp-auth-title {
+  margin: 20px 0 0;
+  font-family: inherit;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sp-fg);
+}
+.sp-auth-card .sp-auth-sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sp-muted);
+}
+
+.sp-auth-card .sp-auth-btn {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease,
+    transform 100ms ease;
+}
+.sp-auth-card .sp-auth-primary {
+  margin-top: 24px;
+  border: 0;
+  background: var(--sp-blue);
+  color: #ffffff;
+  box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.9);
+}
+.sp-auth-card .sp-auth-primary:hover {
+  background: var(--sp-blue-700);
+}
+.sp-auth-card .sp-auth-outline {
+  margin-top: 12px;
+  border: 1px solid var(--sp-line);
+  background: #ffffff;
+  color: var(--sp-fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.sp-auth-card .sp-auth-outline:hover {
+  background: #fafafa;
+  border-color: #d4d4d8;
+}
+.sp-auth-card .sp-auth-fine {
+  margin: 20px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--sp-muted);
+  text-align: center;
+}
+.sp-auth-card .sp-auth-fine a {
+  color: var(--sp-blue);
+  text-decoration: none;
+}
+.sp-auth-card .sp-auth-fine a:hover {
+  color: var(--sp-blue-700);
+  text-decoration: underline;
+}
+
+/* waiting screen (the board's "check your inbox" layout) */
+.sp-auth-card .sp-auth-wait {
+  text-align: center;
+  padding-top: 12px;
+}
+.sp-auth-card .sp-auth-envelope {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+}
+.sp-auth-card .sp-auth-envelope-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: var(--sp-blue-50);
+  transform: rotate(-6deg);
+}
+.sp-auth-card .sp-auth-envelope-fg {
+  position: absolute;
+  inset: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--sp-blue);
+  box-shadow: 0 10px 24px -10px rgba(37, 99, 235, 0.9);
+}
+.sp-auth-card .sp-auth-spark {
+  position: absolute;
+  right: -10px;
+  top: -6px;
+}
+.sp-auth-card .sp-auth-wait .sp-auth-title {
+  margin-top: 22px;
+}
+.sp-auth-card .sp-auth-sub.sp-auth-sub-narrow {
+  max-width: 300px;
+  margin: 8px auto 0;
+}
+.sp-auth-card .sp-auth-waiting {
+  margin-top: 24px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 13px;
+  color: var(--sp-body);
+}
+.sp-auth-card .sp-auth-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 2px solid var(--sp-blue-200);
+  border-top-color: var(--sp-blue);
+  animation: sp-spin 0.8s linear infinite;
+}
+.sp-auth-card .sp-auth-wait .sp-auth-outline {
+  margin-top: 16px;
+}
+.sp-auth-card .sp-auth-link {
+  margin-top: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-blue);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.sp-auth-card button:focus-visible,
+.sp-auth-card a:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-acct .sp-acct-pop {
+    animation: none;
+  }
+  .sp-acct .sp-acct-chip,
+  .sp-acct .sp-acct-avatar,
+  .sp-acct .sp-acct-ring-fill,
+  .sp-acct-pop .sp-acct-seg,
+  .sp-acct-pop .sp-acct-item,
+  .sp-acct-pop .sp-acct-upgrade,
+  .sp-auth-card .sp-auth-x,
+  .sp-auth-card .sp-auth-btn,
+  .sp-auth-card .sp-auth-link {
+    transition-duration: 0ms;
+  }
+  .sp-acct .sp-acct-chip:active,
+  .sp-acct-pop .sp-acct-item:active,
+  .sp-acct-pop .sp-acct-upgrade:active,
+  .sp-auth-card .sp-auth-x:active,
+  .sp-auth-card .sp-auth-btn:active {
+    transform: none;
+  }
+  .sp-auth-card .sp-auth-spinner {
+    animation-duration: 2.4s;
+  }
+}

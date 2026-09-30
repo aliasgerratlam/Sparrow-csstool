@@ -1,0 +1,515 @@
+/* ─── Tool chrome — right tool rail + bottom session pill ───────────────────
+   Surface: "Sparrow toolbar in context" (Main.dc.html). Owned by the chrome
+   surface; markup in ModeRail.tsx / ScannerToolbar.tsx / PresenceBar.tsx.
+   Shared recipes and tokens: tokens.css.
+
+   Legacy rules in src/index.css (#scanner-toolbar, #mode-rail, .mode-rail-btn,
+   #scanner-hint, #scanner-*-btn, .presence-*) are out-ranked here with id- or
+   id+class selectors, and every property they set that the design changes is
+   reset explicitly. Nothing here relies on `body`, and no transform/filter is put
+   on an ancestor of a fixed child (the rail/bar are centred with auto margins,
+   not translate). Extension: `:root` tokens are re-homed to `:host`, rem -> px. */
+
+#mode-rail,
+#scanner-toolbar {
+  --sp-tip-shadow: 0 10px 24px -10px rgba(9, 9, 11, 0.5);
+  font-family: var(--sp-font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═════════ right tool rail ═════════ */
+#mode-rail.sp-rail {
+  position: fixed;
+  right: 20px;
+  top: 0;
+  bottom: 0;
+  left: auto;
+  margin: auto 0;
+  height: fit-content;
+  transform: none;
+  z-index: 999994;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  box-sizing: border-box;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 9999px;
+  box-shadow: var(--sp-shadow-pill);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+}
+
+#mode-rail .sp-rail-sep {
+  display: block;
+  flex: none;
+  width: 14px;
+  height: 1px;
+  margin: 5px 0;
+  background: var(--sp-div);
+}
+
+#mode-rail .sp-rail-item {
+  position: relative;
+  display: flex;
+}
+
+#mode-rail .sp-rail-btn {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-icon);
+  box-shadow: none;
+  opacity: 1;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+  transform: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+
+#mode-rail .sp-rail-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex: none;
+  transform: none;
+  transition: none;
+}
+
+#mode-rail .sp-rail-btn:hover {
+  background: var(--sp-hover);
+  color: var(--sp-fg);
+  transform: none;
+  box-shadow: none;
+}
+
+#mode-rail .sp-rail-btn:active {
+  transform: scale(0.96);
+}
+
+#mode-rail .sp-rail-btn.active,
+#mode-rail .sp-rail-btn.active:hover {
+  background: var(--sp-blue);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+#mode-rail .sp-rail-btn:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+
+/* Legacy CSS-generated tooltip (::before/::after from data-tooltip) — replaced
+   by the real .sp-rail-tip element below. */
+#mode-rail .sp-rail-btn::before,
+#mode-rail .sp-rail-btn::after {
+  content: none;
+  display: none;
+}
+
+/* Locked (paid tier / signed-out annotate): muted glyph + a small padlock badge.
+   Stays focusable and hoverable so its tooltip can say why; paid tools still
+   open the upgrade prompt on click, locked Annotate is a no-op. */
+#mode-rail .sp-rail-btn.locked,
+#mode-rail .sp-rail-btn.locked:hover {
+  opacity: 1;
+  color: var(--sp-faint);
+}
+#mode-rail .sp-rail-btn.locked:hover {
+  background: var(--sp-hover);
+}
+#mode-rail .sp-rail-btn.locked[data-mode='annotate'] {
+  cursor: not-allowed;
+}
+#mode-rail .sp-rail-lock {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--sp-kbd);
+  border: 1px solid var(--sp-kbd-b);
+  color: var(--sp-muted);
+  box-shadow: 0 1px 2px rgba(9, 9, 11, 0.08);
+  pointer-events: none;
+}
+#mode-rail .sp-rail-lock svg {
+  width: 8px;
+  height: 8px;
+}
+
+/* Tooltip — name + hint, slides in from the right on hover / keyboard focus. */
+#mode-rail .sp-rail-tip {
+  position: absolute;
+  right: 54px;
+  top: 50%;
+  transform: translate(6px, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--sp-tip);
+  color: var(--sp-tip-fg);
+  box-shadow: var(--sp-tip-shadow);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+#mode-rail .sp-rail-tip-name {
+  font-weight: 500;
+}
+#mode-rail .sp-rail-tip-desc {
+  opacity: 0.6;
+}
+#mode-rail .sp-rail-item:hover .sp-rail-tip,
+#mode-rail .sp-rail-btn:focus-visible + .sp-rail-tip {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* ═════════ bottom session pill ═════════ */
+#scanner-toolbar.sp-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 20px;
+  top: auto;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  height: 48px;
+  box-sizing: border-box;
+  padding: 4px;
+  transform: none;
+  z-index: 999992;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 9999px;
+  box-shadow: var(--sp-shadow-pill);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+  font-size: 13px;
+  line-height: normal;
+  color: var(--sp-fg);
+  white-space: nowrap;
+}
+
+#scanner-toolbar .sp-bar-mark {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Active tool + hint + Esc key (kept on #scanner-hint for the scanner's
+   ignore-list; legacy card chrome reset). */
+#scanner-toolbar .sp-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 12px 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 13px;
+}
+#scanner-toolbar .sp-bar-tool {
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+#scanner-toolbar .sp-bar-hint {
+  color: var(--sp-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-toolbar .sp-bar-kbd {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--sp-kbd);
+  border: 1px solid var(--sp-kbd-b);
+  color: var(--sp-muted);
+  font-family: var(--sp-mono);
+  font-size: 11px;
+  line-height: 16px;
+  box-shadow: none;
+}
+
+#scanner-toolbar .sp-bar-div {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: var(--sp-div);
+}
+
+#scanner-toolbar #scanner-toolbar-right {
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Round 38px ghost icon buttons. Legacy #scanner-*-btn rules carry 3D shadows,
+   lift transforms and coloured fills — all reset here, in every state. */
+#scanner-toolbar .sp-bar-btn,
+#scanner-toolbar #scanner-notif-btn {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-icon);
+  box-shadow: none;
+  font-family: inherit;
+  cursor: pointer;
+  transform: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+#scanner-toolbar .sp-bar-btn svg,
+#scanner-toolbar #scanner-notif-btn svg {
+  width: 17px;
+  height: 17px;
+}
+#scanner-toolbar .sp-bar-btn:hover,
+#scanner-toolbar #scanner-notif-btn:hover {
+  background: var(--sp-hover);
+  color: var(--sp-icon);
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+#scanner-toolbar .sp-bar-btn:active,
+#scanner-toolbar #scanner-notif-btn:active {
+  transform: scale(0.96);
+  box-shadow: none;
+}
+#scanner-toolbar .sp-bar-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+#scanner-toolbar .sp-bar-btn.sp-bar-close:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--sp-red);
+}
+
+/* Count on the review button. */
+#scanner-toolbar .sp-bar-btn .scanner-review-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  background: var(--sp-blue);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Signed-out "Sign in" — the design's primary pill. */
+#scanner-toolbar .sp-bar-signin {
+  flex: none;
+  height: 34px;
+  margin: 0 4px 0 2px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--sp-shadow-cta);
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+#scanner-toolbar .sp-bar-signin:hover {
+  background: var(--sp-blue-700);
+}
+#scanner-toolbar .sp-bar-signin:active {
+  transform: scale(0.96);
+}
+
+/* Presence — overlapping avatars of people who joined through the link. */
+#scanner-toolbar .sp-presence {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 8px;
+  border-radius: 9999px;
+  cursor: default;
+}
+#scanner-toolbar .presence-avatar {
+  width: 26px;
+  height: 26px;
+  margin-left: -7px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 9999px;
+  font-family: var(--sp-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.22);
+}
+#scanner-toolbar .presence-avatar:first-child {
+  margin-left: 0;
+}
+#scanner-toolbar .presence-avatar-more {
+  background: var(--sp-muted);
+}
+
+/* Focus — 2px blue ring, offset 2px, keyboard only. */
+#scanner-toolbar .sp-bar-btn:focus-visible,
+#scanner-toolbar #scanner-notif-btn:focus-visible,
+#scanner-toolbar .sp-bar-signin:focus-visible,
+#scanner-toolbar .sp-presence:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+
+/* Presence roster tooltip (Radix portal — class comes from PresenceBar). */
+[data-slot='tooltip-content'].sp-presence-tip {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--sp-tip);
+  color: var(--sp-tip-fg);
+  box-shadow: 0 10px 24px -10px rgba(9, 9, 11, 0.5);
+  font-family: var(--sp-font);
+  font-size: 12px;
+  line-height: 16px;
+  max-width: 220px;
+}
+.sp-presence-tip > svg {
+  display: none;
+}
+.sp-presence-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sp-presence-head {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+.sp-presence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sp-presence-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+.sp-presence-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sp-presence-role {
+  flex: none;
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+/* Narrow viewports: drop the hint copy, keep tool name + Esc. */
+@media (max-width: 720px) {
+  #scanner-toolbar .sp-bar-hint {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  #scanner-toolbar .sp-bar-kbd {
+    display: none;
+  }
+  #scanner-toolbar .sp-bar-status {
+    padding-right: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mode-rail .sp-rail-btn,
+  #mode-rail .sp-rail-tip,
+  #scanner-toolbar .sp-bar-btn,
+  #scanner-toolbar #scanner-notif-btn,
+  #scanner-toolbar .sp-bar-signin {
+    transition-duration: 0ms;
+  }
+  #mode-rail .sp-rail-btn:active,
+  #scanner-toolbar .sp-bar-btn:active,
+  #scanner-toolbar .sp-bar-signin:active {
+    transform: none;
+  }
+}

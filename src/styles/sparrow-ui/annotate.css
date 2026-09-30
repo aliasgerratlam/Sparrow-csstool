@@ -1,0 +1,1346 @@
+/* ─── Annotate surface — Claude Design "Annotate popovers", "Out of pins —
+   composer", "Out of pins — upgrade" and the pins drawn on the page.
+   Owned by the annotate surface. Loads AFTER src/index.css, so rules here win
+   at equal specificity; where a legacy rule is higher-specificity the selector
+   below is deliberately out-ranked with the #annot-card / #annot-pin-layer ids
+   (legacy: #annot-card, .annot-pin*, .annot-submit-btn*, .collab-edit-*).
+   Everything is px (the extension converts rem → px at load) and sets
+   font-family explicitly so host-page fonts never leak in.
+
+   Per-pin colour arrives as inline custom properties (see pin-colors.ts):
+   --sp-pc colour · --sp-pfg number ink · --sp-pt tint · --sp-pbg/--sp-pink chip */
+
+:root {
+  --sp-amber-50: #fffbeb;
+  --sp-amber-200: #fde68a;
+  --sp-amber-600: #d97706;
+  --sp-amber-800: #92400e;
+  --sp-amber-900: #78350f;
+  --sp-an-ring: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+/* ═════════════ Shared reset for every control in this surface ═════════════ */
+#annot-card,
+#annot-pin-layer,
+.sp-up-host {
+  font-family: var(--sp-font);
+  -webkit-font-smoothing: antialiased;
+}
+#annot-card button,
+#annot-card input,
+#annot-card textarea,
+#annot-pin-layer button,
+.sp-up button {
+  font-family: inherit;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#annot-card button,
+#annot-pin-layer button,
+.sp-up button {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease,
+    filter 150ms ease;
+}
+#annot-card button:active:not(:disabled),
+.sp-up button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+#annot-card button:focus-visible,
+#annot-pin-layer button:focus-visible,
+.sp-up button:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+.sp-an-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.sp-an-mono {
+  font-family: var(--sp-mono);
+}
+.sp-an-strong {
+  font-weight: 600;
+}
+
+/* ═════════════ Card shell (composer · thread · out-of-pins) ═════════════ */
+#annot-card.sp-an-card {
+  position: fixed;
+  z-index: 999990;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: 84vh;
+  overflow: hidden;
+  text-align: left;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--sp-fg);
+  background: var(--sp-panel);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-r-panel);
+  box-shadow: var(--sp-shadow-panel);
+  -webkit-backdrop-filter: var(--sp-blur);
+  backdrop-filter: var(--sp-blur);
+  animation: spAnIn 140ms ease backwards;
+}
+@keyframes spAnIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes spAnSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sp-an-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 12px 10px 10px 16px;
+}
+.sp-an-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 32px ghost icon button (28px / radius 8 in the out-of-pins card) */
+#annot-card .sp-an-icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-muted);
+}
+#annot-card .sp-an-icon:hover {
+  background: var(--sp-fill);
+  color: var(--sp-fg);
+}
+#annot-card .sp-an-icon.sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+/* ═════════════ Composer ═════════════ */
+.sp-an-swatches {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 5px 8px;
+  border-radius: 9999px;
+  background: var(--sp-fill);
+}
+#annot-card .sp-an-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px rgba(9, 9, 11, 0.08);
+}
+#annot-card .sp-an-swatch[aria-checked='true'] {
+  box-shadow:
+    0 0 0 2px var(--sp-fill),
+    0 0 0 4px var(--sw);
+}
+#annot-card .sp-an-swatch:hover {
+  transform: scale(1.12);
+}
+#annot-card .sp-an-swatch:focus-visible {
+  outline-offset: 5px;
+}
+
+.sp-an-pad {
+  padding: 0 16px;
+}
+.sp-an-chip {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: var(--sp-pt);
+  color: var(--sp-text);
+  font-family: var(--sp-mono);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+.sp-an-chip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--sp-pc);
+}
+.sp-an-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-an-chip.orphan {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--sp-amber-800);
+}
+.sp-an-chip.orphan .sp-an-chip-dot {
+  background: var(--sp-amber);
+}
+
+#annot-card .sp-an-ta {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 96px;
+  min-height: 96px;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--sp-line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--sp-fg);
+  font-size: 14px;
+  line-height: 20px;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+#annot-card .sp-an-ta:focus {
+  border-color: var(--sp-blue-200);
+  box-shadow: var(--sp-an-ring);
+}
+#annot-card .sp-an-ta::placeholder,
+#annot-card .sp-an-reply-in::placeholder {
+  color: var(--sp-faint);
+  opacity: 1;
+}
+#annot-card .sp-an-ta.sp-an-ta-sm {
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  resize: vertical;
+}
+
+.sp-an-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 12px 12px 12px 16px;
+}
+.sp-an-meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: var(--sp-blue-50);
+  color: var(--sp-blue-700);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: default;
+}
+.sp-an-meter-bars {
+  display: flex;
+  gap: 3px;
+}
+.sp-an-meter-bars > span {
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--sp-blue-200);
+}
+.sp-an-meter-bars > span.on {
+  background: var(--sp-blue);
+}
+
+/* Post pin — the legacy .annot-submit-btn hook stays, this out-ranks its 3D-ledge look */
+#annot-card .sp-an-post.annot-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  width: auto;
+  height: 36px;
+  margin-left: auto;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  filter: none;
+  box-shadow: var(--sp-shadow-cta);
+}
+#annot-card .sp-an-post.annot-submit-btn:hover:not(:disabled) {
+  background: var(--sp-blue-700);
+  transform: none;
+  filter: none;
+  box-shadow: var(--sp-shadow-cta);
+}
+#annot-card .sp-an-post.annot-submit-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  box-shadow: var(--sp-shadow-cta);
+}
+#annot-card .sp-an-post.annot-submit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+#annot-card .sp-an-post.annot-submit-btn[aria-busy='true'] {
+  opacity: 0.8;
+  cursor: progress;
+}
+.sp-an-post svg {
+  display: block;
+}
+.sp-an-post .annot-submit-spin {
+  animation: spAnSpin 0.8s linear infinite;
+}
+
+/* ═════════════ Thread ═════════════ */
+.sp-an-head-thread {
+  padding: 12px 10px 12px 14px;
+}
+.sp-an-tchip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 150px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0 10px 0 4px;
+  border-radius: 9999px;
+  background: var(--sp-pbg);
+  cursor: default;
+}
+.sp-an-tchip-pin {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px 9999px 9999px 3px;
+  background: var(--sp-pc);
+  color: var(--sp-pfg);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.sp-an-tchip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sp-pink);
+  font-family: var(--sp-mono);
+  font-size: 11px;
+  line-height: 14px;
+}
+.sp-an-tchip.resolved .sp-an-tchip-pin {
+  background: var(--sp-green);
+  color: #fff;
+}
+.sp-an-tchip.orphan {
+  background: var(--sp-amber-50);
+}
+.sp-an-tchip.orphan .sp-an-tchip-text {
+  color: var(--sp-amber-800);
+}
+
+#annot-card .sp-an-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+#annot-card .sp-an-status.open {
+  background: var(--sp-blue-50);
+  color: var(--sp-blue-700);
+}
+#annot-card .sp-an-status.resolved {
+  background: var(--sp-green-50);
+  color: var(--sp-green-700);
+}
+#annot-card .sp-an-status:hover {
+  filter: brightness(0.96);
+}
+.sp-an-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.sp-an-msgs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 14px 14px;
+}
+.sp-an-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.sp-an-msg.mine {
+  flex-direction: row-reverse;
+}
+.sp-an-av {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: hsl(var(--av-h, 40) 85% 84%);
+  color: hsl(var(--av-h, 40) 60% 24%);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+.sp-an-msg.mine .sp-an-av {
+  background: var(--sp-violet);
+  color: #fff;
+}
+.sp-an-msg-col {
+  min-width: 0;
+  max-width: 260px;
+}
+.sp-an-msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px 4px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.sp-an-msg.mine .sp-an-msg-meta {
+  flex-direction: row-reverse;
+  margin: 0 4px 4px 0;
+}
+.sp-an-msg-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sp-an-msg-time {
+  flex: none;
+  color: var(--sp-faint);
+}
+.sp-an-bubble {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--sp-fill);
+  color: var(--sp-fg-2);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sp-an-msg.mine .sp-an-bubble {
+  border-radius: 16px 16px 4px 16px;
+  background: var(--sp-blue);
+  color: #fff;
+}
+.sp-an-msg.is-new .sp-an-bubble {
+  animation: spReplyFlash 0.8s ease-in-out 3;
+}
+@keyframes spReplyFlash {
+  50% {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.45);
+  }
+}
+
+#annot-card .sp-an-mini {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-faint);
+}
+#annot-card .sp-an-mini:hover {
+  background: var(--sp-fill);
+  color: var(--sp-fg);
+}
+
+.sp-an-editbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+.sp-an-editrow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+#annot-card .sp-an-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-fg-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+#annot-card .sp-an-pill:hover:not(:disabled) {
+  background: var(--sp-fill);
+}
+#annot-card .sp-an-pill.primary {
+  border-color: transparent;
+  background: var(--sp-blue);
+  color: #fff;
+}
+#annot-card .sp-an-pill.primary:hover:not(:disabled) {
+  background: var(--sp-blue-700);
+}
+#annot-card .sp-an-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sp-an-empty {
+  margin: 0;
+  color: var(--sp-muted);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+.sp-an-resolved {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  background: var(--sp-green-50);
+  color: var(--sp-green-700);
+  font-size: 12px;
+}
+
+.sp-an-reply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 4px 0 14px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.sp-an-reply:focus-within {
+  border-color: var(--sp-blue-200);
+  box-shadow: var(--sp-an-ring);
+}
+#annot-card .sp-an-reply-in {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--sp-fg);
+  font-size: 14px;
+  outline: none;
+}
+#annot-card .sp-an-send {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+  color: #fff;
+}
+#annot-card .sp-an-send:hover:not(:disabled) {
+  background: var(--sp-blue-700);
+}
+#annot-card .sp-an-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sp-an-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin: 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--sp-blue-50);
+  border: 1px solid var(--sp-blue-100);
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.sp-an-notice:last-child {
+  margin-bottom: 14px;
+}
+.sp-an-notice-ic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-blue);
+}
+.sp-an-notice strong {
+  font-weight: 600;
+}
+
+.sp-an-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin: 12px 0 0;
+  padding: 10px 10px 10px 14px;
+  border-top: 1px solid var(--sp-line-soft);
+}
+.sp-an-share-ic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: var(--sp-fill);
+  color: var(--sp-icon);
+}
+.sp-an-share-txt {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+.sp-an-share-h {
+  font-weight: 500;
+}
+.sp-an-share-s {
+  color: var(--sp-muted);
+}
+#annot-card .sp-an-copy {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+#annot-card .sp-an-copy:hover {
+  background: #fafafa;
+}
+#annot-card .sp-an-copy.copied {
+  background: var(--sp-green-50);
+  border-color: #bbf7d0;
+  color: var(--sp-green-700);
+}
+
+/* ═════════════ Out of pins — composer ═════════════ */
+#annot-card.sp-an-locked {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--sp-line);
+  box-shadow:
+    0 28px 56px -20px rgba(15, 23, 42, 0.32),
+    0 4px 12px -4px rgba(15, 23, 42, 0.08);
+}
+.sp-an-head-locked {
+  gap: 10px;
+  padding: 12px 10px 0 16px;
+}
+.sp-an-lock-body {
+  padding: 14px 16px 16px;
+}
+.sp-an-lock-panel {
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--sp-amber-50);
+  border: 1px solid var(--sp-amber-200);
+}
+.sp-an-lock-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sp-an-ring {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.sp-an-ring svg {
+  display: block;
+  transform: rotate(-90deg);
+}
+.sp-an-ring-n {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sp-amber-800);
+  font-family: var(--sp-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.sp-an-lock-title {
+  color: var(--sp-amber-900);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.sp-an-lock-sub {
+  margin-top: 2px;
+  color: var(--sp-amber-800);
+  font-size: 13px;
+  line-height: 18px;
+}
+.sp-an-lock-note {
+  margin: 12px 0 0;
+  color: var(--sp-amber-900);
+  font-size: 13px;
+  line-height: 19px;
+}
+.sp-an-lock-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+#annot-card .sp-an-lock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+#annot-card .sp-an-lock-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+#annot-card .sp-an-lock-btn.primary {
+  border: 0;
+  background: var(--sp-blue);
+  color: #fff;
+}
+#annot-card .sp-an-lock-btn.primary:hover {
+  background: var(--sp-blue-700);
+}
+#annot-card .sp-an-lock-btn.outline {
+  border: 1px solid var(--sp-line);
+  background: #fff;
+  color: #18181b;
+}
+#annot-card .sp-an-lock-btn.outline:hover {
+  background: #fafafa;
+}
+.sp-an-lock-price {
+  font-size: 12px;
+}
+.sp-an-lock-btn.primary .sp-an-lock-price {
+  opacity: 0.85;
+}
+.sp-an-lock-btn.outline .sp-an-lock-price {
+  color: var(--sp-muted);
+}
+
+/* ═════════════ Out of pins — upgrade (Radix dialog, portalled) ═════════════ */
+[data-slot='dialog-content'].sp-up-host {
+  display: block;
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  color: var(--sp-fg);
+  outline: none;
+}
+.sp-up {
+  position: relative;
+  box-sizing: border-box;
+  max-height: calc(100vh - 32px);
+  overflow: hidden auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 32px 64px -24px rgba(9, 9, 11, 0.5);
+  -webkit-backdrop-filter: var(--sp-blur);
+  backdrop-filter: var(--sp-blur);
+  font-family: var(--sp-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  color: var(--sp-fg);
+}
+.sp-up button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.sp-up .sp-up-x {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--sp-muted);
+}
+.sp-up .sp-up-x:hover {
+  background: var(--sp-fill);
+  color: var(--sp-fg);
+}
+.sp-up-art {
+  position: relative;
+  height: 112px;
+  background: var(--sp-blue-50);
+  border-bottom: 1px solid var(--sp-blue-100);
+  overflow: hidden;
+}
+.sp-up-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(37, 99, 235, 0.18) 1px, transparent 1.3px);
+  background-size: 16px 16px;
+}
+.sp-up-pin {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px 9999px 9999px 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.sp-up-lock {
+  position: absolute;
+  left: 292px;
+  top: 22px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #09090b;
+  color: #fff;
+  border: 2px solid var(--sp-blue-50);
+}
+.sp-up-body {
+  padding: 24px 28px 28px;
+}
+.sp-up-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sp-fg);
+}
+.sp-up-desc {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sp-muted);
+}
+.sp-up-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.sp-up-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.sp-up-seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--sp-fill);
+}
+.sp-up .sp-up-seg-btn {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--sp-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.sp-up .sp-up-seg-btn[aria-pressed='true'] {
+  background: #fff;
+  color: var(--sp-fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.sp-up-save {
+  margin-left: 6px;
+  color: var(--sp-green-700);
+  font-size: 11px;
+}
+.sp-up-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.sp-up .sp-up-plan {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--sp-line);
+  border-radius: 10px;
+  background: #fff;
+  text-align: left;
+  color: var(--sp-fg);
+}
+.sp-up .sp-up-plan[data-active='false']:hover {
+  border-color: #d4d4d8;
+}
+.sp-up .sp-up-plan[data-active='true'] {
+  border-color: var(--sp-blue);
+  background: #f5f9ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.sp-up-radio {
+  flex: none;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 9999px;
+  border: 1.5px solid #a1a1aa;
+  background: #fff;
+}
+.sp-up-plan[data-active='true'] .sp-up-radio {
+  border: 5px solid var(--sp-blue);
+}
+.sp-up-plan-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sp-up-plan-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.sp-up-popular {
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: var(--sp-amber-800);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+.sp-up-plan-desc {
+  display: block;
+  margin-top: 4px;
+  color: var(--sp-body);
+  font-size: 13px;
+  line-height: 19px;
+}
+.sp-up-plan-price {
+  flex: none;
+  text-align: right;
+}
+.sp-up-price {
+  display: block;
+  font-family: var(--sp-mono);
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.sp-up-period {
+  display: block;
+  color: var(--sp-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+.sp-up-error {
+  margin: 10px 0 0;
+  color: var(--sp-red);
+  font-size: 12px;
+  line-height: 16px;
+}
+.sp-up .sp-up-cta {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin-top: 20px;
+  border-radius: 8px;
+  background: var(--sp-blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.9);
+}
+.sp-up .sp-up-cta:hover:not(:disabled) {
+  background: var(--sp-blue-700);
+}
+.sp-up .sp-up-cta:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.sp-up .sp-up-later {
+  display: block;
+  width: 100%;
+  height: 36px;
+  margin-top: 8px;
+  border-radius: 8px;
+  color: var(--sp-body);
+  font-size: 13px;
+  font-weight: 500;
+}
+.sp-up .sp-up-later:hover {
+  background: var(--sp-fill);
+  color: var(--sp-fg);
+}
+.sp-up .sp-up-plan:active:not(:disabled),
+.sp-up .sp-up-cta:active:not(:disabled),
+.sp-up .sp-up-later:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* ═════════════ Pins on the page ═════════════ */
+#annot-pin-layer .sp-pin-wrap {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+#annot-pin-layer .sp-pin-wrap:hover {
+  z-index: 2;
+}
+/* .annot-pin stays as the hook; every legacy gradient / pulse / tick is reset */
+#annot-pin-layer .annot-pin.sp-pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px 9999px 9999px 4px;
+  background: var(--sp-pc);
+  color: var(--sp-pfg);
+  font-family: var(--sp-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 30px;
+  opacity: 1;
+  overflow: visible;
+  pointer-events: auto;
+  box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--sp-pc) 60%, transparent);
+  outline: 0 solid transparent;
+  animation: spPinIn 200ms cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    outline-color 150ms ease;
+}
+@keyframes spPinIn {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+#annot-pin-layer .annot-pin.sp-pin::before,
+#annot-pin-layer .annot-pin.sp-pin::after,
+#annot-pin-layer .annot-pin.sp-pin.resolved::after {
+  content: none;
+  animation: none;
+}
+#annot-pin-layer .annot-pin.sp-pin:hover,
+#annot-pin-layer .annot-pin.sp-pin.resolved:hover {
+  transform: scale(1.08);
+  opacity: 1;
+  box-shadow: 0 8px 20px -4px color-mix(in srgb, var(--sp-pc) 70%, transparent);
+}
+#annot-pin-layer .annot-pin.sp-pin:active {
+  transform: scale(0.96);
+}
+#annot-pin-layer .annot-pin.sp-pin.active {
+  transform: none;
+  outline: 3px solid color-mix(in srgb, var(--sp-pc) 20%, transparent);
+}
+#annot-pin-layer .annot-pin.sp-pin:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+#annot-pin-layer .annot-pin.sp-pin.resolved {
+  border-radius: 9999px 9999px 9999px 4px;
+}
+#annot-pin-layer .sp-pin .annot-pin-dot {
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  background: var(--sp-red);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(9, 9, 11, 0.3);
+  animation: none;
+}
+
+/* Note bubble next to the pin (hover / keyboard focus) */
+#annot-pin-layer .sp-pin-note {
+  position: absolute;
+  left: 40px;
+  top: -2px;
+  z-index: 3;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--sp-line);
+  box-shadow: 0 12px 28px -12px rgba(15, 23, 42, 0.3);
+  -webkit-backdrop-filter: var(--sp-blur);
+  backdrop-filter: var(--sp-blur);
+  color: var(--sp-text);
+  font-family: var(--sp-font);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: left;
+  pointer-events: none;
+}
+#annot-pin-layer .sp-pin-note.flip {
+  left: auto;
+  right: 40px;
+}
+.sp-pin-note-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+  color: var(--sp-faint);
+  font-size: 11px;
+  line-height: 14px;
+}
+.sp-pin-note-author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sp-pin-note-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Preview of the pin being composed (outline + tag come from the overlays) */
+#annot-pin-layer .sp-draft-target {
+  position: fixed;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.sp-draft-pin {
+  position: absolute;
+  right: -18px;
+  top: -18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px 9999px 9999px 4px;
+  background: var(--sp-pc);
+  color: var(--sp-pfg);
+  font-family: var(--sp-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 30px;
+  box-shadow: var(--sp-shadow-pin);
+}
+
+/* ═════════════ Collab: peer cursors + "peer is annotating" marker ═════════════ */
+.collab-cursor .collab-cursor-label {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: var(--sp-font);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.collab-edit-box.sp-edit-box {
+  --sp-ec: #dc2626;
+  border-radius: 10px;
+  outline: 2px dashed var(--sp-ec);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--sp-ec) 8%, transparent);
+  box-shadow: none;
+  animation: spEditPulse 1.8s ease-in-out infinite;
+}
+@keyframes spEditPulse {
+  50% {
+    outline-color: color-mix(in srgb, var(--sp-ec) 45%, transparent);
+  }
+}
+.collab-edit-box.sp-edit-box .collab-edit-label {
+  bottom: calc(100% + 8px);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 1px solid var(--sp-border);
+  box-shadow: var(--sp-shadow-pin);
+  color: var(--sp-fg-2);
+  font-family: var(--sp-font);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+/* ═════════════ Motion ═════════════ */
+@media (prefers-reduced-motion: reduce) {
+  #annot-card.sp-an-card,
+  #annot-pin-layer .annot-pin.sp-pin,
+  .collab-edit-box.sp-edit-box {
+    animation: none;
+  }
+  #annot-card button,
+  #annot-pin-layer button,
+  .sp-up button,
+  #annot-card .sp-an-ta,
+  .sp-an-reply {
+    transition-duration: 0ms;
+  }
+  #annot-card button:active:not(:disabled),
+  .sp-up button:active:not(:disabled),
+  #annot-pin-layer .annot-pin.sp-pin:active,
+  #annot-pin-layer .annot-pin.sp-pin:hover,
+  #annot-card .sp-an-swatch:hover {
+    transform: none;
+  }
+  .sp-an-msg.is-new .sp-an-bubble {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.45);
+  }
+  .sp-an-post .annot-submit-spin {
+    animation-duration: 2s;
+  }
+}

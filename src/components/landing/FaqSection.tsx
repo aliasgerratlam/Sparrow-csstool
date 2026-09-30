@@ -1,118 +1,153 @@
 import { useState } from 'react'
-import { Plus, Minus } from 'lucide-react'
-import { Container } from './parts'
 import { cn } from '@/lib/format'
+import { Icon, LpContainer, SectionBadge, STACK } from './lp'
+
+const CONTACT_EMAIL = 'hello@trysparrowcss.com'
 
 const FAQS = [
   {
     q: 'What exactly is Sparrow?',
-    a: 'Sparrow is a browser extension that overlays a design toolkit on any webpage. You can inspect the CSS behind any element, measure spacing, extract colors, fonts, and assets, and pin feedback directly on the live page all without opening DevTools or taking a single screenshot.',
+    a: 'A browser extension that overlays a design toolkit on any webpage — inspect CSS, measure spacing, pull colors, fonts and assets, and pin feedback without DevTools or screenshots.',
   },
   {
-    q: 'Do I need a technical background to use it?',
-    a: 'No. Designers and clients use Sparrow without writing any code hovering shows you fonts, colors, and sizes in plain terms, and leaving feedback is just click and type. Developers get the deeper layers too: the full CSS cascade, Tailwind class detection, and copy-ready code.',
+    q: 'Do I need a technical background?',
+    a: 'No. Designers and clients hover to see fonts, colors and sizes in plain language; developers get the full CSS cascade and Tailwind detection.',
   },
   {
     q: 'Is there a free plan?',
-    a: "Yes, and it doesn't expire. Free includes the full CSS inspector, the ruler, the website color overview, 3 annotations per site per day, and share links that stay live for 24 hours. Paid plans add site-wide color and font swapping, asset downloads, color format switching, higher annotation limits, and longer-lived share links.",
+    a: 'Yes, and it doesn’t expire: CSS inspector, ruler, color overview, 3 annotations per site per day and 24-hour share links.',
   },
   {
     q: 'How much does a paid plan cost?',
-    a: 'Pro is $9/month ($90/year) and unlocks site-wide color and font swapping, asset downloads, color format switching, 10 annotations per site per day, and 30-day share links. Max is $19/month ($190/year) and adds unlimited annotations and share links that never expire. Paying yearly works out to two months free versus monthly.',
+    a: 'Pro is $9/month ($90/year) with 10 daily annotations and 30-day links. Max is $19/month ($190/year) with unlimited annotations and permanent links.',
   },
   {
-    q: 'Can I upgrade, downgrade, or cancel anytime?',
-    a: "Yes. You can switch between Free, Pro, and Max whenever you like, and manage everything — invoices, payment methods, cancellations — from your account portal. If you cancel, you keep your paid features until the end of the billing period you've already paid for, then drop back to Free automatically.",
+    q: 'Can I upgrade, downgrade or cancel anytime?',
+    a: 'Yes, from your account portal. Paid features stay active through the billing period.',
   },
   {
-    q: 'What happens to my annotations if I hit the plan limit?',
-    a: 'Annotation limits are per site and reset every 24 hours (3 a day on Free, 10 on Pro, unlimited on Max). Reaching the limit only pauses adding new pins on that site for the day, your existing annotations are always saved and stay fully editable and shareable.',
+    q: 'What if I hit my annotation limit?',
+    a: 'Limits reset daily. Hitting the cap only pauses new pins on that site — existing annotations stay saved and editable.',
   },
   {
-    q: 'Will Sparrow change or break the websites I use it on?',
-    a: 'Never. Everything Sparrow does — including recoloring a page or swapping its fonts is a local preview that only you see. The real website is untouched, and one click resets any experiment.',
+    q: 'Will Sparrow change the websites I use it on?',
+    a: 'Never. Everything Sparrow does is a local preview only you see. The real website is untouched.',
   },
   {
     q: 'How does sharing feedback work?',
-    a: "Pin your comments, click Share, and send the link. Anyone who opens it sees your annotations in place on the page and can reply or resolve items with live cursors when you're reviewing together. How long a link stays live depends on your plan — 24 hours on Free, 30 days on Pro, and never expiring on Max. Whatever happens to the link, your annotations are saved and you can mint a fresh one anytime.",
+    a: 'Pin comments, click Share and send the link. Recipients see annotations in context and collaborate live; link lifetime depends on your plan.',
   },
   {
     q: 'Can clients mess up my annotations?',
-    a: "No. People who join through your link enter Client Mode: they can comment, reply, and change an item's status, but they can't edit or delete your notes.",
+    a: 'No. Client Mode lets reviewers reply and change status, but not edit or delete your notes.',
   },
   {
-    q: 'Which sites and environments does it work on?',
-    a: "Any page your browser can open: live production sites, staging environments, and localhost. There's nothing to install on the website itself.",
+    q: 'Which sites does it work on?',
+    a: 'Any page your browser can open: production sites, staging environments and localhost.',
   },
   {
     q: 'Does it understand Tailwind CSS?',
-    a: 'Yes, When an element is styled with Tailwind utilities, Sparrow shows the class list separately from the rest of the CSS and lets you copy the classes in one click.',
+    a: 'Yes. Tailwind utilities are shown separately and copy in one click.',
   },
   {
-    q: 'I want to test my own brand font. Is uploading it safe?',
-    a: 'Yes, uploaded fonts are registered directly in your browser and are never sent to a server. They apply for your current session only.',
+    q: 'Is uploading my brand font safe?',
+    a: 'Yes. Uploaded fonts are registered in your browser and never sent to a server.',
   },
 ]
+
+function ContactLine({ className }: { className?: string }) {
+  return (
+    <p className={className}>
+      Still curious? Write to{' '}
+      <a
+        href={`mailto:${CONTACT_EMAIL}`}
+        className="text-lp-blue hover:text-lp-blue-700"
+      >
+        {CONTACT_EMAIL}
+      </a>{' '}
+      <span className="hidden lg:inline">and a human replies.</span>
+    </p>
+  )
+}
 
 export function FaqSection() {
   const [open, setOpen] = useState(0)
 
   return (
-    <section id="faq" aria-labelledby="faq-heading" className="py-16 md:py-24">
-      <Container className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
-        <h2
-          id="faq-heading"
-          className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-6xl"
+    <section
+      id="faq"
+      aria-labelledby="faq-heading"
+      className="mt-24 lg:mt-40"
+    >
+      <LpContainer>
+        <div
+          className={cn(
+            STACK,
+            'flex flex-col lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-16',
+          )}
         >
-          Questions?<br className="hidden md:block" />{' '}
-          <span className="hl-word text-sparrow-blue font-pacifico">Answered</span>.
-        </h2>
+          <div className="flex flex-col items-center lg:items-start">
+            <SectionBadge>FAQ</SectionBadge>
+            <h2
+              id="faq-heading"
+              className="mt-3.5 text-center text-[32px] leading-[38px] font-semibold tracking-[-0.03em] text-lp-ink md:text-[40px] md:leading-[48px] lg:mt-4 lg:text-left lg:text-5xl lg:leading-[56px]"
+            >
+              Questions, answered
+            </h2>
+            <ContactLine className="mt-4 hidden text-base leading-6 text-lp-body lg:block" />
+          </div>
 
-        <div className="flex flex-col gap-3">
-          {FAQS.map((item, i) => {
-            const isOpen = open === i
-            return (
-              <div
-                key={item.q}
-                className={cn(
-                  'overflow-hidden rounded-[15px] bg-white',
-                  isOpen
-                    ? 'border-[3px] border-dashed border-sparrow-blue'
-                    : 'ring-1 ring-black/5',
-                )}
-              >
-                <button
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-controls={`faq-panel-${i}`}
-                  onClick={() => setOpen(isOpen ? -1 : i)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left font-abeezee text-lg font-medium text-black"
-                >
-                  <span>{item.q}</span>
-                  {isOpen ? (
-                    <Minus className="size-6 shrink-0 text-sparrow-blue" />
-                  ) : (
-                    <Plus className="size-6 shrink-0 text-sparrow-ink/60" />
-                  )}
-                </button>
+          <div className="mt-7 flex flex-col gap-2 lg:mt-0 lg:gap-2.5">
+            {FAQS.map((item, i) => {
+              const isOpen = open === i
+              return (
                 <div
-                  id={`faq-panel-${i}`}
+                  key={item.q}
                   className={cn(
-                    'grid transition-all duration-200',
-                    isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+                    'lp-glass rounded-xl border border-white/90 shadow-[0_6px_20px_-12px_rgba(30,64,175,0.3)] transition-colors duration-150',
+                    isOpen ? 'bg-white/80' : 'bg-white/55',
                   )}
                 >
-                  <div className="overflow-hidden">
-                    <p className="px-5 pb-5 font-abeezee text-base leading-relaxed text-sparrow-ink/70">
-                      {item.a}
-                    </p>
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={`faq-panel-${i}`}
+                    onClick={() => setOpen(isOpen ? -1 : i)}
+                    className="lp-btn flex min-h-14 w-full items-center justify-between gap-3 border-0 bg-transparent py-3 pr-3.5 pl-4 text-left text-[15px] leading-[21px] font-medium text-lp-ink lg:gap-4 lg:px-5 lg:text-base"
+                  >
+                    <span>{item.q}</span>
+                    <span
+                      className={cn(
+                        'flex size-[26px] shrink-0 items-center justify-center rounded-full transition-[rotate,background-color] duration-200 lg:size-7',
+                        isOpen
+                          ? 'rotate-45 bg-lp-blue text-white'
+                          : 'bg-lp-blue/10 text-lp-blue-700',
+                      )}
+                    >
+                      <Icon name="plus" size={14} strokeWidth={2.5} />
+                    </span>
+                  </button>
+                  <div
+                    id={`faq-panel-${i}`}
+                    className={cn(
+                      'grid transition-[grid-template-rows] duration-200',
+                      isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+                    )}
+                  >
+                    <div className="overflow-hidden">
+                      <p className="px-4 pb-4 text-sm leading-[22px] text-lp-body lg:pr-16 lg:pl-5 lg:pb-5 lg:text-[15px] lg:leading-6">
+                        {item.a}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+
+          <ContactLine className="mt-5 text-center text-sm leading-[22px] text-lp-body lg:hidden" />
         </div>
-      </Container>
+      </LpContainer>
     </section>
   )
 }

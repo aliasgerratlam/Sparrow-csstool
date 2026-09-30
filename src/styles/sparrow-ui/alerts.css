@@ -1,0 +1,1079 @@
+/* ─── Notifications, alerts, toasts, banners, review sidebar, share dialog ───
+   Design board: "Notifications & alerts" (Alerts.dc.html). The review sidebar,
+   share dialog and bell popover have no board of their own, so they reuse the
+   same panel recipe (tokens.css): var(--sp-panel), 18px radius, hairline
+   border, big soft shadow, pill buttons, system-ui, mono chips, round avatars.
+
+   Loaded AFTER src/index.css, so equal-specificity rules here win. Where a
+   legacy rule is more specific (ids / compound selectors / :hover variants) the
+   selector below is deliberately out-ranked — notes inline. Sizes are px only:
+   the extension rewrites rem → px when it injects this file into its shadow
+   root, and `:root` becomes `:host`. */
+
+:root {
+  --sp-shadow-toast: 0 18px 36px -18px rgba(15, 23, 42, 0.35);
+  --sp-amber-50: #fef3c7;
+  --sp-amber-700: #b45309;
+  --sp-red-50: #fee2e2;
+  --sp-red-200: #fecaca;
+  --sp-ring: 2px solid var(--sp-blue);
+}
+
+@keyframes sp-toast-count {
+  from { background-size: 100% 3px, auto; }
+  to   { background-size: 0 3px, auto; }
+}
+@keyframes sp-alert-spin { to { transform: rotate(360deg); } }
+.annot-spin { animation: sp-alert-spin 0.9s linear infinite; }
+
+/* Shared focus ring (2px blue, offset 2px) for every control in this surface. */
+:is(#annot-sidebar, .annot-notif-pop, .annot-share-dialog, .sp-toast, .annot-client-banner)
+  :is(button, a, input, summary, [tabindex]):focus-visible {
+  outline: var(--sp-ring);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════ TOASTS (sonner) ═══════════════════════════
+   Sonner runs `unstyled` (see components/ui/sonner.tsx); `.sp-toast*` classes
+   are applied by its classNames. Layout is a 2-col grid: [icon tile | content],
+   with the optional action button on row 2 under the text, like the board. */
+[data-sonner-toaster] { font-family: var(--sp-font); }
+
+[data-sonner-toast].sp-toast {
+  --tone-bg: var(--sp-blue-50);
+  --tone-fg: var(--sp-blue);
+  --tone-border: var(--sp-line);
+  position: absolute;
+  box-sizing: border-box;
+  width: var(--width);
+  max-width: calc(100vw - 32px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  padding: 12px 50px 12px 14px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--tone-border);
+  border-radius: 12px;
+  box-shadow: var(--sp-shadow-toast);
+  color: var(--sp-fg);
+  font: 400 13px/18px var(--sp-font);
+  overflow: hidden;
+}
+[data-sonner-toast].sp-toast:focus-visible {
+  outline: var(--sp-ring);
+  outline-offset: 2px;
+  box-shadow: var(--sp-shadow-toast);
+}
+/* Collapsed stack: hide the content of toasts tucked behind the front one
+   (sonner only does this for its own `data-styled` skin). */
+[data-sonner-toast].sp-toast[data-expanded='false'][data-front='false'] > * { opacity: 0; }
+
+[data-sonner-toast].sp-toast[data-type='success'] {
+  --tone-bg: var(--sp-green-50);
+  --tone-fg: var(--sp-green-700);
+  /* countdown bar: a 3px gradient strip whose width animates 100% → 0 over the
+     toast's 5s life (Toaster duration). Paused while the stack is hovered,
+     which is also when sonner pauses its own timer. */
+  background:
+    linear-gradient(var(--sp-green), var(--sp-green)) 0 100% / 100% 3px no-repeat,
+    rgba(255, 255, 255, 0.95);
+  animation: sp-toast-count 5s linear forwards;
+}
+[data-sonner-toaster]:hover [data-sonner-toast].sp-toast[data-type='success'] {
+  animation-play-state: paused;
+}
+[data-sonner-toast].sp-toast[data-type='warning'] {
+  --tone-bg: var(--sp-amber-50);
+  --tone-fg: var(--sp-amber-700);
+  --tone-border: #fde68a;
+}
+[data-sonner-toast].sp-toast[data-type='error'] {
+  --tone-bg: var(--sp-red-50);
+  --tone-fg: var(--sp-red);
+  --tone-border: var(--sp-red-200);
+}
+/* Annotation-cap toast (annotation-ui-context): legacy index.css gave it a rose
+   gradient + red ledge CTA at (0,2,0)/(0,3,0). Re-toned here as the board's
+   warning card; selectors below are (0,3,0)+ so they out-rank the legacy ones. */
+[data-sonner-toast].sp-toast.annot-limit-toast {
+  --tone-bg: var(--sp-amber-50);
+  --tone-fg: var(--sp-amber-700);
+  --tone-border: #fde68a;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--sp-fg);
+}
+
+[data-sonner-toast].sp-toast .sp-toast-icon {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  width: 32px;
+  height: 32px;
+  margin: 0 12px 0 0;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  border-radius: 8px;
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+}
+[data-sonner-toast].sp-toast .sp-toast-icon svg { display: block; width: 16px; height: 16px; }
+
+[data-sonner-toast].sp-toast .sp-toast-content {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+[data-sonner-toast].sp-toast .sp-toast-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+[data-sonner-toast].sp-toast .sp-toast-desc {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--sp-muted);
+}
+
+/* Text-link actions under the copy (board: "Open link", "View pin", "Upgrade"). */
+[data-sonner-toast].sp-toast .sp-toast-action,
+[data-sonner-toast].sp-toast .sp-toast-cancel,
+[data-sonner-toast].sp-toast .annot-upgrade-btn {
+  grid-column: 2;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  margin: 8px 0 0 -8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  color: var(--sp-blue);
+  font: 500 13px/16px var(--sp-font);
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+[data-sonner-toast].sp-toast .sp-toast-cancel { color: var(--sp-text); }
+[data-sonner-toast].sp-toast .sp-toast-action:hover,
+[data-sonner-toast].sp-toast .annot-upgrade-btn:hover {
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+[data-sonner-toast].sp-toast .sp-toast-cancel:hover { background: var(--sp-fill); color: var(--sp-fg); }
+[data-sonner-toast].sp-toast .sp-toast-action:active,
+[data-sonner-toast].sp-toast .sp-toast-cancel:active,
+[data-sonner-toast].sp-toast .annot-upgrade-btn:active {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+/* Dismiss: 28px ghost square, pinned to the top-right like the board. */
+[data-sonner-toast].sp-toast .sp-toast-close {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  left: auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-faint);
+  cursor: pointer;
+  transform: none;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+[data-sonner-toast].sp-toast .sp-toast-close:hover { background: var(--sp-fill); color: var(--sp-fg); }
+[data-sonner-toast].sp-toast .sp-toast-close:active { transform: scale(0.97); }
+[data-sonner-toast].sp-toast .sp-toast-close:focus-visible { outline: var(--sp-ring); outline-offset: 2px; }
+
+/* ═════════════════ COLLAB SNACKBARS (join / leave / notices) ═════════════════
+   The board's dark pills, docked just above the bottom bar. Legacy index.css
+   set nowrap + navy + Plus Jakarta; everything is re-stated here. */
+.collab-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  z-index: 999995;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  font-family: var(--sp-font);
+}
+.collab-toast {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: var(--sp-tip);
+  color: var(--sp-tip-fg);
+  font: 400 13px/18px var(--sp-font);
+  white-space: normal;
+  box-shadow: 0 16px 32px -14px rgba(9, 9, 11, 0.6);
+}
+.collab-toast svg { flex: none; color: #93c5fd; }
+
+/* ═════════════════════════ TOP BANNERS (client / ended) ═════════════════════════
+   Board notice recipe (blue tint + round white icon chip, as in the thread's
+   "Client Mode on" row), docked across the top. Page offset is still done by
+   useBodyTopInset, untouched. */
+.annot-client-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999992;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px 16px;
+  background: rgba(239, 246, 255, 0.96);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--sp-blue-100);
+  box-shadow: 0 12px 24px -18px rgba(15, 23, 42, 0.35);
+  color: #1e3a8a;
+  font: 400 13px/18px var(--sp-font);
+  text-align: left;
+}
+.annot-client-banner .annot-banner-icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-blue);
+}
+.annot-client-banner .annot-banner-text { min-width: 0; }
+.annot-client-banner b { font-weight: 600; }
+.annot-client-banner.annot-session-ended {
+  background: rgba(254, 242, 242, 0.97);
+  border-bottom-color: var(--sp-red-200);
+  color: #7f1d1d;
+}
+.annot-client-banner.annot-session-ended .annot-banner-icon { color: var(--sp-red); }
+
+/* ═══════════════════════ NOTIFICATION BELL POPOVER ═══════════════════════ */
+.annot-notif-pop {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 999996;
+  box-sizing: border-box;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  color: var(--sp-fg);
+  font: 400 14px/20px var(--sp-font);
+  /* the bottom bar (our ancestor) sets nowrap + its own glass */
+  white-space: normal;
+  text-align: left;
+  /* Nested in the bar's backdrop root, so a blur here has nothing to sample
+     (page content would ghost through) — hence a near-opaque fill instead of
+     var(--sp-panel) + blur. */
+  background: rgba(255, 255, 255, 0.99);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-r-panel);
+  box-shadow: var(--sp-shadow-panel);
+  overflow: hidden;
+}
+.annot-notif-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 10px 16px;
+  border-bottom: 1px solid var(--sp-line-soft);
+}
+.annot-notif-title { font-size: 14px; line-height: 20px; font-weight: 600; }
+.annot-notif-unread {
+  height: 20px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background: var(--sp-blue-50);
+  color: var(--sp-blue-700);
+  font-size: 11px;
+  font-weight: 500;
+}
+.annot-notif-mark {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-blue);
+  font: 500 12px/16px var(--sp-font);
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+.annot-notif-mark:hover { background: rgba(37, 99, 235, 0.08); }
+.annot-notif-mark:active { transform: scale(0.96); }
+
+.annot-notif-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+  gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(9, 9, 11, 0.18) transparent;
+}
+.annot-notif-item {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.annot-notif-item:last-child { border-bottom: 0; }
+.annot-notif-item:hover { background: var(--sp-fill); }
+.annot-notif-item.is-unread { background: rgba(37, 99, 235, 0.06); }
+.annot-notif-item.is-unread:hover { background: rgba(37, 99, 235, 0.1); }
+/* legacy drew a 2px left rail on unread rows (0,3,1) — the tint + dot replace it */
+.annot-notif-item.is-unread::before { content: none; }
+.annot-notif-item:focus-visible {
+  outline: var(--sp-ring);
+  outline-offset: -2px;
+}
+
+.annot-notif-av { position: relative; width: 32px; height: 32px; flex: none; }
+.annot-notif-pop .annot-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  border: 0;
+  box-shadow: none;
+  color: hsl(var(--av-h, 220) 60% 22%);
+  background: hsl(var(--av-h, 220) 90% 86%);
+}
+.annot-notif-kind {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px 9999px 9999px 2px;
+  background: var(--sp-blue);
+  border: 2px solid #fff;
+  color: #fff;
+}
+.annot-notif-kind svg { width: 8px; height: 8px; }
+.annot-notif-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0; }
+.annot-notif-line { font-size: 14px; line-height: 20px; color: var(--sp-fg); }
+.annot-notif-line strong { font-weight: 600; color: var(--sp-fg); }
+.annot-notif-ref {
+  font-family: var(--sp-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sp-blue);
+}
+.annot-notif-text {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.annot-notif-meta {
+  flex: none;
+  padding-top: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  color: var(--sp-faint);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+/* unread count on the bell: same badge as the Review button's, red = "unread" */
+#scanner-notif-btn .scanner-notif-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  background: var(--sp-red);
+  color: #ffffff;
+  font: 700 9px/1 var(--sp-font);
+}
+.annot-notif-dot {
+  position: static;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+}
+.annot-notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 24px 30px;
+  text-align: center;
+  color: var(--sp-muted);
+}
+.annot-notif-empty-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--sp-fill);
+  color: var(--sp-icon);
+}
+.annot-notif-empty span { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--sp-fg); }
+.annot-notif-empty .annot-notif-empty-icon { color: var(--sp-icon); }
+.annot-notif-empty small { max-width: 240px; font-size: 13px; line-height: 18px; color: var(--sp-muted); }
+
+/* ═══════════════════════════ REVIEW SIDEBAR ═══════════════════════════
+   Floating panel (not a full-bleed drawer): same recipe as the thread card.
+   `#annot-sidebar` rules are (1,0,0) like the legacy ones and come later. */
+#annot-sidebar {
+  top: 12px;
+  right: 12px;
+  bottom: 88px;
+  height: auto;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--sp-fg);
+  font: 400 14px/20px var(--sp-font);
+  background: var(--sp-panel);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-r-panel);
+  box-shadow: var(--sp-shadow-panel);
+  transform: translateX(8px);
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+#annot-sidebar.open { transform: none; }
+/* the client / session-ended banner is a sibling rendered before the sidebar:
+   drop the panel below it instead of overlapping its right end */
+.annot-client-banner ~ #annot-sidebar { top: 60px; }
+
+#annot-sidebar .annot-sb-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px 10px 16px;
+  border-bottom: 0;
+}
+#annot-sidebar .annot-sb-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+#annot-sidebar .annot-sb-close {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  color: var(--sp-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+#annot-sidebar .annot-sb-close:hover { background: var(--sp-fill); color: var(--sp-fg); }
+#annot-sidebar .annot-sb-close:active { transform: scale(0.96); }
+
+/* counts → three quiet pills (same tints as the status pills below) */
+#annot-sidebar .annot-sb-counts { gap: 8px; margin: 0; padding: 2px 16px 12px; }
+#annot-sidebar .annot-stat {
+  height: 32px;
+  padding: 0;
+  gap: 6px;
+  align-items: center;
+  border-radius: 9999px;
+}
+#annot-sidebar .annot-stat b {
+  font-size: 14px;
+  line-height: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+#annot-sidebar .annot-stat span {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#annot-sidebar .annot-stat.total { background: var(--sp-fill); }
+#annot-sidebar .annot-stat.total b, #annot-sidebar .annot-stat.total span { color: var(--sp-fg-2); }
+#annot-sidebar .annot-stat.open { background: var(--sp-blue-50); }
+#annot-sidebar .annot-stat.open b, #annot-sidebar .annot-stat.open span { color: var(--sp-blue-700); }
+#annot-sidebar .annot-stat.resolved { background: var(--sp-green-50); }
+#annot-sidebar .annot-stat.resolved b, #annot-sidebar .annot-stat.resolved span { color: var(--sp-green-700); }
+
+/* search + filter */
+#annot-sidebar .annot-sb-filters { gap: 8px; padding: 0 16px 12px; }
+#annot-sidebar .annot-sb-search-icon { left: 14px; color: var(--sp-faint); }
+#annot-sidebar .annot-sb-filters input {
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-fg);
+  font: 400 14px/20px var(--sp-font);
+  box-shadow: none;
+  outline: none;
+}
+#annot-sidebar .annot-sb-filters input::placeholder { color: var(--sp-faint); }
+#annot-sidebar .annot-sb-filters input:focus { border-color: var(--sp-blue-200); background: #fff; box-shadow: none; }
+#annot-sidebar .annot-sb-filters input:focus-visible { outline: var(--sp-ring); outline-offset: 2px; }
+#annot-sidebar .annot-filter-trigger {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-icon);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+#annot-sidebar .annot-filter-trigger:hover { background: var(--sp-fill); color: var(--sp-fg); }
+#annot-sidebar .annot-filter-trigger:active { transform: scale(0.96); }
+#annot-sidebar .annot-filter-trigger.is-active {
+  background: var(--sp-blue-50);
+  border-color: var(--sp-blue-200);
+  color: var(--sp-blue);
+}
+#annot-sidebar .annot-filter-menu {
+  top: calc(100% + 8px);
+  min-width: 204px;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  padding: 6px;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--sp-border);
+  border-radius: 14px;
+  box-shadow: var(--sp-shadow-panel);
+  scrollbar-width: thin;
+}
+#annot-sidebar .annot-filter-opt {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--sp-fg);
+  font: 400 13px/18px var(--sp-font);
+  transition: background-color 150ms ease;
+}
+#annot-sidebar .annot-filter-opt:hover { background: var(--sp-fill); }
+#annot-sidebar .annot-filter-opt.is-selected { color: var(--sp-blue); font-weight: 600; }
+#annot-sidebar .annot-filter-opt:focus-visible { outline: var(--sp-ring); outline-offset: -2px; }
+#annot-sidebar .annot-filter-section-label {
+  padding: 8px 10px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sp-muted);
+}
+#annot-sidebar .annot-filter-section-label:not(:first-child) {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sp-line-soft);
+}
+
+/* re-link notice = the board's blue notice row */
+#annot-sidebar .annot-relink-banner {
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--sp-blue-50);
+  border: 1px solid var(--sp-blue-100);
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+#annot-sidebar .annot-relink-banner svg { color: var(--sp-blue); }
+#annot-sidebar .annot-relink-cancel {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--sp-blue-200);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-blue-700);
+  font: 500 12px/16px var(--sp-font);
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+#annot-sidebar .annot-relink-cancel:hover { background: var(--sp-blue-100); }
+#annot-sidebar .annot-relink-cancel:active { transform: scale(0.96); }
+
+/* list */
+#annot-sidebar .annot-sb-list,
+#annot-sidebar .annot-sb-orphan-list {
+  min-height: 0;
+  padding: 0 16px 16px;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(9, 9, 11, 0.18) transparent;
+}
+#annot-sidebar .annot-sb-orphan-list { overflow: visible; }
+/* no resolvable rows → let the orphan block take the space instead of the gap */
+#annot-sidebar .annot-sb-list:empty { flex: 0 0 0; padding: 0; }
+#annot-sidebar .annot-sb-list:empty + .annot-sb-orphan-wrap {
+  flex: 1 1 auto;
+  max-height: none;
+  padding-top: 0;
+  border-top: 0;
+}
+#annot-sidebar .annot-li {
+  gap: 12px;
+  padding: 12px 8px 12px 12px;
+  border: 1px solid var(--sp-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+#annot-sidebar .annot-li:hover {
+  background: #fff;
+  border-color: #d4d4d8;
+  box-shadow: 0 12px 24px -16px rgba(15, 23, 42, 0.3);
+}
+#annot-sidebar .annot-li:focus-visible { outline: var(--sp-ring); outline-offset: 2px; }
+#annot-sidebar .annot-li-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px 9999px 9999px 3px;
+  background: var(--sp-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+#annot-sidebar .annot-li-num.resolved { background: var(--sp-green); }
+#annot-sidebar .annot-li-comment {
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--sp-fg);
+}
+#annot-sidebar .annot-li-meta { gap: 8px; }
+#annot-sidebar .annot-li .annot-badge {
+  height: 22px;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* the status dot is currentColor (legacy hard-coded amber/emerald) */
+#annot-sidebar .annot-li .annot-badge::before { background: currentColor; }
+#annot-sidebar .annot-li .annot-badge.st-open { background: var(--sp-blue-50); color: var(--sp-blue-700); }
+#annot-sidebar .annot-li .annot-badge.st-resolved { background: var(--sp-green-50); color: var(--sp-green-700); }
+#annot-sidebar .annot-li-date {
+  gap: 4px;
+  font: 400 12px/16px var(--sp-font);
+  color: var(--sp-faint);
+}
+/* legacy injected a clock emoji via ::before — the JSX now renders an SVG */
+#annot-sidebar .annot-li-date::before { content: none; margin: 0; }
+#annot-sidebar .annot-li-author { font-size: 12px; line-height: 16px; color: var(--sp-muted); }
+
+/* reply preview = the thread's chat bubbles */
+#annot-sidebar .annot-li-replies { margin-top: 10px; }
+#annot-sidebar .annot-li-replies > summary {
+  height: 24px;
+  padding: 0 10px;
+  gap: 6px;
+  border: 0;
+  background: var(--sp-blue-50);
+  color: var(--sp-blue-700);
+  font: 500 12px/16px var(--sp-font);
+  transition: background-color 150ms ease;
+}
+#annot-sidebar .annot-li-replies > summary:hover { background: var(--sp-blue-100); border: 0; }
+#annot-sidebar .annot-li-reply-list { gap: 10px; margin-top: 10px; }
+#annot-sidebar .annot-li-reply-list::before { display: none; }
+#annot-sidebar .annot-li-reply { align-items: flex-end; gap: 8px; }
+#annot-sidebar .annot-avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  border: 0;
+  box-shadow: none;
+  color: hsl(var(--av-h, 220) 60% 22%);
+  background: hsl(var(--av-h, 220) 90% 86%);
+}
+#annot-sidebar .annot-li-reply-bubble {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--sp-fill);
+  box-shadow: none;
+}
+#annot-sidebar .annot-li-reply-head { align-items: center; gap: 6px; margin-bottom: 2px; }
+#annot-sidebar .annot-li-reply-head strong { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--sp-fg); }
+#annot-sidebar .annot-li-reply-date {
+  margin-left: 0;
+  font: 400 11px/16px var(--sp-font);
+  color: var(--sp-faint);
+}
+#annot-sidebar .annot-li-reply-msg { font-size: 13px; line-height: 18px; color: var(--sp-fg-2); }
+
+/* row actions = 32px ghost circles */
+#annot-sidebar .annot-li-actions { gap: 2px; }
+#annot-sidebar .annot-li-action,
+#annot-sidebar .annot-li-del {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  color: var(--sp-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+#annot-sidebar .annot-li-action:active,
+#annot-sidebar .annot-li-del:active { transform: scale(0.94); }
+#annot-sidebar .annot-li-action:hover { background: var(--sp-fill); color: var(--sp-fg); }
+#annot-sidebar .annot-li-action.edit:hover,
+#annot-sidebar .annot-li-action.reopen:hover,
+#annot-sidebar .annot-li-action.relink:hover { background: var(--sp-blue-50); color: var(--sp-blue); }
+#annot-sidebar .annot-li-action.resolve:hover { background: var(--sp-green-50); color: var(--sp-green-700); }
+#annot-sidebar .annot-li-del:hover { background: var(--sp-red-50); color: var(--sp-red); }
+#annot-sidebar .annot-li-action.edit,
+#annot-sidebar .annot-li-action.reopen,
+#annot-sidebar .annot-li-action.relink,
+#annot-sidebar .annot-li-action.resolve,
+#annot-sidebar .annot-li-del { color: var(--sp-muted); }
+
+/* orphans */
+#annot-sidebar .annot-sb-orphan-wrap {
+  flex: 0 1 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--sp-line-soft);
+}
+#annot-sidebar .annot-sb-orphan-title {
+  padding: 0 16px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sp-amber-700);
+}
+#annot-sidebar .annot-empty {
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-muted);
+}
+#annot-sidebar .annot-empty svg { opacity: 0.6; }
+
+/* ═════════════════════ SHARE DIALOG + CROSS-DOMAIN DIALOG ═════════════════════
+   Shell unchanged (Radix content is transparent, the panel is ours). The
+   backdrop is set inline from the components so it also paints in the
+   extension's shadow root. */
+.annot-share-dialog {
+  box-sizing: border-box;
+  width: 480px;
+  max-width: 92vw;
+  padding: 20px;
+  color: var(--sp-fg);
+  font: 400 14px/20px var(--sp-font);
+  background: var(--sp-panel);
+  backdrop-filter: var(--sp-blur);
+  -webkit-backdrop-filter: var(--sp-blur);
+  border: 1px solid var(--sp-border);
+  border-radius: var(--sp-r-panel);
+  box-shadow: var(--sp-shadow-panel);
+}
+.annot-share-dialog .annot-share-head { align-items: center; gap: 12px; margin-bottom: 14px; }
+.annot-share-dialog .annot-share-ico {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--sp-blue-50);
+  color: var(--sp-blue);
+}
+.annot-share-dialog .annot-share-ico.is-warn { background: var(--sp-amber-50); color: var(--sp-amber-700); }
+.annot-share-dialog h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sp-fg);
+}
+.annot-share-dialog p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sp-muted);
+}
+.annot-share-dialog p b { font-weight: 600; color: var(--sp-fg); }
+.annot-share-dialog .annot-share-x {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--sp-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+.annot-share-dialog .annot-share-x:hover { background: var(--sp-fill); color: var(--sp-fg); }
+.annot-share-dialog .annot-share-x:active { transform: scale(0.96); }
+
+.annot-share-dialog .annot-share-row { align-items: center; gap: 8px; }
+#annot-share-url {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--sp-fg);
+  font: 400 12px/16px var(--sp-mono);
+  box-shadow: none;
+  outline: none;
+}
+#annot-share-url:focus { border-color: var(--sp-blue-200); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+#annot-share-url:focus-visible { outline: var(--sp-ring); outline-offset: 2px; }
+
+.annot-share-dialog .annot-share-copy,
+.annot-share-dialog .annot-crossdomain-actions .annot-share-copy {
+  height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: var(--sp-blue);
+  color: #fff;
+  font: 500 13px/16px var(--sp-font);
+  white-space: nowrap;
+  box-shadow: var(--sp-shadow-cta);
+  filter: none;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease,
+    box-shadow 150ms ease, transform 100ms ease;
+}
+.annot-share-dialog .annot-share-copy:hover { background: var(--sp-blue-700); filter: none; color: #fff; }
+.annot-share-dialog .annot-share-copy:active { transform: scale(0.97); }
+.annot-share-dialog .annot-share-copy[data-state='ok'],
+.annot-share-dialog .annot-share-copy[data-state='ok']:hover {
+  background: var(--sp-green-50);
+  border-color: #bbf7d0;
+  color: var(--sp-green-700);
+  box-shadow: none;
+}
+.annot-share-dialog .annot-share-copy[data-state='fail'],
+.annot-share-dialog .annot-share-copy[data-state='fail']:hover {
+  background: #fef2f2;
+  border-color: var(--sp-red-200);
+  color: #b91c1c;
+  box-shadow: none;
+}
+
+/* notices (blue = plan nudge, amber = degraded lifetime) */
+.annot-share-dialog .annot-share-warn {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--sp-blue-100);
+  border-radius: 12px;
+  background: var(--sp-blue-50);
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.annot-share-dialog .annot-share-warn.over {
+  flex-wrap: nowrap;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+.annot-share-dialog .annot-share-warn svg { flex: none; margin-top: 1px; }
+
+.annot-share-dialog .annot-share-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sp-blue);
+  font: 500 12px/16px var(--sp-font);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+.annot-share-dialog .annot-share-new:hover { background: rgba(37, 99, 235, 0.08); color: var(--sp-blue-700); }
+.annot-share-dialog .annot-share-new:active { transform: scale(0.97); }
+.annot-share-dialog .annot-share-new:disabled { opacity: 0.6; cursor: default; }
+
+.annot-share-dialog .annot-share-steps {
+  margin-top: 16px;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--sp-fill);
+}
+.annot-share-dialog .annot-share-steps h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+.annot-share-dialog .annot-share-steps li {
+  padding-left: 28px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-body);
+}
+.annot-share-dialog .annot-share-steps li + li { margin-top: 8px; }
+.annot-share-dialog .annot-share-steps li b { font-weight: 600; color: var(--sp-fg); }
+.annot-share-dialog .annot-share-steps li::before {
+  top: 0;
+  width: 18px;
+  height: 18px;
+  background: var(--sp-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.annot-share-dialog .annot-share-foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sp-line-soft);
+}
+.annot-share-dialog .annot-share-foot .annot-share-new {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: #18181b;
+}
+.annot-share-dialog .annot-share-foot .annot-share-new:hover { background: var(--sp-fill); color: var(--sp-fg); }
+
+.annot-share-dialog .annot-crossdomain-actions { gap: 8px; margin-top: 4px; }
+.annot-share-dialog .annot-crossdomain-secondary {
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--sp-line);
+  border-radius: 9999px;
+  background: #fff;
+  color: #18181b;
+  font: 500 13px/16px var(--sp-font);
+  box-shadow: none;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+.annot-share-dialog .annot-crossdomain-secondary:hover { background: var(--sp-fill); border-color: #d4d4d8; box-shadow: none; }
+.annot-share-dialog .annot-crossdomain-secondary:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toast].sp-toast[data-type='success'] {
+    animation: none;
+    background: rgba(255, 255, 255, 0.95);
+  }
+  .annot-spin { animation: none; }
+  .collab-toast, .annot-notif-pop { animation: none; }
+  #annot-sidebar { transition: none; transform: none; }
+  .annot-share-dialog .annot-share-copy,
+  .annot-share-dialog .annot-share-x,
+  .annot-share-dialog .annot-share-new,
+  .annot-notif-mark,
+  [data-sonner-toast].sp-toast .sp-toast-action,
+  [data-sonner-toast].sp-toast .sp-toast-close,
+  #annot-sidebar .annot-sb-close,
+  #annot-sidebar .annot-filter-trigger,
+  #annot-sidebar .annot-li-action,
+  #annot-sidebar .annot-li-del { transition-duration: 0ms; transform: none; }
+}

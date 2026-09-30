@@ -1,5 +1,14 @@
-import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Check, Search, Trash2, Upload } from 'lucide-react'
+import {
+  memo,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
+import { Trash2 } from 'lucide-react'
 import {
   addCustomFont,
   getCustomFonts,
@@ -23,8 +32,8 @@ import type { ReplacementFont } from '@/lib/site-refont'
    visible rows mount, and each mounted row lazy-loads a tiny name-subset
    stylesheet after a short dwell so its label renders in its own typeface. */
 
-const ROW_H = 34
-const LIST_H = 230
+const ROW_H = 42 // 40px option + 2px gap (Fonts board)
+const LIST_H = 252 // six options visible, the rest scroll
 const OVERSCAN = 4
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -33,6 +42,34 @@ const CATEGORY_LABELS: Record<string, string> = {
   display: 'Display',
   handwriting: 'Handwriting',
   monospace: 'Monospace',
+}
+
+/* Stroke icons copied from the Fonts board (24px grid). */
+function Icon({
+  size,
+  width = 2,
+  children,
+}: {
+  size: number
+  width?: number
+  children: ReactNode
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  )
 }
 
 const PickerRow = memo(function PickerRow({
@@ -58,20 +95,25 @@ const PickerRow = memo(function PickerRow({
   return (
     <button
       type="button"
-      className={'sfont-item' + (active ? ' active' : '')}
+      role="option"
+      aria-selected={active}
+      className={'sfp-item' + (active ? ' active' : '')}
       style={{ top }}
       disabled={disabled}
       onClick={() => onPick(font)}
       title={`Replace with ${font.family}`}
     >
-      <span className="sfont-item-name" style={{ fontFamily: `"${font.family}"` }}>
+      <span className="sfp-item-name" style={{ fontFamily: `"${font.family}"` }}>
         {font.family}
       </span>
-      {active ? (
-        <Check size={13} aria-hidden="true" />
-      ) : (
-        <span className="sfont-item-cat">{CATEGORY_LABELS[font.category] ?? font.category}</span>
-      )}
+      <span className="sfp-item-cat">{CATEGORY_LABELS[font.category] ?? font.category}</span>
+      <span className="sfp-item-check">
+        {active && (
+          <Icon size={16} width={2.5}>
+            <path d="M5 12l5 5L20 7" />
+          </Icon>
+        )}
+      </span>
     </button>
   )
 })
@@ -90,31 +132,35 @@ const CustomFontRow = memo(function CustomFontRow({
   onPick: (f: CustomFont) => void
 }) {
   return (
-    <div className={'sfont-custom-row' + (active ? ' active' : '')}>
+    <div className={'sfp-custom-row' + (active ? ' active' : '')}>
       <button
         type="button"
-        className="sfont-custom-pick"
+        className="sfp-custom-pick"
+        aria-pressed={active}
         disabled={disabled}
         onClick={() => onPick(font)}
         title={`Replace with ${font.family}`}
       >
-        <span className="sfont-item-name" style={{ fontFamily: `"${font.family}"` }}>
+        <span className="sfp-item-name" style={{ fontFamily: `"${font.family}"` }}>
           {font.family}
         </span>
-        {active ? (
-          <Check size={13} aria-hidden="true" />
-        ) : (
-          <span className="sfont-item-cat">{font.fileName}</span>
-        )}
+        <span className="sfp-item-cat sfp-custom-file">{font.fileName}</span>
+        <span className="sfp-item-check">
+          {active && (
+            <Icon size={16} width={2.5}>
+              <path d="M5 12l5 5L20 7" />
+            </Icon>
+          )}
+        </span>
       </button>
       <button
         type="button"
-        className="sfont-custom-remove"
+        className="sfp-custom-remove"
         onClick={() => removeCustomFont(font.family)}
         title={`Remove ${font.family}`}
         aria-label={`Remove ${font.family}`}
       >
-        <Trash2 size={12} />
+        <Trash2 size={14} aria-hidden="true" />
       </button>
     </div>
   )
@@ -151,40 +197,56 @@ function CustomFontSection({
   }
 
   return (
-    <div className="sfont-custom">
-      <div className="sfont-custom-head">
-        <span className="sfont-custom-label">Your fonts</span>
-        <button
-          type="button"
-          className="sfont-upload-btn"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload size={12} aria-hidden="true" />
-          {uploading ? 'Loading…' : 'Upload font'}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept={CUSTOM_FONT_EXTENSIONS.join(',')}
-          multiple
-          hidden
-          onChange={(e) => {
-            void onFiles(e.target.files)
-            e.target.value = '' // allow re-uploading the same file
-          }}
-        />
+    <div className="sfp-custom">
+      <div className="sfp-custom-head">
+        <span className="sfp-custom-label">Your fonts</span>
+        <span className="sfp-pro">PRO</span>
       </div>
-      {error && <div className="sfont-upload-error">{error}</div>}
-      {customFonts.map((f) => (
-        <CustomFontRow
-          key={f.family}
-          font={f}
-          active={current === f.family}
-          disabled={disabled}
-          onPick={onPick}
-        />
-      ))}
+      <button
+        type="button"
+        className="sfp-upload"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        <Icon size={15}>
+          <path d="M12 16V4M7 9l5-5 5 5" />
+          <path d="M4 20h16" />
+        </Icon>
+        {uploading ? 'Loading…' : 'Upload a font file'}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={CUSTOM_FONT_EXTENSIONS.join(',')}
+        multiple
+        hidden
+        aria-label="Upload a font file"
+        onChange={(e) => {
+          void onFiles(e.target.files)
+          e.target.value = '' // allow re-uploading the same file
+        }}
+      />
+      <div className="sfp-custom-note">
+        .woff2, .woff, .ttf or .otf — stays in your browser, never uploaded.
+      </div>
+      {error && (
+        <div className="sfp-upload-error" role="alert">
+          {error}
+        </div>
+      )}
+      {customFonts.length > 0 && (
+        <div className="sfp-custom-list">
+          {customFonts.map((f) => (
+            <CustomFontRow
+              key={f.family}
+              font={f}
+              active={current === f.family}
+              disabled={disabled}
+              onPick={onPick}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -193,12 +255,15 @@ export function GoogleFontPicker({
   current,
   disabled,
   onPick,
+  header,
 }: {
   /** Family currently overriding this font (checkmark), or null. */
   current: string | null
   /** True while an apply is in flight — rows are inert. */
   disabled: boolean
   onPick: (f: ReplacementFont) => void
+  /** Optional block rendered above the picker (the live-preview card). */
+  header?: ReactNode
 }) {
   const [catalog, setCatalog] = useState<GoogleFont[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -206,6 +271,7 @@ export function GoogleFontPicker({
   const [category, setCategory] = useState('all')
   const [scrollTop, setScrollTop] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
+  const uid = useId()
 
   useEffect(() => {
     let alive = true
@@ -240,17 +306,21 @@ export function GoogleFontPicker({
 
   if (failed) {
     return (
-      <div className="sfont-picker">
+      <div className="sfp-picker">
+        {header}
         {customSection}
-        <div className="dropper-empty">Couldn't load the Google Fonts list</div>
+        <div className="sfp-empty">Couldn't load the Google Fonts list</div>
       </div>
     )
   }
   if (!catalog) {
     return (
-      <div className="sfont-picker">
+      <div className="sfp-picker">
+        {header}
         {customSection}
-        <div className="dropper-empty">Loading Google Fonts…</div>
+        <div className="sfp-empty" role="status">
+          Loading Google Fonts…
+        </div>
       </div>
     )
   }
@@ -259,30 +329,40 @@ export function GoogleFontPicker({
   const end = Math.min(matches.length, Math.ceil((scrollTop + LIST_H) / ROW_H) + OVERSCAN)
 
   return (
-    <div className="sfont-picker">
+    <div className="sfp-picker">
+      {header}
       {customSection}
-      <div className="sfont-controls">
-        <span className="sfont-search">
-          <Search size={12} aria-hidden="true" />
+      <div className="sfp-controls">
+        <label className="sfp-sr" htmlFor={`${uid}-search`}>
+          Search Google Fonts
+        </label>
+        <div className="sfp-search">
+          <Icon size={14}>
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </Icon>
           <input
-            type="text"
+            id={`${uid}-search`}
+            type="search"
             value={query}
-            placeholder="Search Google Fonts…"
+            placeholder={`Search ${catalog.length.toLocaleString()} Google Fonts`}
             onChange={(e) => {
               setQuery(e.target.value)
               onFilterChange()
             }}
-            aria-label="Search Google Fonts"
           />
-        </span>
+        </div>
+        <label className="sfp-sr" htmlFor={`${uid}-cat`}>
+          Category
+        </label>
         <select
-          className="sfont-cat"
+          id={`${uid}-cat`}
+          className="sfp-cat"
           value={category}
           onChange={(e) => {
             setCategory(e.target.value)
             onFilterChange()
           }}
-          aria-label="Filter by category"
         >
           <option value="all">All</option>
           <option value="sans-serif">Sans-serif</option>
@@ -294,15 +374,17 @@ export function GoogleFontPicker({
       </div>
 
       {matches.length === 0 ? (
-        <div className="dropper-empty">No fonts match “{query}”</div>
+        <div className="sfp-empty">No fonts match “{query}”</div>
       ) : (
         <div
           ref={listRef}
-          className="sfont-list"
+          className="sfp-list"
+          role="listbox"
+          aria-label="Google Fonts"
           style={{ height: Math.min(LIST_H, matches.length * ROW_H) }}
           onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
         >
-          <div className="sfont-list-spacer" style={{ height: matches.length * ROW_H }}>
+          <div className="sfp-list-spacer" style={{ height: matches.length * ROW_H }}>
             {matches.slice(start, end).map((f, i) => (
               <PickerRow
                 key={f.family}

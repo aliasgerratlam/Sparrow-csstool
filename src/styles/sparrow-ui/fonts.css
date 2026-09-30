@@ -1,0 +1,974 @@
+/* ─── Fonts panel — Claude Design board "Fonts.dc.html" ───
+   Owned by the fonts surface. Loaded AFTER src/index.css.
+
+   Every selector is scoped under #scanner-font-panel (id specificity) so it
+   out-ranks the legacy `#scanner-font-panel`, `.sfont-*`, `.site-reset-btn`
+   and `.dropper-empty` rules in index.css without touching them. Panel chrome
+   uses the new `sfp-*` class names; the few legacy `sfont-*` / `site-reset-btn`
+   names that ElementFontSection.tsx still renders are restyled at the bottom
+   so that "Change one element" card matches the board too.
+
+   px units only (the extension converts rem at load; values here are the
+   board's literal pixels). */
+
+#scanner-font-panel {
+  /* local tokens (board-specific values not in tokens.css) */
+  --sfp-line: var(--sp-line, #e4e4e7);
+  --sfp-slate: #f8fafc; /* slate-50 card / hover fill */
+  --sfp-scroll: #d4d4d8;
+
+  position: fixed;
+  z-index: 999991;
+  top: 64px;
+  right: 92px;
+  box-sizing: border-box;
+  width: 392px;
+  max-width: calc(100vw - 16px);
+  max-height: min(752px, calc(100vh - 16px));
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--sfp-line);
+  border-radius: 12px;
+  box-shadow:
+    0 28px 56px -20px rgba(15, 23, 42, 0.3),
+    0 4px 12px -4px rgba(15, 23, 42, 0.08);
+  -webkit-backdrop-filter: var(--sp-blur, blur(20px) saturate(180%));
+  backdrop-filter: var(--sp-blur, blur(20px) saturate(180%));
+  font-family: var(--sp-font);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-fg, #09090b);
+  overflow: hidden;
+  animation: panelSlideIn 0.18s ease both;
+}
+#scanner-font-panel *,
+#scanner-font-panel *::before,
+#scanner-font-panel *::after {
+  box-sizing: border-box;
+}
+#scanner-font-panel button,
+#scanner-font-panel input,
+#scanner-font-panel select {
+  font-family: var(--sp-font);
+}
+#scanner-font-panel .sfp-mono {
+  font-family: var(--sp-mono);
+}
+
+/* Focus ring (every interactive element) */
+#scanner-font-panel button:focus-visible,
+#scanner-font-panel input:focus-visible,
+#scanner-font-panel select:focus-visible {
+  outline: 2px solid var(--sp-blue);
+  outline-offset: 2px;
+}
+
+/* ── Header ── */
+#scanner-font-panel .sfp-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  touch-action: none; /* let the pointer-drag own the gesture on touch devices */
+  user-select: none;
+  -webkit-user-select: none;
+}
+#scanner-font-panel.dragging,
+#scanner-font-panel.dragging .sfp-head {
+  cursor: grabbing;
+}
+#scanner-font-panel .sfp-grip {
+  align-self: center;
+  width: 48px;
+  height: 16px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a1a1aa;
+  pointer-events: none; /* the whole head is the drag handle */
+}
+#scanner-font-panel.dragging .sfp-grip {
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-headrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px 14px 16px;
+}
+#scanner-font-panel .sfp-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--sp-blue-50);
+  color: var(--sp-blue);
+}
+#scanner-font-panel .sfp-head-text {
+  flex: 1;
+  min-width: 0;
+}
+#scanner-font-panel .sfp-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--sp-fg);
+}
+#scanner-font-panel .sfp-sub {
+  margin: 1px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Shared button feel (board .btn) ── */
+#scanner-font-panel .sfp-close,
+#scanner-font-panel .sfp-btn,
+#scanner-font-panel .sfp-revert,
+#scanner-font-panel .sfp-revert-icon,
+#scanner-font-panel .sfp-toggle,
+#scanner-font-panel .sfp-upload,
+#scanner-font-panel .sfp-item,
+#scanner-font-panel .sfp-custom-pick,
+#scanner-font-panel .sfp-custom-remove,
+#scanner-font-panel .sfont-pick-btn,
+#scanner-font-panel .site-reset-btn {
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease,
+    transform 100ms ease;
+}
+#scanner-font-panel .sfp-close:active,
+#scanner-font-panel .sfp-btn:active,
+#scanner-font-panel .sfp-revert:active,
+#scanner-font-panel .sfp-revert-icon:active,
+#scanner-font-panel .sfp-toggle:active,
+#scanner-font-panel .sfp-upload:active,
+#scanner-font-panel .sfp-item:active,
+#scanner-font-panel .sfp-custom-pick:active,
+#scanner-font-panel .sfp-custom-remove:active,
+#scanner-font-panel .sfont-pick-btn:active,
+#scanner-font-panel .site-reset-btn:active {
+  transform: scale(0.98);
+}
+#scanner-font-panel button:disabled {
+  cursor: default;
+}
+
+/* Ghost hover (board .ghost) */
+#scanner-font-panel .sfp-close:hover,
+#scanner-font-panel .sfp-btn:hover,
+#scanner-font-panel .sfp-revert:hover:not(:disabled),
+#scanner-font-panel .sfp-revert-icon:hover,
+#scanner-font-panel .sfont-pick-btn:hover {
+  background-color: var(--sp-fill);
+  color: var(--sp-fg);
+}
+
+#scanner-font-panel .sfp-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-muted);
+}
+
+/* ── Scroll body ── */
+#scanner-font-panel .sfp-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sfp-scroll) transparent;
+}
+#scanner-font-panel .sfp-body::-webkit-scrollbar,
+#scanner-font-panel .sfp-list::-webkit-scrollbar {
+  width: 6px;
+}
+#scanner-font-panel .sfp-body::-webkit-scrollbar-thumb,
+#scanner-font-panel .sfp-list::-webkit-scrollbar-thumb {
+  background: var(--sfp-scroll);
+  border-radius: 9999px;
+}
+#scanner-font-panel .sfp-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Summary row ── */
+#scanner-font-panel .sfp-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-strong {
+  color: var(--sp-fg);
+}
+#scanner-font-panel .sfp-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+#scanner-font-panel .sfp-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-text);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* ── Family card ── */
+#scanner-font-panel .sfp-entry,
+#scanner-font-panel .sfont-entry {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sfp-line);
+  border-radius: 12px;
+  background: #ffffff;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+#scanner-font-panel .sfp-entry:not(.open):hover,
+#scanner-font-panel .sfont-entry:not(:has(> .sfp-picker)):hover {
+  background-color: var(--sfp-slate);
+}
+#scanner-font-panel .sfp-entry.open,
+#scanner-font-panel .sfont-entry:has(> .sfp-picker) {
+  border-color: var(--sp-blue-200);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+#scanner-font-panel .sfp-fam-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 8px;
+}
+#scanner-font-panel .sfp-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+#scanner-font-panel .sfp-entry.open .sfp-toggle {
+  padding-bottom: 10px;
+}
+#scanner-font-panel .sfp-sample {
+  flex-shrink: 0;
+  width: 40px;
+  font-size: 24px;
+  line-height: 32px;
+  color: #52525b;
+  white-space: nowrap;
+}
+#scanner-font-panel .sfp-entry.open .sfp-sample {
+  font-size: 28px;
+  color: var(--sp-blue);
+}
+#scanner-font-panel .sfp-meta {
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+#scanner-font-panel .sfp-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+#scanner-font-panel .sfp-name {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--sp-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfp-entry.open .sfp-name:not(.sfp-mono) {
+  font-size: 14px;
+}
+#scanner-font-panel .sfp-tag {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--sp-fill);
+  color: var(--sp-muted);
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+}
+#scanner-font-panel .sfp-over {
+  flex-shrink: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--sp-blue-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfp-usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+#scanner-font-panel .sfp-bar {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--sp-fill);
+  overflow: hidden;
+}
+#scanner-font-panel .sfp-fill {
+  display: block;
+  height: 4px;
+  border-radius: 9999px;
+  background: #71717a;
+}
+#scanner-font-panel .sfp-entry.open .sfp-fill {
+  background: var(--sp-blue);
+}
+#scanner-font-panel .sfp-pct {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sp-fg);
+}
+#scanner-font-panel .sfp-el {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-chev,
+#scanner-font-panel .sfp-spin {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-spin {
+  color: var(--sp-blue);
+}
+#scanner-font-panel .sfp-spin svg {
+  animation: sfpSpin 0.8s linear infinite;
+}
+@keyframes sfpSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+#scanner-font-panel .sfp-revert-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-muted);
+}
+
+/* ── Expanded body (live preview + your fonts + search + list) ── */
+#scanner-font-panel .sfp-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+/* live preview */
+#scanner-font-panel .sfp-preview {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--sfp-slate);
+}
+#scanner-font-panel .sfp-preview-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--sp-green);
+}
+#scanner-font-panel .sfp-dot.busy {
+  background: var(--sp-amber);
+}
+#scanner-font-panel .sfp-preview-sample {
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 28px;
+  color: var(--sp-fg);
+  overflow-wrap: anywhere;
+}
+#scanner-font-panel .sfp-preview-swap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-width: 0;
+  color: var(--sp-blue);
+}
+#scanner-font-panel .sfp-preview-swap svg {
+  flex-shrink: 0;
+}
+#scanner-font-panel .sfp-preview-from,
+#scanner-font-panel .sfp-preview-to {
+  min-width: 0;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfp-preview-from {
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-preview-to {
+  color: var(--sp-blue-700);
+  font-weight: 600;
+}
+#scanner-font-panel .sfp-revert {
+  flex-shrink: 0;
+  margin-left: auto;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sp-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+#scanner-font-panel .sfp-revert:disabled {
+  opacity: 0.5;
+}
+
+/* your fonts */
+#scanner-font-panel .sfp-custom {
+  display: flex;
+  flex-direction: column;
+}
+#scanner-font-panel .sfp-custom-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#scanner-font-panel .sfp-custom-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--sp-text);
+}
+#scanner-font-panel .sfp-pro {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--sp-fg);
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+}
+#scanner-font-panel .sfp-upload {
+  margin-top: 8px;
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0;
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--sp-blue-700);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+#scanner-font-panel .sfp-upload:hover:not(:disabled) {
+  background-color: var(--sp-blue-50);
+  border-color: var(--sp-blue);
+}
+#scanner-font-panel .sfp-upload:disabled {
+  opacity: 0.6;
+}
+#scanner-font-panel .sfp-custom-note {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-upload-error {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  font-size: 11px;
+  line-height: 14px;
+  color: #b91c1c;
+}
+#scanner-font-panel .sfp-custom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px -6px 0;
+}
+#scanner-font-panel .sfp-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 8px;
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+#scanner-font-panel .sfp-custom-row:hover {
+  background-color: var(--sfp-slate);
+}
+#scanner-font-panel .sfp-custom-row.active {
+  background-color: var(--sp-blue-50);
+}
+#scanner-font-panel .sfp-custom-pick {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-blue);
+  text-align: left;
+}
+#scanner-font-panel .sfp-custom-pick:disabled {
+  opacity: 0.5;
+}
+#scanner-font-panel .sfp-custom-file {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#scanner-font-panel .sfp-custom-remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sp-faint);
+}
+#scanner-font-panel .sfp-custom-remove:hover {
+  background-color: #fef2f2;
+  color: var(--sp-red);
+}
+
+/* search + category */
+#scanner-font-panel .sfp-controls {
+  display: flex;
+  gap: 8px;
+}
+#scanner-font-panel .sfp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+#scanner-font-panel .sfp-search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-search svg {
+  position: absolute;
+  left: 10px;
+  top: 11px;
+  pointer-events: none;
+}
+#scanner-font-panel .sfp-search input {
+  width: 100%;
+  height: 36px;
+  margin: 0;
+  padding: 0 10px 0 30px;
+  border: 1px solid var(--sfp-line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-fg);
+  -webkit-appearance: none;
+  appearance: none;
+}
+#scanner-font-panel .sfp-search input::placeholder {
+  color: var(--sp-faint);
+  opacity: 1;
+}
+#scanner-font-panel .sfp-cat {
+  flex-shrink: 0;
+  height: 36px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--sfp-line);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--sp-fg);
+  cursor: pointer;
+}
+
+/* option list (windowed) */
+#scanner-font-panel .sfp-list {
+  position: relative;
+  margin: 0 -6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sfp-scroll) transparent;
+}
+#scanner-font-panel .sfp-list-spacer {
+  position: relative;
+}
+#scanner-font-panel .sfp-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-blue);
+  text-align: left;
+}
+#scanner-font-panel .sfp-item:hover:not(:disabled),
+#scanner-font-panel .sfp-item:hover:not(:disabled) {
+  background-color: var(--sfp-slate);
+}
+#scanner-font-panel .sfp-item.active,
+#scanner-font-panel .sfp-item.active:hover:not(:disabled) {
+  background-color: var(--sp-blue-50);
+}
+#scanner-font-panel .sfp-item:disabled {
+  opacity: 0.5;
+}
+#scanner-font-panel .sfp-item:focus-visible,
+#scanner-font-panel .sfp-custom-pick:focus-visible {
+  outline-offset: -2px;
+}
+#scanner-font-panel .sfp-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--sp-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfp-item-cat {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfp-item-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  color: var(--sp-blue);
+}
+
+/* empty / loading / error */
+#scanner-font-panel .sfp-empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sp-muted);
+}
+
+/* ── "Change one element" card (rendered by ElementFontSection.tsx) ──
+   Markup still carries the legacy sfont-* names; laid out as the board's card:
+   title + hint on the left, "Select text" button on the right, picked-element
+   rows underneath. */
+#scanner-font-panel .sfont-elsec {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--sp-line-soft);
+  border-radius: 10px;
+  background: var(--sfp-slate);
+}
+#scanner-font-panel .sfont-elsec-head {
+  display: contents;
+}
+#scanner-font-panel .sfont-elsec-label {
+  grid-column: 1;
+  grid-row: 1;
+  font-family: var(--sp-font);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--sp-fg);
+}
+#scanner-font-panel .sfont-elsec-hint {
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .sfont-pick-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--sfp-line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--sp-text);
+  font-family: var(--sp-font);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+#scanner-font-panel .sfont-pick-btn.picking {
+  border-color: var(--sp-blue);
+  background: var(--sp-blue-50);
+  color: var(--sp-blue-700);
+  animation: sfpPickPulse 1.2s ease-in-out infinite;
+}
+@keyframes sfpPickPulse {
+  50% {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  }
+}
+#scanner-font-panel .sfont-elsec > .sfont-entry {
+  grid-column: 1 / -1;
+  margin-top: 12px;
+}
+#scanner-font-panel .sfont-elsec > .sfont-entry ~ .sfont-entry {
+  margin-top: 8px;
+}
+#scanner-font-panel .sfont-elsec-head + .sfont-entry {
+  margin-top: 12px;
+}
+
+/* picked-element rows (same card anatomy as a family row) */
+#scanner-font-panel .sfont-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+#scanner-font-panel .sfont-row:hover,
+#scanner-font-panel .sfont-row.open {
+  border: 0;
+  background: transparent;
+}
+#scanner-font-panel .sfont-meta {
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+#scanner-font-panel .sfont-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+#scanner-font-panel .sfont-el-tag {
+  flex-shrink: 0;
+  max-width: 46%;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--sp-fill);
+  font-family: var(--sp-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--sp-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfont-name {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--sp-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfont-el-family {
+  font-size: 13px;
+}
+#scanner-font-panel .sfont-override {
+  flex-shrink: 1;
+  min-width: 0;
+  font-family: var(--sp-mono);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--sp-blue-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanner-font-panel .sfont-el-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+#scanner-font-panel .sfont-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--sp-muted);
+  transition: transform 150ms ease;
+}
+#scanner-font-panel .sfont-chevron.open {
+  transform: rotate(180deg);
+}
+#scanner-font-panel .sfont-spinner {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--sp-blue);
+}
+#scanner-font-panel .sfont-spinner > svg {
+  animation: sfpSpin 0.8s linear infinite;
+}
+#scanner-font-panel .site-reset-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-muted);
+}
+#scanner-font-panel .site-reset-btn:hover {
+  background-color: var(--sp-fill);
+  color: var(--sp-fg);
+}
+
+/* ── Narrow viewports ── */
+@media (max-width: 480px) {
+  #scanner-font-panel {
+    width: calc(100vw - 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #scanner-font-panel,
+  #scanner-font-panel * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+  #scanner-font-panel .sfp-spin svg,
+  #scanner-font-panel .sfont-spinner > svg {
+    animation: none !important;
+  }
+}

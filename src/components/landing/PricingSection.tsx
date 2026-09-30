@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ArrowButton, Container } from './parts'
+import { Icon, LpContainer, SectionBadge, SectionHeading, STACK } from './lp'
 import { useAuth, userPlan } from '@/context/auth-context'
 import { useEntitlements } from '@/context/subscription-context'
 import { useKelviqPrices } from '@/context/kelviq-provider'
@@ -20,6 +20,12 @@ type Billing = BillingCycle
 
 /** Paid plans checkout; Free never does. */
 type PaidPlanId = Exclude<PlanId, 'free'>
+
+const CTA_STYLE: Record<PlanId, string> = {
+  free: 'bg-[#f4f4f5] text-[#18181b] hover:bg-[#e4e4e7]',
+  pro: 'bg-white text-lp-blue-700 hover:bg-[#eff6ff]',
+  max: 'bg-lp-ink text-white hover:bg-[#27272a]',
+}
 
 export function PricingSection() {
   const [billing, setBilling] = useState<Billing>('monthly')
@@ -122,46 +128,55 @@ export function PricingSection() {
   }
 
   return (
-    <section id="pricing" aria-labelledby="pricing-heading" className="py-16 md:py-24">
-      <Container>
-        <div className="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between">
-          <h2
-            id="pricing-heading"
-            className="font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-5xl"
-          >
-            Start free. Upgrade <span className="hl-word text-sparrow-blue">when it pays for itself.</span>
-          </h2>
+    <section
+      id="pricing"
+      aria-labelledby="pricing-heading"
+      className="mt-28 lg:mt-[184px]"
+    >
+      <LpContainer className="flex flex-col items-center">
+        <SectionBadge>Pricing</SectionBadge>
+        <SectionHeading id="pricing-heading">
+          Start free. Upgrade when you pin more.
+        </SectionHeading>
 
-          <div
-            role="group"
-            aria-label="Billing period"
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sparrow-blue p-1"
-          >
-            {(['monthly', 'yearly'] as const).map((period) => (
-              <button
-                key={period}
-                type="button"
-                aria-pressed={billing === period}
-                onClick={() => setBilling(period)}
-                className={cn(
-                  'cursor-pointer rounded-full px-5 py-2 font-abeezee text-sm font-medium capitalize transition-colors',
-                  billing === period
-                    ? 'bg-white text-sparrow-ink shadow-sm'
-                    : 'text-white hover:text-white/90',
-                )}
-              >
-                {period}
-              </button>
-            ))}
-          </div>
+        <div
+          role="group"
+          aria-label="Billing period"
+          className="lp-glass mt-6 flex rounded-full border border-white/90 bg-white/65 p-1 shadow-[0_8px_24px_-12px_rgba(30,64,175,0.3)] lg:mt-8"
+        >
+          {(['monthly', 'yearly'] as const).map((period) => (
+            <button
+              key={period}
+              type="button"
+              aria-pressed={billing === period}
+              onClick={() => setBilling(period)}
+              className={cn(
+                'lp-btn flex h-11 items-center gap-1.5 rounded-full border-0 px-[18px] text-sm font-medium capitalize lg:h-10 lg:gap-2 lg:px-5',
+                billing === period
+                  ? 'bg-lp-blue text-white'
+                  : 'bg-transparent text-lp-text',
+              )}
+            >
+              {period}
+              {period === 'yearly' && (
+                <span className="rounded-full bg-[#dcfce7] px-[7px] py-0.5 text-[11px] text-[#166534] normal-case lg:px-2 lg:text-xs">
+                  <span className="lg:hidden">2 mo free</span>
+                  <span className="hidden lg:inline">2 months free</span>
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Same iPad/mobile treatment as the steps section: a horizontal
-            scroll-snap slider below lg (each card peeks the next), reverting to
-            the static 3-column grid at lg+. */}
-        <div className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:snap-none lg:grid-cols-3 lg:overflow-visible lg:pb-0">
+        <div
+          className={cn(
+            STACK,
+            'mt-7 flex flex-col gap-4 lg:mt-12 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6',
+          )}
+        >
           {PLAN_IDS.map((id) => {
             const plan = PLAN_DISPLAY[id]
+            const pro = id === 'pro'
             const isCurrent = isAuthenticated && effectivePlan === id
             const cta = isCurrent ? 'Current plan' : plan.cta
             // Prefer the live Kelviq price for the selected cycle; fall back to
@@ -175,64 +190,95 @@ export function PricingSection() {
             // flight — Free has no live price (always $0), so it never waits.
             const showPriceSkeleton =
               pricesLoading && id !== 'free' && !livePrice
+            // "Everything in Free" reads as the list's lead-in, not a bullet.
+            const [first, ...rest] = plan.features
+            const leadIn = first?.startsWith('Everything in') ?? false
+            const features = leadIn ? rest : plan.features
+            const period =
+              id === 'free' ? 'forever' : billing === 'yearly' ? 'per year' : 'per month'
+
             return (
               <article
                 key={plan.id}
-                className="relative flex shrink-0 basis-[82%] snap-start flex-col overflow-hidden rounded-[20px] bg-white p-12 shadow-sm ring-1 ring-black/5 sm:basis-[56%] md:basis-[44%] lg:basis-auto"
+                className={cn(
+                  'relative flex flex-col p-[26px] lg:p-8',
+                  pro
+                    ? 'order-first rounded-2xl bg-lp-blue text-white shadow-[0_30px_60px_-20px_rgba(37,99,235,0.7)] lg:order-none lg:-translate-y-3'
+                    : 'lp-card lp-lift',
+                )}
               >
-                <h3 className="font-abeezee text-2xl font-semibold text-sparrow-ink">
-                  {plan.name}
-                </h3>
-                <p className="font-abeezee text-sm text-sparrow-ink">
-                  {plan.tagline}
-                </p>
+                {pro && (
+                  <span className="absolute -top-3 right-5 rotate-4 rounded-full bg-[#fcd34d] px-[11px] py-[5px] text-xs font-semibold text-lp-ink shadow-[0_6px_16px_-6px_rgba(9,9,11,0.3)] lg:-top-3.5 lg:right-6 lg:px-3 lg:py-1.5">
+                    Most popular
+                  </span>
+                )}
 
-                <div className="mt-6 flex items-end gap-2">
-                  {showPriceSkeleton ? (
-                    <span
-                      aria-hidden
-                      className="mb-1 h-9 w-24 animate-pulse rounded-md bg-sparrow-ink/10"
-                    />
-                  ) : (
-                    <>
-                      <span className="font-abeezee text-4xl font-semibold text-sparrow-ink">
-                        {priceLabel}
-                      </span>
-                      <span className="mb-1 font-abeezee text-base text-sparrow-ink/60">
-                        {plan.id === 'free'
-                          ? 'free forever'
-                          : billing === 'yearly'
-                            ? 'per year'
-                            : 'per month'}
-                      </span>
-                    </>
+                {/* name + price: one row on phones for Free/Max, stacked otherwise */}
+                <div
+                  className={cn(
+                    'lg:block',
+                    !pro && 'flex items-baseline justify-between',
                   )}
+                >
+                  <div>
+                    <h3 className="text-lg leading-7 font-semibold">{plan.name}</h3>
+                    <p
+                      className={cn(
+                        'mt-1 hidden text-sm lg:block',
+                        pro ? 'text-[#dbeafe]' : 'text-lp-muted',
+                      )}
+                    >
+                      {plan.tagline}
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      'flex items-baseline gap-1.5 lg:mt-6',
+                      pro && 'mt-3',
+                    )}
+                  >
+                    {showPriceSkeleton ? (
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'h-9 w-24 animate-pulse rounded-md lg:h-12',
+                          pro ? 'bg-white/25' : 'bg-lp-ink/10',
+                        )}
+                      />
+                    ) : (
+                      <>
+                        <span
+                          className={cn(
+                            'font-semibold tracking-[-0.03em] lg:text-5xl lg:leading-[52px]',
+                            pro
+                              ? 'text-[44px] leading-[48px]'
+                              : 'text-[32px] leading-9',
+                          )}
+                        >
+                          {priceLabel}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[13px] lg:text-sm',
+                            pro ? 'text-[#dbeafe]' : 'text-lp-muted',
+                          )}
+                        >
+                          {period}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <hr className="my-5 border-black/10" />
-
-                <p className="font-abeezee text-base font-semibold text-sparrow-ink">
-                  What's Included
-                </p>
-                <ul className="mt-3 mb-10 flex-1 space-y-1">
-                  {plan.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-start gap-2 font-abeezee text-sm text-sparrow-ink"
-                    >
-                      <Check className="mt-0.5 size-4 shrink-0 text-sparrow-blue" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <ArrowButton
-                  variant={plan.ctaVariant}
-                  arrow={activePlan !== plan.id && !isCurrent}
+                <button
+                  type="button"
+                  aria-busy={activePlan === plan.id}
                   onClick={() => void onPlanCta(plan.id)}
                   className={cn(
-                    'mt-8 w-full',
-                    plan.highlight && 'relative',
+                    'lp-btn mt-5 flex h-12 items-center justify-center rounded-full border-0 text-[15px] font-medium lg:mt-6 lg:h-11 lg:text-sm',
+                    CTA_STYLE[id],
+                    // phones: Free/Max list their features first, CTA last
+                    !pro && 'order-last lg:order-none',
                     // Lock every button while an action is in flight.
                     activePlan && 'pointer-events-none',
                     activePlan && activePlan !== plan.id && 'opacity-60',
@@ -247,12 +293,58 @@ export function PricingSection() {
                   ) : (
                     cta
                   )}
-                </ArrowButton>
+                </button>
+
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    'my-7 mb-5 hidden h-px lg:block',
+                    pro ? 'bg-white/25' : 'bg-[rgba(9,9,11,0.08)]',
+                  )}
+                />
+
+                <ul
+                  className={cn(
+                    'flex flex-col gap-2.5 text-sm leading-5 lg:gap-3',
+                    pro ? 'mt-[22px] lg:mt-0' : 'mt-4 lg:mt-0 lg:text-lp-text',
+                    !pro && 'text-lp-text',
+                  )}
+                >
+                  {leadIn && (
+                    <li
+                      className={cn(
+                        'font-medium',
+                        pro ? 'text-white' : 'text-lp-ink',
+                      )}
+                    >
+                      {first}, plus:
+                    </li>
+                  )}
+                  {features.map((f) => (
+                    <li key={f} className="flex gap-2.5">
+                      <Icon
+                        name="check"
+                        size={18}
+                        strokeWidth={2.5}
+                        className={cn('shrink-0', pro ? 'text-white' : 'text-lp-blue')}
+                      />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </article>
             )
           })}
         </div>
-      </Container>
+
+        <p className="mt-5 text-center text-[13px] leading-[18px] text-lp-muted lg:mt-7">
+          Upgrade, downgrade or cancel anytime from your account portal.
+          <span className="hidden lg:inline">
+            {' '}
+            Paid features stay on through the billing period.
+          </span>
+        </p>
+      </LpContainer>
     </section>
   )
 }

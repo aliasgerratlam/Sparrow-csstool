@@ -1,0 +1,74 @@
+/* ─── Sparrow tool UI tokens — Claude Design "Sparrow extension UI redesign" ───
+   Shared by every scanner/annotate surface (web demo + browser extension).
+   `:root` is re-homed to `:host` by the extension's content script, so these
+   resolve inside its shadow tree too. Light theme only.
+
+   Recipes the design repeats (copy, don't invent variants):
+   • Floating panel  : background var(--sp-panel); border 1px solid var(--sp-border);
+                       radius var(--sp-r-panel); box-shadow var(--sp-shadow-panel);
+                       backdrop-filter var(--sp-blur)
+   • Pill chrome     : rail / bottom bar — radius 9999px, background var(--sp-surface),
+                       border var(--sp-border), shadow var(--sp-shadow-pill)
+   • Primary button  : pill, background var(--sp-blue), white text, 13px/500,
+                       hover var(--sp-blue-700), shadow var(--sp-shadow-cta)
+   • Ghost icon btn  : 32–34px circle, transparent, color var(--sp-icon),
+                       hover background var(--sp-hover)
+   • Mono chip       : var(--sp-mono) 11px, radius 6px (selector/size labels)
+   • Focus           : 2px solid var(--sp-blue), offset 2px, :focus-visible only
+   • Motion          : 150ms ease on background/color/shadow; :active scale(.96);
+                       always honour prefers-reduced-motion */
+:root {
+  --sp-font: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --sp-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --sp-blue: #2563eb;
+  --sp-blue-700: #1d4ed8;
+  --sp-blue-50: #eff6ff;
+  --sp-blue-100: #dbeafe;
+  --sp-blue-200: #bfdbfe;
+  --sp-red: #dc2626;
+  --sp-green: #16a34a;
+  --sp-green-50: #dcfce7;
+  --sp-green-700: #15803d;
+  --sp-amber: #f59e0b;
+  --sp-violet: #7c3aed;
+  --sp-measure: #f43f5e; /* ruler / distance guides */
+
+  --sp-fg: #09090b;
+  --sp-fg-2: #27272a;
+  --sp-text: #3f3f46;
+  --sp-body: #52525b;
+  --sp-muted: #6b6b75;
+  --sp-faint: #8a8a93;
+  --sp-icon: #52525b;
+  --sp-line: #e4e4e7;
+  --sp-line-soft: #f4f4f5;
+  --sp-fill: #f4f4f5;
+
+  /* floating pills (rail + bottom bar) */
+  --sp-surface: rgba(255, 255, 255, 0.8);
+  --sp-border: rgba(9, 9, 11, 0.08);
+  --sp-hi: rgba(255, 255, 255, 0.9);
+  --sp-hover: rgba(9, 9, 11, 0.05);
+  --sp-div: rgba(9, 9, 11, 0.1);
+  --sp-kbd: #ffffff;
+  --sp-kbd-b: #e4e4e7;
+  --sp-tip: #09090b;
+  --sp-tip-fg: #fafafa;
+
+  /* floating panels (inspect popover, colors/fonts/assets, composer, thread …) */
+  --sp-panel: rgba(255, 255, 255, 0.92);
+  --sp-r-panel: 18px;
+  --sp-blur: blur(20px) saturate(180%);
+  --sp-shadow-panel:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 32px 64px -24px rgba(15, 23, 42, 0.35),
+    0 4px 12px -4px rgba(15, 23, 42, 0.08);
+  --sp-shadow-pill:
+    inset 0 1px 0 var(--sp-hi),
+    0 20px 40px -16px rgba(9, 9, 11, 0.45);
+  --sp-shadow-cta:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px -8px rgba(37, 99, 235, 0.9);
+  --sp-shadow-pin: 0 8px 18px -6px rgba(15, 23, 42, 0.45);
+}

@@ -74,7 +74,7 @@ export function AccountPage() {
             maskImage: 'linear-gradient(to bottom, transparent 0, #000 220px)',
           }}
         />
-        <LandingFooter />
+        <LandingFooter tone="gradient" />
       </div>
     </div>
   )

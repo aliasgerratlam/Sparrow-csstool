@@ -1,8 +1,9 @@
 import { type CSSProperties } from 'react'
 import { useElementRect } from '@/hooks/use-element-rect'
 import { getElementLabelParts, measurePair } from '@/lib/extractors'
+import { GuideLines, useBoxMetrics } from './ElementMarks'
 
-const TICK = 12 // px length of the end caps on each measurement line
+const TICK = 14 // px length of the end caps on each measurement line
 const LABEL_MARGIN = 10 // keep labels this far inside the viewport edges
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -24,19 +25,21 @@ function pushLine(
   x2: number,
   y2: number,
 ) {
+  // Lines are 2px thick and centred on the measured coordinate; the far cap is
+  // pulled back 2px so both caps sit inside the measured span.
   const horizontal = Math.abs(y1 - y2) < 0.5
   if (horizontal) {
     const left = Math.min(x1, x2)
     const width = Math.abs(x2 - x1)
-    segs.push({ key: `${keyPrefix}-l`, className: 'ruler-line ruler-line-h', style: { top: y1, left, width } })
-    segs.push({ key: `${keyPrefix}-a`, className: 'ruler-line ruler-line-v ruler-tick', style: { top: y1 - TICK / 2, left: x1, height: TICK } })
-    segs.push({ key: `${keyPrefix}-b`, className: 'ruler-line ruler-line-v ruler-tick', style: { top: y1 - TICK / 2, left: x2, height: TICK } })
+    segs.push({ key: `${keyPrefix}-l`, className: 'ruler-line ruler-line-h', style: { top: y1 - 1, left, width } })
+    segs.push({ key: `${keyPrefix}-a`, className: 'ruler-line ruler-line-v ruler-tick', style: { top: y1 - TICK / 2, left, height: TICK } })
+    segs.push({ key: `${keyPrefix}-b`, className: 'ruler-line ruler-line-v ruler-tick', style: { top: y1 - TICK / 2, left: left + width - 2, height: TICK } })
   } else {
     const top = Math.min(y1, y2)
     const height = Math.abs(y2 - y1)
-    segs.push({ key: `${keyPrefix}-l`, className: 'ruler-line ruler-line-v', style: { left: x1, top, height } })
-    segs.push({ key: `${keyPrefix}-a`, className: 'ruler-line ruler-line-h ruler-tick', style: { left: x1 - TICK / 2, top: y1, width: TICK } })
-    segs.push({ key: `${keyPrefix}-b`, className: 'ruler-line ruler-line-h ruler-tick', style: { left: x1 - TICK / 2, top: y2, width: TICK } })
+    segs.push({ key: `${keyPrefix}-l`, className: 'ruler-line ruler-line-v', style: { left: x1 - 1, top, height } })
+    segs.push({ key: `${keyPrefix}-a`, className: 'ruler-line ruler-line-h ruler-tick', style: { left: x1 - TICK / 2, top, width: TICK } })
+    segs.push({ key: `${keyPrefix}-b`, className: 'ruler-line ruler-line-h ruler-tick', style: { left: x1 - TICK / 2, top: top + height - 2, width: TICK } })
   }
 }
 
@@ -53,6 +56,9 @@ export function RulerOverlay({
 }) {
   const anchorRect = useElementRect(anchor)
   const hoverRect = useElementRect(hovered)
+  // Real corner radii so the boxes hug the elements' own shapes.
+  const anchorRadius = useBoxMetrics(anchor, anchorRect?.width, anchorRect?.height)?.radius
+  const hoverRadius = useBoxMetrics(hovered, hoverRect?.width, hoverRect?.height)?.radius
 
   // Selector label (tag#id/.class) for the element under the cursor, so you can
   // tell *what* you're measuring to — the anchor stays unlabeled by design.
@@ -64,13 +70,10 @@ export function RulerOverlay({
       return null
     return (
       <div id="ruler-overlay">
-        <div className="scanner-guide guide-h" style={{ top: hoverRect.top }} />
-        <div className="scanner-guide guide-h" style={{ top: hoverRect.bottom }} />
-        <div className="scanner-guide guide-v" style={{ left: hoverRect.left }} />
-        <div className="scanner-guide guide-v" style={{ left: hoverRect.right }} />
+        <GuideLines rect={hoverRect} />
         <div
-          className="ruler-box ruler-box-target"
-          style={{ top: hoverRect.top, left: hoverRect.left, width: hoverRect.width, height: hoverRect.height }}
+          className="ruler-box ruler-box-target is-pre"
+          style={{ top: hoverRect.top, left: hoverRect.left, width: hoverRect.width, height: hoverRect.height, borderRadius: hoverRadius }}
         >
           {targetLabel && (
             <span className="ruler-box-label">
@@ -122,29 +125,26 @@ export function RulerOverlay({
           ? { left: cx, top: cy, transform: 'translate(-100%, -50%)' }
           : { left: cx, top: cy, transform: 'translateY(-50%)' }
       }
-      labels.push({ key: `gap-${i}`, style, text: `${gap.distance} px` })
+      labels.push({ key: `gap-${i}`, style, text: `${gap.distance}px` })
     }
   }
 
   return (
     <div id="ruler-overlay">
       {/* Anchor's guidelines projected across the viewport */}
-      <div className="scanner-guide guide-h" style={{ top: anchorRect.top }} />
-      <div className="scanner-guide guide-h" style={{ top: anchorRect.bottom }} />
-      <div className="scanner-guide guide-v" style={{ left: anchorRect.left }} />
-      <div className="scanner-guide guide-v" style={{ left: anchorRect.right }} />
+      <GuideLines rect={anchorRect} />
 
       {/* Anchor highlight (the element we measure from) */}
       <div
         className="ruler-box ruler-box-anchor"
-        style={{ top: anchorRect.top, left: anchorRect.left, width: anchorRect.width, height: anchorRect.height }}
+        style={{ top: anchorRect.top, left: anchorRect.left, width: anchorRect.width, height: anchorRect.height, borderRadius: anchorRadius }}
       />
 
       {/* Target highlight + measurement lines/labels */}
       {measuring && (
         <div
           className="ruler-box ruler-box-target"
-          style={{ top: hoverRect!.top, left: hoverRect!.left, width: hoverRect!.width, height: hoverRect!.height }}
+          style={{ top: hoverRect!.top, left: hoverRect!.left, width: hoverRect!.width, height: hoverRect!.height, borderRadius: hoverRadius }}
         >
           {targetLabel && (
             <span className="ruler-box-label">

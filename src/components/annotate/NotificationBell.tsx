@@ -95,24 +95,35 @@ export function NotificationBell({
       </Button>
 
       {open && (
-        <div className="annot-notif-pop" role="menu">
+        <div
+          className="annot-notif-pop"
+          role="menu"
+          aria-label="Notifications"
+        >
           <div className="annot-notif-head">
             <span className="annot-notif-title">Notifications</span>
             {unreadCount > 0 && (
-              <button
-                type="button"
-                className="annot-notif-mark"
-                onClick={() => markAllSeen(items, store.myDisplayName(ui.author))}
-              >
-                <CheckCheck className="size-3.5" aria-hidden="true" />
-                Mark all read
-              </button>
+              <>
+                <span className="annot-notif-unread">{unreadCount} new</span>
+                <button
+                  type="button"
+                  className="annot-notif-mark"
+                  onClick={() =>
+                    markAllSeen(items, store.myDisplayName(ui.author))
+                  }
+                >
+                  <CheckCheck className="size-3.5" aria-hidden="true" />
+                  Mark all read
+                </button>
+              </>
             )}
           </div>
 
           {feed.length === 0 ? (
             <div className="annot-notif-empty">
-              <Bell className="size-5" aria-hidden="true" />
+              <span className="annot-notif-empty-icon">
+                <Bell className="size-5" aria-hidden="true" />
+              </span>
               <span>No activity yet</span>
               <small>New pins and replies from your collaborators land here.</small>
             </div>
@@ -128,14 +139,26 @@ export function NotificationBell({
                   }
                   onClick={() => go(item)}
                 >
-                  <span
-                    className="annot-avatar"
-                    style={
-                      { '--av-h': String(authorHue(item.author)) } as CSSProperties
-                    }
-                    aria-hidden="true"
-                  >
-                    {authorInitials(item.author)}
+                  <span className="annot-notif-av">
+                    <span
+                      className="annot-avatar"
+                      style={
+                        { '--av-h': String(authorHue(item.author)) } as CSSProperties
+                      }
+                      aria-hidden="true"
+                    >
+                      {authorInitials(item.author)}
+                    </span>
+                    <span
+                      className={'annot-notif-kind ' + item.kind}
+                      aria-hidden="true"
+                    >
+                      {item.kind === 'reply' ? (
+                        <MessageSquare className="size-2.5" />
+                      ) : (
+                        <MapPin className="size-2.5" />
+                      )}
+                    </span>
                   </span>
                   <span className="annot-notif-body">
                     <span className="annot-notif-line">
@@ -147,21 +170,18 @@ export function NotificationBell({
                     </span>
                     <span className="annot-notif-text">
                       {item.kind === 'reply'
-                        ? item.reply?.message
+                        ? `“${item.reply?.message ?? ''}”`
                         : item.ann.comment || 'No description'}
                     </span>
                   </span>
                   <span className="annot-notif-meta">
-                    {item.kind === 'reply' ? (
-                      <MessageSquare className="size-3" aria-hidden="true" />
-                    ) : (
-                      <MapPin className="size-3" aria-hidden="true" />
-                    )}
                     {item.at && (
                       <span title={fmtDate(item.at)}>{fmtReplyTime(item.at)}</span>
                     )}
+                    {item.unread && (
+                      <span className="annot-notif-dot" aria-label="Unread" />
+                    )}
                   </span>
-                  {item.unread && <span className="annot-notif-dot" aria-hidden="true" />}
                 </button>
               ))}
             </div>

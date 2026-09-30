@@ -171,14 +171,28 @@ export function goToPricing() {
   window.location.href = '/#pricing'
 }
 
-/** Shared upgrade nudge for any locked feature: toast + route to pricing. */
+/** Shared upgrade nudge for any locked feature: toast + route to pricing.
+ *  Presentation only — title + description + lock tile (see alerts.css
+ *  `.sp-toast`); the action still routes through goToPricing. */
 export function promptUpgrade(feature?: string) {
-  toast(
-    feature
-      ? `${feature} is a paid feature — upgrade to unlock it.`
-      : 'Upgrade your plan to unlock this feature.',
-    {
-      action: { label: 'See plans', onClick: goToPricing },
-    },
-  )
+  toast(feature ? `${feature} is a paid feature` : 'This is a paid feature', {
+    description: 'Upgrade your plan to unlock it.',
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="4" y="11" width="16" height="10" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </svg>
+    ),
+    action: { label: 'See plans', onClick: goToPricing },
+  })
 }

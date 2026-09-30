@@ -1,116 +1,100 @@
-import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/format'
-import { Container } from './parts'
+import { Pin, LpContainer, SectionBadge, SectionHeading, STACK } from './lp'
 
-const FEATURE_CASE = {
-  title: 'Frontend developers',
-  body: "Debug styles faster than DevTools for everyday questions: what's this font, why is this margin off, which rule wins? Copy the CSS or Tailwind classes and get back to your editor.",
+type UseCase = {
+  title: string
+  short: string
+  body: string
+  /** Offset every other card down for the staggered rhythm. */
+  stagger?: boolean
+  mark: ReactNode
 }
 
-const USE_CASES = [
+const USE_CASES: UseCase[] = [
+  {
+    title: 'Frontend developers',
+    short: 'Debug styles faster. Copy CSS or Tailwind classes straight into code.',
+    body: 'Debug styles faster than DevTools. Grab fonts, margins and winning rules, then copy CSS or Tailwind classes straight into your code.',
+    mark: (
+      <div className="lp-mono text-[22px] leading-[26px] text-lp-blue lg:text-[28px] lg:leading-8">
+        &lt;/&gt;
+      </div>
+    ),
+  },
   {
     title: 'Designers',
-    body: 'Reverse-engineer interfaces you admire. Extract the palette with real usage data, identify every typeface, test your own fonts on a live page, and pull assets for your moodboard.',
+    short: 'Pull palettes, identify typefaces, test fonts live, collect assets.',
+    body: 'Reverse-engineer interfaces. Pull palettes with usage data, identify typefaces, test your fonts live and collect assets for moodboards.',
+    stagger: true,
+    mark: (
+      <div className="flex">
+        <span className="size-5 rounded-full bg-lp-blue lg:size-[22px]" />
+        <span className="-ml-1.5 size-5 rounded-full bg-[#93c5fd] lg:-ml-2 lg:size-[22px]" />
+        <span className="-ml-1.5 size-5 rounded-full bg-[#fcd34d] lg:-ml-2 lg:size-[22px]" />
+      </div>
+    ),
   },
   {
     title: 'Agencies & freelancers',
-    body: 'Turn client feedback from vague emails into pinned, threaded, resolvable comments on the live site. Share one link, watch the review happen in real time, and close items as you ship.',
+    short: 'Turn vague client feedback into pinned, resolvable comments.',
+    body: 'Turn vague client feedback into pinned, threaded, resolvable comments. One link, live collaboration, clear status.',
+    mark: (
+      <Pin
+        n={1}
+        className="size-[26px] bg-lp-blue text-xs text-white lg:size-[30px] lg:text-[13px]"
+      />
+    ),
   },
   {
     title: 'QA & product teams',
-    body: 'Report visual bugs where they happen. Measure spacing against spec, flag misalignments with the ruler, and file annotations your developers can find without a repro guide.',
+    short: 'Report visual bugs in context, measured against spec.',
+    body: 'Report visual bugs in context, measure spacing against spec and flag misalignments devs can find without a repro guide.',
+    stagger: true,
+    mark: (
+      <span className="lp-mono inline-block rounded-md bg-[#f43f5e] px-[7px] py-[3px] text-xs text-white lg:px-2 lg:py-1 lg:text-[13px]">
+        ±2px
+      </span>
+    ),
   },
 ]
 
-/* Writes the cursor position into --rx/--ry custom properties the .uc-card
-   CSS reads to tilt the card toward the pointer. Mouse-only (touch has no
-   hover) and inert under prefers-reduced-motion. */
-function TiltCard({
-  className,
-  flat = false,
-  children,
-}: {
-  className?: string
-  flat?: boolean
-  children: ReactNode
-}) {
-  const ref = useRef<HTMLElement>(null)
-
-  const onMove = (e: ReactPointerEvent<HTMLElement>) => {
-    const el = ref.current
-    if (!el || e.pointerType !== 'mouse') return
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    const rect = el.getBoundingClientRect()
-    const px = (e.clientX - rect.left) / rect.width
-    const py = (e.clientY - rect.top) / rect.height
-    el.style.setProperty('--rx', `${((0.5 - py) * 10).toFixed(2)}deg`)
-    el.style.setProperty('--ry', `${((px - 0.5) * 12).toFixed(2)}deg`)
-  }
-
-  const onLeave = () => {
-    const el = ref.current
-    if (!el) return
-    el.style.removeProperty('--rx')
-    el.style.removeProperty('--ry')
-  }
-
-  return (
-    <article
-      ref={ref}
-      className={cn('uc-card p-8', flat && 'uc-card--flat', className)}
-      onPointerMove={flat ? undefined : onMove}
-      onPointerLeave={flat ? undefined : onLeave}
-    >
-      {children}
-    </article>
-  )
-}
-
 export function UseCasesSection() {
   return (
-    <section aria-labelledby="use-cases-heading" className="py-16 md:py-24">
-      <Container>
-        <h2
-          id="use-cases-heading"
-          className="text-center font-abeezee text-4xl font-bold leading-[1.05] tracking-tight text-sparrow-ink md:text-6xl"
+    <section aria-labelledby="use-cases-heading" className="mt-24 lg:mt-40">
+      <LpContainer className="flex flex-col items-center">
+        <SectionBadge>Who it&rsquo;s for</SectionBadge>
+        <SectionHeading id="use-cases-heading">
+          One toolkit, four jobs done
+        </SectionHeading>
+
+        <div
+          className={cn(
+            STACK,
+            'mt-8 grid grid-cols-2 gap-3 lg:mt-14 lg:grid-cols-4 lg:gap-5',
+          )}
         >
-          One toolkit, <span className="hl-word text-sparrow-blue">four jobs done.</span>
-        </h2>
-        <p className="mx-auto mt-6 max-w-2xl text-center font-abeezee text-base text-sparrow-ink">
-          Sparrow replaces a handful of single-purpose extensions with one overlay
-          that stays out of your way.
-        </p>
-
-        {/* bento grid: one dark feature card, three light cards beside it
-            (the last one spanning the right column's full width) */}
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
-          <TiltCard className="uc-card-dark flex flex-col justify-center p-10 md:p-12">
-            <h3 className="uc-title font-abeezee text-3xl font-bold leading-tight text-white md:text-4xl">
-              {FEATURE_CASE.title}
-            </h3>
-            <p className="uc-body mt-5 max-w-md font-abeezee text-base leading-relaxed text-white/75">
-              {FEATURE_CASE.body}
-            </p>
-          </TiltCard>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            {USE_CASES.map((useCase, i) => (
-              <TiltCard
-                key={useCase.title}
-                flat
-                className={cn(i === USE_CASES.length - 1 && 'sm:col-span-2')}
-              >
-                <h3 className="uc-title font-abeezee text-xl font-semibold text-sparrow-ink">
-                  {useCase.title}
-                </h3>
-                <p className="uc-body mt-3 font-abeezee text-base leading-relaxed text-sparrow-ink">
-                  {useCase.body}
-                </p>
-              </TiltCard>
-            ))}
-          </div>
+          {USE_CASES.map((u) => (
+            <div
+              key={u.title}
+              className={cn(
+                'lp-card lp-lift p-[18px] lg:p-7',
+                u.stagger &&
+                  '[transform:translateY(16px)] lg:[transform:translateY(24px)]',
+              )}
+            >
+              {u.mark}
+              <h3 className="mt-3.5 text-base leading-[22px] font-semibold text-lp-ink lg:mt-5 lg:text-lg lg:leading-7">
+                {u.title}
+              </h3>
+              <p className="mt-1.5 text-[13px] leading-[19px] text-lp-body lg:mt-2 lg:text-sm lg:leading-[22px]">
+                <span className="lg:hidden">{u.short}</span>
+                <span className="hidden lg:inline">{u.body}</span>
+              </p>
+            </div>
+          ))}
         </div>
-      </Container>
+      </LpContainer>
     </section>
   )
 }

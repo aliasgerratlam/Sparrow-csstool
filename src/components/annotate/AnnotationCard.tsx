@@ -1,11 +1,13 @@
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import {
@@ -16,34 +18,22 @@ import {
   store,
 } from '@/hooks/use-annotations'
 import { useElementRect } from '@/hooks/use-element-rect'
+import { useCollab } from '@/context/collab-context'
+import { useEntitlements } from '@/context/subscription-context'
 import { resolve } from '@/lib/selector-engine'
 import { markPinSeen, markSeen, unreadReplyIds } from '@/lib/reply-seen'
-import { formatReset } from '@/lib/annotation-quota-api'
+import { copyToClipboard } from '@/lib/clipboard'
 import { authorHue, authorInitials, fmtDate, fmtReplyTime } from '@/lib/format'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Check,
-  ChevronDown,
-  Loader2,
-  MessageSquare,
-  Pencil,
-  SendHorizontal,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { PLAN_DISPLAY, PLAN_LIMITS, type PlanId } from '@/lib/plans'
+import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import type { Annotation, Reply } from '@/lib/types'
-
-const CARD_BGS = ['#ffffff', '#ef4444', '#f8cf6b', '#84dda6', '#2f80ff']
+import { PIN_COLORS, pinColorOf, pinVars } from './pin-colors'
+import { elementAddress, elementLabel } from './element-label'
+import { PinLimitUpgrade, fmtUnlock } from './PinLimitUpgrade'
 
 // How long the "new reply" highlight stays on: three runs of the .8s
-// annotReplyFlash keyframe in index.css, plus a beat so the last pulse finishes.
+// spReplyFlash keyframe in annotate.css, plus a beat so the last pulse finishes.
 const REPLY_FLASH_MS = 2600
-
-function cardColorOf(ann: Annotation): string {
-  const bg = ann.styling?.background
-  return bg && bg !== 'transparent' ? bg : '#ffffff'
-}
 
 // Keep keystrokes typed into a field from reaching the host page. The scanner is
 // injected over arbitrary pages (Shadow DOM in the extension), and many sites
@@ -57,53 +47,42 @@ function stopKeyLeak(e: ReactKeyboardEvent) {
   if (e.key !== 'Escape') e.stopPropagation()
 }
 
-// The full, exact element address (shown on hover).
-function elementAddress(sel: Annotation['selector']): string {
-  if (!sel) return 'element'
-  if (sel.id) return '#' + sel.id
-  return sel.primary || sel.nthPath || sel.tag || 'element'
+/** Time left on a share link, e.g. "Expires in 24 hours". */
+function expiryText(iso: string | null): string {
+  if (iso === null) return 'Never expires'
+  const ms = Date.parse(iso) - Date.now()
+  if (!Number.isFinite(ms)) return 'Expires soon'
+  if (ms <= 0) return 'Expired'
+  const mins = Math.ceil(ms / 60_000)
+  if (mins < 60) return `Expires in ${mins} minute${mins === 1 ? '' : 's'}`
+  const hours = Math.round(ms / 3_600_000)
+  if (hours < 48) return `Expires in ${hours} hour${hours === 1 ? '' : 's'}`
+  const days = Math.round(ms / 86_400_000)
+  return `Expires in ${days} days`
 }
 
-// A short label for the target — just the leaf element (tag + id/classes),
-// stripped of positional :nth-child() noise. The full path lives in the title.
-function elementLabel(sel: Annotation['selector']): string {
-  if (!sel) return 'element'
-  if (sel.id) return sel.tag + '#' + sel.id
-  const path = sel.primary || sel.nthPath || ''
-  const leaf = path.split('>').pop()?.trim()
-  const clean = (leaf || sel.tag || 'element').replace(/:nth-child\(\d+\)/g, '')
-  return clean || sel.tag || 'element'
-}
-
-// Near-solid pastel of the chosen swatch so ink text stays readable. White
-// returns undefined — the card then keeps its Sparrow white→cream gradient
-// from the stylesheet instead of a flat inline background.
-function softTint(hex: string): string | undefined {
-  if (typeof hex !== 'string' || hex[0] !== '#' || hex.length !== 7)
-    return undefined
-  if (hex.toLowerCase() === '#ffffff') return undefined
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const mix = (v: number) => Math.round(v + (255 - v) * 0.78)
-  return `rgb(${mix(r)},${mix(g)},${mix(b)})`
-}
+const XIcon = ({ size = 15 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" />
+  </svg>
+)
 
 export function AnnotationCard() {
   const ui = useAnnotationUI()
   const items = useAnnotations()
   const counts = useAnnotationCounts()
   const quota = useAnnotationQuota()
-  const cardRef = useRef<HTMLDivElement>(null)
+  const { planId } = useEntitlements()
+  const collab = useCollab()
+  const cardRef = useRef<HTMLElement>(null)
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const commentId = useId()
+  const replyId = useId()
   const [replyText, setReplyText] = useState('')
   // Which reply (if any) is being rewritten, plus its local draft — kept out of
-  // the store per-keystroke, same rationale as the comment draft above.
+  // the store per-keystroke, same rationale as the comment draft below.
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
-  // The replies disclosure is controlled so unread replies can force it open
-  // (see the reveal effect below) while manual toggling still works.
-  const [repliesOpen, setRepliesOpen] = useState(false)
   // Replies that were unread when this card opened — highlighted for a moment so
   // the eye lands on them instead of scanning the whole thread.
   const [newReplyIds, setNewReplyIds] = useState<Set<string>>(new Set())
@@ -121,6 +100,11 @@ export function AnnotationCard() {
   const [commentDraft, setCommentDraft] = useState<string | null>(null)
   const commentDraftRef = useRef<string | null>(null)
   commentDraftRef.current = commentDraft
+  // Share-link copy feedback ('Copied' for a beat, like the design).
+  const [linkCopied, setLinkCopied] = useState<'idle' | 'ok' | 'fail'>('idle')
+  const linkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The plan picker opened from the out-of-pins composer.
+  const [upgradePlan, setUpgradePlan] = useState<'pro' | 'max' | null>(null)
 
   const ro = useRole() === 'client'
 
@@ -130,6 +114,22 @@ export function AnnotationCard() {
   const isDraft = ui.draft != null && ann != null && ann.id === ui.draft.id
   // Only the original author (or an unattributed note) may rewrite the comment.
   const canEdit = !ro && ann != null && !isDraft && store.canEdit(ann, ui.author)
+
+  // Plans that would raise the user's cap, in upsell order.
+  const upgradePlans = useMemo<Array<'pro' | 'max'>>(() => {
+    const order: PlanId[] = ['pro', 'max']
+    return order.filter(
+      (p): p is 'pro' | 'max' =>
+        p !== 'free' &&
+        PLAN_LIMITS[p].annotationLimit > PLAN_LIMITS[planId].annotationLimit,
+    )
+  }, [planId])
+
+  // Out of pins: a draft is open (the composer was already up, or the server
+  // denied the reserve on submit) but the authoritative count is at the cap.
+  const quotaFull =
+    Number.isFinite(quota.limit) && quota.used >= quota.limit
+  const locked = isDraft && !ro && quotaFull && upgradePlans.length > 0
 
   const targetEl = useMemo(
     () => (ann ? resolve(ann.selector) : null),
@@ -149,7 +149,7 @@ export function AnnotationCard() {
     } else {
       setPos({ left: window.innerWidth - card.offsetWidth - 20, top: 70 })
     }
-  }, [targetRect, ann?.id])
+  }, [targetRect, ann?.id, locked])
 
   // Write a pending comment edit through to the store (minimal patch, applied
   // over the CURRENT store item so concurrent remote changes to other fields
@@ -174,11 +174,8 @@ export function AnnotationCard() {
     setReplyDraft('')
     // Drop any unsent reply text too — it belongs to the thread we just left.
     setReplyText('')
-    // Collapse the thread back down; the reveal effect below is declared after
-    // this one, so on a card switch with unread replies it re-opens in the same
-    // commit and wins.
-    setRepliesOpen(false)
     setNewReplyIds(new Set())
+    setUpgradePlan(null)
     if (wantsEdit) ui.clearEditIntent()
     const prevId = ann && !isDraft ? ann.id : null
     return () => commitPendingEdit(prevId)
@@ -188,14 +185,14 @@ export function AnnotationCard() {
   // Focus the comment box only when it's actually editable (new draft or an
   // explicit edit), placing the caret at the end.
   useEffect(() => {
-    if (!ann || ro) return
+    if (!ann || ro || locked) return
     if (!isDraft && !editing) return
     const ta = commentRef.current
     if (!ta) return
     ta.focus()
     const end = ta.value.length
     ta.setSelectionRange(end, end)
-  }, [ann?.id, ro, isDraft, editing])
+  }, [ann?.id, ro, isDraft, editing, locked])
 
   // Clear the unread-reply dot for a saved annotation while its card is open —
   // both on open and if a new reply streams in while it stays open. `myReplyName`
@@ -203,10 +200,9 @@ export function AnnotationCard() {
   // ignored. Drafts have no replies, so they're skipped.
   //
   // Before clearing, capture WHICH replies were unread: dismissing the pin's dot
-  // is the only signal the user gets, so the thread auto-expands and the new
-  // replies flash — otherwise the dot vanishes on open while the replies stay
-  // collapsed and the news is lost. Safe against the broad `ann` dep: once
-  // markSeen has run, unreadReplyIds() is empty, so unrelated updates to the
+  // is the only signal the user gets, so the new replies flash — otherwise the
+  // dot vanishes on open and the news is lost. Safe against the broad `ann` dep:
+  // once markSeen has run, unreadReplyIds() is empty, so unrelated updates to the
   // annotation (status, comment edit, our own reply) never re-flash.
   useEffect(() => {
     if (!ann || isDraft) return
@@ -217,7 +213,6 @@ export function AnnotationCard() {
     // bell — do it here so a pin and its replies clear together.
     markPinSeen(ann)
     if (!fresh.length) return
-    setRepliesOpen(true)
     setNewReplyIds(new Set(fresh))
     if (flashTimer.current) clearTimeout(flashTimer.current)
     flashTimer.current = setTimeout(() => setNewReplyIds(new Set()), REPLY_FLASH_MS)
@@ -226,6 +221,7 @@ export function AnnotationCard() {
   useEffect(
     () => () => {
       if (flashTimer.current) clearTimeout(flashTimer.current)
+      if (linkTimer.current) clearTimeout(linkTimer.current)
     },
     [],
   )
@@ -242,11 +238,12 @@ export function AnnotationCard() {
   const num = isDraft
     ? counts.total + 1
     : (store.displayNumbers(items).get(ann.id) ?? store.index(ann.id) + 1)
-  const current = cardColorOf(ann)
+  const color = pinColorOf(ann.styling?.background)
   const canSubmit = !!ann.comment.trim()
+  const resolved = ann.status === 'Resolved'
 
-  const setBackground = (color: string) => {
-    const styling = { ...(ann.styling ?? store.defaultStyling()), background: color }
+  const setBackground = (hex: string) => {
+    const styling = { ...(ann.styling ?? store.defaultStyling()), background: hex }
     if (isDraft) ui.updateDraft({ styling })
     else store.update(ann.id, { styling })
   }
@@ -269,16 +266,16 @@ export function AnnotationCard() {
     ui.closeCard()
   }
 
+  // Resolved pins stay on the page (as a green check) and the thread stays open,
+  // so the resolved banner shows and the status can be flipped straight back.
   const toggleResolve = () => {
     if (!isDraft) finishEdit()
-    const next = ann.status === 'Resolved' ? 'Open' : 'Resolved'
-    store.setStatus(ann.id, next)
-    if (next === 'Resolved') ui.closeCard()
+    store.setStatus(ann.id, resolved ? 'Open' : 'Resolved')
   }
 
   // Await the submit so the spinner covers the whole round-trip: a denied
-  // reserve keeps the draft open (the cap toast explains why), so the button
-  // has to come back to life rather than stay stuck.
+  // reserve keeps the draft open (the composer then flips to its out-of-pins
+  // state), so the button has to come back to life rather than stay stuck.
   const submitDraft = async () => {
     if (submitting || !canSubmit) return
     setSubmitting(true)
@@ -307,6 +304,10 @@ export function AnnotationCard() {
   // reply may only be rewritten by whoever authored it.
   const myReplyName = store.myDisplayName(ui.author)
   const canEditReply = (r: Reply) => (r.author || '').trim() === myReplyName
+  const commentOwner = (ann.author || '').trim()
+  const commentIsMine = commentOwner
+    ? commentOwner === myReplyName
+    : !ro
 
   const startEditReply = (r: Reply) => {
     setEditingReplyId(r.id)
@@ -325,346 +326,557 @@ export function AnnotationCard() {
     cancelEditReply()
   }
 
-  return (
-    <div
-      id="annot-card"
-      ref={cardRef}
-      style={{
-        left: pos?.left ?? 'auto',
-        top: pos?.top ?? 70,
-        background: softTint(current),
-      }}
-    >
-      <div className="annot-card-head">
-        <span className="annot-card-num">#{num}</span>
-        <span
-          className={'annot-badge st-' + (ann.status === 'Resolved' ? 'resolved' : 'open')}
-        >
-          {ann.status}
-        </span>
-        {(isDraft || canEdit) && (
-          <div className="annot-bg-swatches annot-head-swatches">
-            {CARD_BGS.map((color) => (
-              <Button
-                key={color}
-                variant="ghost"
-                className={
-                  'annot-bg-swatch' +
-                  (color.toLowerCase() === current.toLowerCase() ? ' selected' : '')
-                }
-                title={'Background ' + color}
-                style={{ background: color }}
-                onClick={() => setBackground(color)}
-              />
-            ))}
-          </div>
-        )}
-        <div className="annot-card-actions">
-          {!isDraft && (
-            <Button
-              variant="ghost"
-              className={
-                'annot-head-btn annot-resolve-btn' +
-                (ann.status === 'Resolved' ? ' on' : '')
-              }
-              title={ann.status === 'Resolved' ? 'Reopen' : 'Mark as resolved'}
-              onClick={toggleResolve}
-            >
-              {ann.status === 'Resolved' ? (
-                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" fill="currentColor" />
-                  <path
-                    d="M8 12.5l2.5 2.5L16 9"
-                    fill="none"
-                    stroke="#fff"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <path
-                    d="M8 12.5l2.5 2.5L16 9"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </Button>
-          )}
-          {!isDraft && !ro && (
-            <Button
-              variant="ghost"
-              className="annot-head-btn annot-trash-btn"
-              title="Delete annotation"
-              onClick={() => {
-                store.remove(ann.id)
-                ui.closeCard()
-              }}
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            className="annot-head-btn annot-card-close"
+  const onCopyLink = async () => {
+    if (!collab.shareUrl) return
+    const ok = await copyToClipboard(collab.shareUrl)
+    setLinkCopied(ok ? 'ok' : 'fail')
+    if (linkTimer.current) clearTimeout(linkTimer.current)
+    linkTimer.current = setTimeout(() => setLinkCopied('idle'), 1600)
+  }
+
+  const targetLabel = targetEl
+    ? elementLabel(ann.selector)
+    : 'Element not found on this page'
+  const targetTitle = targetEl ? elementAddress(ann.selector) : undefined
+
+  const cardStyle: CSSProperties = {
+    ...pinVars(color),
+    left: pos?.left ?? 'auto',
+    top: pos?.top ?? 70,
+  }
+
+  /* ───────────── Out of pins — composer ───────────── */
+  if (locked) {
+    const frac = Math.min(1, quota.used / quota.limit)
+    const C = 113.1
+    const first = upgradePlans[0]!
+    return (
+      <section
+        id="annot-card"
+        ref={cardRef}
+        className="sp-an-card sp-an-locked"
+        aria-label="Pin limit reached"
+        style={cardStyle}
+      >
+        <header className="sp-an-head sp-an-head-locked">
+          <span className="sp-an-title">New pin</span>
+          <button
+            type="button"
+            className="sp-an-icon sm"
+            aria-label="Close"
             title="Close"
             onClick={closeCard}
           >
-            <X className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="annot-card-body">
-        <div
-          className={'annot-target' + (targetEl ? '' : ' orphan')}
-          title={targetEl ? elementAddress(ann.selector) : undefined}
-        >
-          {targetEl
-            ? '⌖ ' + elementLabel(ann.selector)
-            : '⚠ element not found on this page'}
-        </div>
-
-        {ro ? (
-          <>
-            <div className="annot-field">
-              <label>Comment</label>
-              <div className="annot-readonly">{ann.comment || '—'}</div>
-            </div>
-            <div className="annot-field">
-              <label>Author</label>
-              <div className="annot-readonly">{ann.author || '—'}</div>
-            </div>
-          </>
-        ) : isDraft || editing ? (
-          <div className="annot-field">
-            <Textarea
-              ref={commentRef}
-              className="annot-input annot-comment-input"
-              rows={4}
-              placeholder="Add a comment here…"
-              value={isDraft ? ann.comment : (commentDraft ?? ann.comment)}
-              onChange={(e) => onComment(e.target.value)}
-              onKeyDown={stopKeyLeak}
-              onKeyUp={stopKeyLeak}
-            />
-            {editing && (
-              <div className="annot-edit-row">
-                <Button
-                  variant="ghost"
-                  className="annot-edit-done"
-                  title="Done editing"
-                  onClick={finishEdit}
-                >
-                  <Check className="size-3.5" />
-                  Done
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="annot-field">
-            <div className="annot-comment-head">
-              <label>Comment</label>
-              {canEdit && (
-                <Button
-                  variant="ghost"
-                  className="annot-edit-btn"
-                  title="Edit comment"
-                  onClick={() => {
-                    setCommentDraft(ann.comment)
-                    setEditing(true)
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  Edit
-                </Button>
-              )}
-            </div>
-            <div className="annot-readonly">{ann.comment || '—'}</div>
-            {ann.author && (
-              <div className="annot-comment-author">— {ann.author}</div>
-            )}
-          </div>
-        )}
-
-        {!isDraft && (
-          <details
-            className="annot-section"
-            open={repliesOpen}
-            onToggle={(e) => setRepliesOpen(e.currentTarget.open)}
-          >
-            <summary>
-              <MessageSquare className="size-3.5" aria-hidden="true" />
-              <span className="annot-section-title">Replies</span>
-              <span
-                className={
-                  'annot-reply-count' + (replies.length ? '' : ' is-zero')
-                }
-              >
-                {replies.length}
-              </span>
-              <ChevronDown className="size-3.5 annot-section-chev" aria-hidden="true" />
-            </summary>
-            <div className="annot-replies">
-              {replies.length ? (
-                replies.map((r) => (
-                  <div
-                    key={r.id}
-                    ref={r.id === firstNewId ? firstNewRef : undefined}
-                    className={
-                      'annot-reply' +
-                      (newReplyIds.has(r.id) ? ' is-new' : '') +
-                      (canEditReply(r) ? ' is-mine' : '')
-                    }
-                  >
-                    <span
-                      className="annot-avatar"
-                      style={{ '--av-h': String(authorHue(r.author)) } as CSSProperties}
-                      aria-hidden="true"
-                    >
-                      {authorInitials(r.author)}
-                    </span>
-                    <div className="annot-reply-bubble">
-                      <div className="annot-reply-head">
-                        <strong>{r.author || 'Anonymous'}</strong>
-                        <div className="annot-reply-meta">
-                          <span
-                            className="annot-reply-date"
-                            title={fmtDate(r.createdAt)}
-                          >
-                            {fmtReplyTime(r.createdAt)}
-                          </span>
-                          {editingReplyId !== r.id && canEditReply(r) && (
-                            <Button
-                              variant="ghost"
-                              className="annot-reply-edit"
-                              title="Edit reply"
-                              onClick={() => startEditReply(r)}
-                            >
-                              <Pencil className="size-3" aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      {editingReplyId === r.id ? (
-                        <div className="annot-reply-edit-box">
-                          <Textarea
-                            className="annot-input annot-reply-ta"
-                            rows={2}
-                            autoFocus
-                            value={replyDraft}
-                            onChange={(e) => setReplyDraft(e.target.value)}
-                            onKeyDown={stopKeyLeak}
-                            onKeyUp={stopKeyLeak}
-                          />
-                          <div className="annot-reply-edit-actions">
-                            <Button
-                              variant="ghost"
-                              className="annot-reply-cancel"
-                              title="Cancel"
-                              onClick={cancelEditReply}
-                            >
-                              <X className="size-3.5" />
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              className="annot-edit-done"
-                              title="Save reply"
-                              disabled={!replyDraft.trim()}
-                              onClick={saveEditReply}
-                            >
-                              <Check className="size-3.5" />
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="annot-reply-msg">{r.message}</div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="annot-empty">
-                  <MessageSquare className="size-4" aria-hidden="true" />
-                  No replies yet — start the thread.
-                </div>
-              )}
-            </div>
-            <div className="annot-reply-input">
-              <span
-                className="annot-avatar annot-avatar-me"
-                style={{ '--av-h': String(authorHue(myReplyName)) } as CSSProperties}
-                aria-hidden="true"
-              >
-                {authorInitials(myReplyName)}
-              </span>
-              <div className="annot-reply-composer">
-                <Textarea
-                  className="annot-input annot-reply-ta"
-                  rows={2}
-                  placeholder="Write a reply…"
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  onKeyDown={stopKeyLeak}
-                  onKeyUp={stopKeyLeak}
-                />
-                <Button
-                  variant="ghost"
-                  className="annot-reply-send"
-                  title="Send reply"
-                  disabled={!replyText.trim()}
-                  onClick={sendReply}
-                >
-                  <SendHorizontal className="size-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-          </details>
-        )}
-
-        {!ro && isDraft && (
-          <div className="annot-submit-row">
-            {Number.isFinite(quota.limit) && (
-              <div
-                className="annot-quota"
-                title="Annotations per site — the limit resets 24h after each one is created. Upgrade for more."
-              >
-                <span className="annot-quota-count">
-                  {quota.used} / {quota.limit} used
+            <XIcon size={16} />
+          </button>
+        </header>
+        <div className="sp-an-lock-body">
+          <div className="sp-an-lock-panel">
+            <div className="sp-an-lock-top">
+              <div className="sp-an-ring">
+                <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#fde68a" strokeWidth="5" />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r="18"
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(C * frac).toFixed(1)} ${C}`}
+                  />
+                </svg>
+                <span className="sp-an-ring-n">
+                  {quota.used}/{quota.limit}
                 </span>
-                {quota.resetsInMs != null && (
-                  <span className="annot-quota-reset">
-                    · resets in ~{formatReset(quota.resetsInMs)}
-                  </span>
-                )}
               </div>
-            )}
-            <Button
-              variant="ghost"
-              className="annot-submit-btn"
-              title={submitting ? 'Submitting…' : 'Submit & attach pin'}
-              disabled={!canSubmit || submitting}
-              aria-busy={submitting}
-              onClick={submitDraft}
-            >
-              {submitting ? (
-                <Loader2 className="size-4 annot-submit-spin" aria-hidden="true" />
-              ) : (
-                <SendHorizontal className="size-4" aria-hidden="true" />
-              )}
-            </Button>
+              <div>
+                <div className="sp-an-lock-title">
+                  That&rsquo;s today&rsquo;s {quota.limit} pin
+                  {quota.limit === 1 ? '' : 's'} on this site
+                </div>
+                <div className="sp-an-lock-sub">
+                  {quota.resetsInMs != null ? (
+                    <>
+                      New pins unlock in{' '}
+                      <span className="sp-an-mono sp-an-strong">
+                        {fmtUnlock(quota.resetsInMs)}
+                      </span>
+                    </>
+                  ) : (
+                    <>New pins unlock when your daily limit resets</>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="sp-an-lock-note">
+              Your existing pins stay saved and editable — only new ones are
+              paused on this site.
+            </p>
           </div>
-        )}
+          <div className="sp-an-lock-actions">
+            {upgradePlans.map((p) => {
+              const lim = PLAN_LIMITS[p].annotationLimit
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  className={'sp-an-lock-btn ' + (p === first ? 'primary' : 'outline')}
+                  onClick={() => setUpgradePlan(p)}
+                >
+                  <span>
+                    {Number.isFinite(lim)
+                      ? `Get ${lim} pins a day with ${PLAN_DISPLAY[p].name}`
+                      : `Go unlimited with ${PLAN_DISPLAY[p].name}`}
+                  </span>
+                  <span className="sp-an-mono sp-an-lock-price">
+                    {PLAN_DISPLAY[p].monthlyPrice}/mo
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <PinLimitUpgrade
+          open={upgradePlan != null}
+          onOpenChange={(o) => {
+            if (!o) setUpgradePlan(null)
+          }}
+          initialPlan={upgradePlan ?? first}
+          plans={upgradePlans}
+          limit={quota.limit}
+          resetsInMs={quota.resetsInMs}
+        />
+      </section>
+    )
+  }
+
+  /* ───────────── New pin composer ───────────── */
+  if (isDraft) {
+    const showMeter = Number.isFinite(quota.limit)
+    const segW = quota.limit > 6 ? 5 : 10
+    const resetHint =
+      quota.resetsInMs != null ? ` Resets in ${fmtUnlock(quota.resetsInMs)}.` : ''
+    return (
+      <section
+        id="annot-card"
+        ref={cardRef}
+        className="sp-an-card sp-an-composer"
+        aria-label="New pin"
+        style={cardStyle}
+      >
+        <header className="sp-an-head">
+          <span className="sp-an-title">New pin</span>
+          <div
+            role="radiogroup"
+            aria-label="Pin color"
+            className="sp-an-swatches"
+          >
+            {PIN_COLORS.map((c) => {
+              const active = c.id === color.id
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={c.name}
+                  title={c.name}
+                  className="sp-an-swatch"
+                  style={{ background: c.hex, ['--sw' as string]: c.hex }}
+                  onClick={() => setBackground(c.hex)}
+                />
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            className="sp-an-icon"
+            aria-label="Discard pin"
+            title="Discard pin"
+            onClick={closeCard}
+          >
+            <XIcon />
+          </button>
+        </header>
+        <div className="sp-an-pad">
+          <div
+            className={'sp-an-chip' + (targetEl ? '' : ' orphan')}
+            title={targetTitle}
+          >
+            <span className="sp-an-chip-dot" aria-hidden="true" />
+            <span className="sp-an-chip-text">{targetLabel}</span>
+          </div>
+          <label htmlFor={commentId} className="sp-an-sr">
+            Comment
+          </label>
+          <textarea
+            id={commentId}
+            ref={commentRef}
+            className="sp-an-ta annot-comment-input"
+            placeholder="What should change here?"
+            value={ann.comment}
+            onChange={(e) => onComment(e.target.value)}
+            onKeyDown={(e) => {
+              stopKeyLeak(e)
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                void submitDraft()
+              }
+            }}
+            onKeyUp={stopKeyLeak}
+          />
+        </div>
+        <footer className="sp-an-foot">
+          {showMeter && (
+            <div
+              className="sp-an-meter"
+              role="img"
+              aria-label={`${quota.used} of ${quota.limit} pins used today on this site.${resetHint}`}
+              title={`Pins per site reset 24h after you use the last one.${resetHint}`}
+            >
+              <span className="sp-an-meter-bars" aria-hidden="true">
+                {Array.from({ length: quota.limit }, (_, i) => (
+                  <span
+                    key={i}
+                    className={i < quota.used ? 'on' : ''}
+                    style={{ width: segW }}
+                  />
+                ))}
+              </span>
+              <span className="sp-an-mono sp-an-strong" aria-hidden="true">
+                {quota.used}/{quota.limit}
+              </span>
+              <span aria-hidden="true">today</span>
+            </div>
+          )}
+          <button
+            type="button"
+            className="sp-an-post annot-submit-btn"
+            title={submitting ? 'Submitting…' : 'Submit & attach pin'}
+            disabled={!canSubmit || submitting}
+            aria-busy={submitting}
+            onClick={submitDraft}
+          >
+            Post pin
+            {submitting ? (
+              <Loader2 className="annot-submit-spin" size={14} aria-hidden="true" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            )}
+          </button>
+        </footer>
+      </section>
+    )
+  }
+
+  /* ───────────── Pin thread ───────────── */
+  const replyTo = commentOwner && commentOwner !== myReplyName
+    ? commentOwner.split(/\s+/)[0]
+    : null
+
+  const message = (opts: {
+    key: string
+    mine: boolean
+    name: string
+    iso: string
+    flash?: boolean
+    refEl?: boolean
+    actions?: ReactNode
+    children: ReactNode
+  }) => (
+    <div
+      key={opts.key}
+      ref={opts.refEl ? firstNewRef : undefined}
+      className={
+        'sp-an-msg' + (opts.mine ? ' mine' : '') + (opts.flash ? ' is-new' : '')
+      }
+    >
+      <span
+        className="sp-an-av"
+        style={{ '--av-h': String(authorHue(opts.name)) } as CSSProperties}
+        aria-hidden="true"
+      >
+        {authorInitials(opts.name)}
+      </span>
+      <div className="sp-an-msg-col">
+        <div className="sp-an-msg-meta">
+          <span className="sp-an-msg-name">
+            {opts.mine ? 'You' : opts.name || 'Anonymous'}
+          </span>
+          <span className="sp-an-msg-time" title={fmtDate(opts.iso)}>
+            {opts.iso ? fmtReplyTime(opts.iso) : ''}
+          </span>
+          {opts.actions}
+        </div>
+        {opts.children}
       </div>
     </div>
+  )
+
+  return (
+    <section
+      id="annot-card"
+      ref={cardRef}
+      className="sp-an-card sp-an-thread"
+      aria-label={`Pin ${num} thread`}
+      style={cardStyle}
+    >
+      <header className="sp-an-head sp-an-head-thread">
+        <span
+          className={
+            'sp-an-tchip' + (targetEl ? '' : ' orphan') + (resolved ? ' resolved' : '')
+          }
+          title={targetTitle}
+        >
+          <span className="sp-an-tchip-pin" aria-hidden="true">
+            {resolved ? (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+            ) : (
+              num
+            )}
+          </span>
+          <span className="sp-an-tchip-text">{targetLabel}</span>
+        </span>
+        <button
+          type="button"
+          className={'sp-an-status ' + (resolved ? 'resolved' : 'open')}
+          aria-label={
+            resolved
+              ? 'Status: Resolved. Reopen this pin'
+              : 'Status: Open. Mark this pin as resolved'
+          }
+          title={resolved ? 'Reopen' : 'Mark as resolved'}
+          onClick={toggleResolve}
+        >
+          <span className="sp-an-status-dot" aria-hidden="true" />
+          {ann.status}
+        </button>
+        {!ro && (
+          <button
+            type="button"
+            className="sp-an-icon"
+            aria-label="Delete pin"
+            title="Delete annotation"
+            onClick={() => {
+              store.remove(ann.id)
+              ui.closeCard()
+            }}
+          >
+            <Trash2 size={15} aria-hidden="true" />
+          </button>
+        )}
+        <button
+          type="button"
+          className="sp-an-icon"
+          aria-label="Close thread"
+          title="Close"
+          onClick={closeCard}
+        >
+          <XIcon />
+        </button>
+      </header>
+
+      <div className="sp-an-msgs">
+        {message({
+          key: 'comment',
+          mine: commentIsMine,
+          name: commentOwner || (commentIsMine ? myReplyName : 'Anonymous'),
+          iso: ann.createdAt,
+          actions:
+            canEdit && !editing ? (
+              <button
+                type="button"
+                className="sp-an-mini"
+                aria-label="Edit comment"
+                title="Edit comment"
+                onClick={() => {
+                  setCommentDraft(ann.comment)
+                  setEditing(true)
+                }}
+              >
+                <Pencil size={12} aria-hidden="true" />
+              </button>
+            ) : null,
+          children: editing ? (
+            <div className="sp-an-editbox">
+              <label htmlFor={commentId} className="sp-an-sr">
+                Comment
+              </label>
+              <textarea
+                id={commentId}
+                ref={commentRef}
+                className="sp-an-ta sp-an-ta-sm annot-comment-input"
+                rows={3}
+                value={commentDraft ?? ann.comment}
+                onChange={(e) => onComment(e.target.value)}
+                onKeyDown={stopKeyLeak}
+                onKeyUp={stopKeyLeak}
+              />
+              <div className="sp-an-editrow">
+                <button type="button" className="sp-an-pill primary" title="Done editing" onClick={finishEdit}>
+                  <Check size={13} aria-hidden="true" />
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="sp-an-bubble">{ann.comment || '—'}</p>
+          ),
+        })}
+
+        {replies.map((r) => {
+          const mine = canEditReply(r)
+          return message({
+            key: r.id,
+            mine,
+            name: r.author || 'Anonymous',
+            iso: r.createdAt,
+            flash: newReplyIds.has(r.id),
+            refEl: r.id === firstNewId,
+            actions:
+              editingReplyId !== r.id && mine ? (
+                <button
+                  type="button"
+                  className="sp-an-mini"
+                  aria-label="Edit reply"
+                  title="Edit reply"
+                  onClick={() => startEditReply(r)}
+                >
+                  <Pencil size={12} aria-hidden="true" />
+                </button>
+              ) : null,
+            children:
+              editingReplyId === r.id ? (
+                <div className="sp-an-editbox">
+                  <label htmlFor={replyId + r.id} className="sp-an-sr">
+                    Edit reply
+                  </label>
+                  <textarea
+                    id={replyId + r.id}
+                    className="sp-an-ta sp-an-ta-sm"
+                    rows={2}
+                    autoFocus
+                    value={replyDraft}
+                    onChange={(e) => setReplyDraft(e.target.value)}
+                    onKeyDown={stopKeyLeak}
+                    onKeyUp={stopKeyLeak}
+                  />
+                  <div className="sp-an-editrow">
+                    <button type="button" className="sp-an-pill" title="Cancel" onClick={cancelEditReply}>
+                      <X size={13} aria-hidden="true" />
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="sp-an-pill primary"
+                      title="Save reply"
+                      disabled={!replyDraft.trim()}
+                      onClick={saveEditReply}
+                    >
+                      <Check size={13} aria-hidden="true" />
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="sp-an-bubble">{r.message}</p>
+              ),
+          })
+        })}
+
+        {!replies.length && (
+          <p className="sp-an-empty">No replies yet — start the thread.</p>
+        )}
+
+        {resolved && (
+          <div className="sp-an-resolved" role="status">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12l5 5L20 7" />
+            </svg>
+            Marked as resolved
+          </div>
+        )}
+
+        <div className="sp-an-reply">
+          <label htmlFor={replyId} className="sp-an-sr">
+            Reply
+          </label>
+          <input
+            id={replyId}
+            type="text"
+            className="sp-an-reply-in"
+            placeholder={replyTo ? `Reply to ${replyTo}…` : 'Write a reply…'}
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => {
+              stopKeyLeak(e)
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                sendReply()
+              }
+            }}
+            onKeyUp={stopKeyLeak}
+          />
+          <button
+            type="button"
+            className="sp-an-send"
+            aria-label="Send reply"
+            title="Send reply"
+            disabled={!replyText.trim()}
+            onClick={sendReply}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {ro && (
+        <div className="sp-an-notice">
+          <span className="sp-an-notice-ic" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </span>
+          <span>
+            <strong>Client Mode on</strong> — reviewers can reply and change
+            status, not edit your notes.
+          </span>
+        </div>
+      )}
+
+      {collab.enabled && collab.shareUrl && !collab.sessionEnded && (
+        <footer className="sp-an-share">
+          <span className="sp-an-share-ic" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+              <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+            </svg>
+          </span>
+          <div className="sp-an-share-txt">
+            <div className="sp-an-share-h">Share link</div>
+            <div className="sp-an-share-s">{expiryText(collab.sessionExpiresAt)}</div>
+          </div>
+          <button
+            type="button"
+            className={'sp-an-copy' + (linkCopied === 'ok' ? ' copied' : '')}
+            onClick={() => void onCopyLink()}
+          >
+            {linkCopied === 'ok'
+              ? 'Copied'
+              : linkCopied === 'fail'
+                ? 'Copy failed'
+                : 'Copy link'}
+          </button>
+        </footer>
+      )}
+    </section>
   )
 }

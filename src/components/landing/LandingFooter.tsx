@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useExtensionDownload } from '@/hooks/use-extension-download'
-import { Wordmark } from './Wordmark'
-import { Container } from './parts'
+import { cn } from '@/lib/format'
+import { BrandMark, LpContainer } from './lp'
 
 const NAV = [
   { label: 'Features', href: '#features' },
@@ -9,19 +8,26 @@ const NAV = [
   { label: 'FAQ', href: '#faq' },
 ]
 
-// Route links (not in-page anchors) — rendered as a separate legal row.
+// Route links (not in-page anchors).
 const LEGAL = [
   { label: 'Privacy Policy', to: '/privacy' },
   { label: 'Terms & Conditions', to: '/terms' },
 ]
 
-/* The footer is rendered on the landing/index page and on /account; the Install
-   button opens the extension's store listing for the visitor's browser, so it
-   works the same on any page without needing the scanner. */
-export function LandingFooter() {
+const CONTACT_EMAIL = 'hello@trysparrowcss.com'
+
+/* The footer is rendered on the landing page and on /account, /privacy and
+   /terms. `tone="light"` is the landing design (dark text on the white page);
+   `tone="gradient"` keeps the white-on-blue treatment for the pages that still
+   sit over the shared blue-gradient backdrop. */
+export function LandingFooter({
+  tone = 'light',
+}: {
+  tone?: 'light' | 'gradient'
+}) {
   const navigate = useNavigate()
   const onLanding = useLocation().pathname === '/'
-  const { getExtension } = useExtensionDownload()
+  const light = tone === 'light'
 
   // Same-page: smooth-scroll to the section. On pages without the landing
   // sections (/account, /privacy, /terms): navigate client-side to the landing
@@ -34,78 +40,97 @@ export function LandingFooter() {
     }
     document.getElementById(href.slice(1))?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  const link = cn(
+    'py-2.5 text-sm transition-colors lg:py-0',
+    light
+      ? 'text-lp-body hover:text-lp-ink'
+      : 'font-medium text-white/90 hover:text-white',
+  )
+
   return (
-    <footer className="relative overflow-hidden md:pt-16 pt-0">
-      <Container>
-        <div className="flex flex-col items-center gap-10 text-center md:flex-row md:items-start md:justify-between md:text-left">
-          <div className="flex max-w-sm flex-col items-center md:block">
-            <Wordmark dark logoHeight={40} />
-            <p className="mt-0 font-abeezee text-sm text-white/85">
-              Inspect anything.
-              <br />
-              Explain everything.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-6 md:items-end">
-            <nav
-              aria-label="Footer"
-              className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-start"
+    <footer className="lp-root relative overflow-hidden">
+      <LpContainer>
+        <div
+          className={cn(
+            'mt-12 flex flex-col gap-5 border-t pt-7 pb-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-between lg:pt-8 lg:pb-12',
+            light ? 'border-[rgba(9,9,11,0.08)]' : 'border-white/25',
+          )}
+        >
+          <div className="flex items-center gap-2.5">
+            <BrandMark size={28} />
+            <span
+              className={cn(
+                'text-base font-semibold',
+                light && 'lg:hidden',
+                light ? 'text-lp-ink' : 'text-white',
+              )}
             >
-              {/* Opens the extension's store listing for the visitor's browser. */}
-              <button
-                type="button"
-                onClick={getExtension}
-                className="inline-flex cursor-pointer items-center gap-1.5 font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
-              >
-                Install
-              </button>
-              {NAV.map((item) => (
-                <a
-                  key={item.label}
-                  href={onLanding ? item.href : `/${item.href}`}
-                  onClick={handleNavClick(item.href)}
-                  className="font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-
-            <nav
-              aria-label="Legal"
-              className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-end"
+              Sparrow
+            </span>
+            <span
+              className={cn(
+                'hidden text-sm lg:inline',
+                light ? 'text-lp-muted' : 'text-white/80',
+              )}
             >
-              {LEGAL.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.to}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    navigate(item.to)
-                  }}
-                  className="font-abeezee text-sm font-medium text-white/90 transition-colors hover:text-white"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-
-            <p className="font-abeezee text-sm text-white/80">
               © 2026 Sparrow. All rights reserved.
-            </p>
+            </span>
           </div>
-        </div>
-      </Container>
 
-      {/* Oversized brand watermark behind the footer */}
-      <span
-        aria-hidden
-        className="pointer-events-none block select-none bg-linear-to-b from-white/20 to-transparent bg-clip-text text-center font-abeezee font-bold leading-[0.8] tracking-tight text-transparent"
-        style={{ fontSize: 'clamp(80px, 26vw, 420px)' }}
-      >
-        Sparrow
-      </span>
+          <nav
+            aria-label="Footer"
+            className="grid grid-cols-2 gap-x-4 gap-y-1 lg:flex lg:gap-6"
+          >
+            {NAV.map((item) => (
+              <a
+                key={item.label}
+                href={onLanding ? item.href : `/${item.href}`}
+                onClick={handleNavClick(item.href)}
+                className={link}
+              >
+                {item.label}
+              </a>
+            ))}
+            <a href={`mailto:${CONTACT_EMAIL}`} className={cn(link, 'lg:hidden')}>
+              Contact
+            </a>
+            {LEGAL.map((item) => (
+              <a
+                key={item.label}
+                href={item.to}
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate(item.to)
+                }}
+                className={link}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+
+          <span
+            className={cn(
+              'text-[13px] lg:hidden',
+              light ? 'text-lp-muted' : 'text-white/80',
+            )}
+          >
+            © 2026 Sparrow. All rights reserved.
+          </span>
+        </div>
+      </LpContainer>
+
+      {!light && (
+        /* Oversized brand watermark behind the gradient footer */
+        <span
+          aria-hidden
+          className="pointer-events-none block bg-linear-to-b from-white/20 to-transparent bg-clip-text text-center leading-[0.8] font-bold tracking-tight text-transparent select-none"
+          style={{ fontSize: 'clamp(80px, 26vw, 420px)' }}
+        >
+          Sparrow
+        </span>
+      )}
     </footer>
   )
 }

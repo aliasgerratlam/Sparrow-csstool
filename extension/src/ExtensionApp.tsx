@@ -23,6 +23,7 @@ import { ExtensionSubscriptionProvider } from './ExtensionSubscriptionProvider'
 import { SignInGate } from './SignInGate'
 import { MSG_OPEN_ACCOUNT } from './auth-bridge'
 import '@/index.css'
+import '@/styles/sparrow-ui/index.css'
 
 /* Annotations are gated behind sign-in in the extension, so — unlike the web
    app's boot — we do NOT eagerly load them here (that would surface a stale

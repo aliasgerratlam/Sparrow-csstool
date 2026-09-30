@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { useCollab, type RemoteEditing } from '@/context/collab-context'
 import { useAnnotationUI } from '@/context/annotation-ui-context'
 import { useScanner } from '@/context/scanner-context'
@@ -101,13 +101,15 @@ function RemoteEditMarker({ editing }: { editing: RemoteEditing }) {
 
   return (
     <div
-      className="collab-edit-box"
+      className="collab-edit-box sp-edit-box"
+      aria-hidden="true"
       style={{
+        '--sp-ec': editing.color,
         top: rect.top,
         left: rect.left,
         width: rect.width,
         height: rect.height,
-      }}
+      } as CSSProperties}
     >
       {editing.typing && (
         <span className="collab-edit-label">

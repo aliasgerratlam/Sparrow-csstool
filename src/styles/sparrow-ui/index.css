@@ -1,0 +1,12 @@
+/* Sparrow tool UI redesign. Imported AFTER src/index.css (see main.tsx and
+   extension/src/ExtensionApp.tsx) so these rules win over the legacy scanner
+   CSS at equal specificity. One file per surface; tokens first. */
+@import './tokens.css';
+@import './chrome.css';
+@import './inspect.css';
+@import './annotate.css';
+@import './colors.css';
+@import './fonts.css';
+@import './assets.css';
+@import './account.css';
+@import './alerts.css';

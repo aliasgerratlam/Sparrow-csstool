@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { ArrowUpRight, Globe } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -7,6 +8,13 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useCollab } from '@/context/collab-context'
+
+/* Inline backdrop so the dim also paints inside the extension's shadow root. */
+const DIALOG_OVERLAY = {
+  background: 'rgba(9,9,11,.42)',
+  backdropFilter: 'blur(3px)',
+  WebkitBackdropFilter: 'blur(3px)',
+} as const
 
 /* Shown when a share link is opened on a different origin than the one it was
    created on. Collaboration is already blocked in collab-context (the join
@@ -25,9 +33,13 @@ export const CrossDomainDialog = memo(function CrossDomainDialog() {
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         className="border-0 bg-transparent p-0 shadow-none sm:max-w-[560px]"
+        overlayStyle={DIALOG_OVERLAY}
       >
         <div className="annot-share-dialog annot-crossdomain-dialog">
           <div className="annot-share-head">
+            <span className="annot-share-ico is-warn" aria-hidden="true">
+              <Globe className="size-[18px]" strokeWidth={1.9} />
+            </span>
             <DialogTitle asChild>
               <h3>Wrong website for this session</h3>
             </DialogTitle>
@@ -48,6 +60,7 @@ export const CrossDomainDialog = memo(function CrossDomainDialog() {
                 }}
               >
                 Open Original Website
+                <ArrowUpRight className="size-3.5" aria-hidden="true" />
               </Button>
             )}
             <Button

@@ -1,44 +1,45 @@
 import type { RenderBlock } from '@/hooks/use-css-inspection'
 import { useColorFormat } from '@/context/color-format'
 import { convertColorTokens } from '@/lib/color'
+import { RuleRow } from './RuleRow'
 
-const VARIANT_CLASS: Record<RenderBlock['variant'], string> = {
-  applied: '',
-  inline: '',
-  state: ' is-state',
-  pseudo: ' is-pseudo',
-  inactive: ' rule-conditional',
-}
-
-/* DevTools-style rule block: selector { decl; … } with cascade strike-through. */
+/* One matched rule, flattened into declaration rows (cascade strike-through
+   preserved). The right-hand label is the rule's selector — or, for :hover /
+   ::before style blocks (whose selector the model folds into `heading`), a badge
+   plus the stylesheet they came from. */
 export function RuleBlock({ block }: { block: RenderBlock }) {
   const format = useColorFormat()
+  const isStateLike = block.variant === 'state' || block.variant === 'pseudo'
+  const inactive = block.variant === 'inactive'
+
+  const badge = isStateLike ? block.heading : block.badge
+  const source = isStateLike
+    ? block.source
+    : block.variant === 'inline'
+      ? 'element.style'
+      : block.heading
+  const sourceTitle = isStateLike
+    ? `${block.heading} — ${block.source}`
+    : block.source
+      ? `${block.heading} — ${block.source}`
+      : block.heading
+
   return (
-    <div className={'rule-block' + VARIANT_CLASS[block.variant]}>
-      {block.mediaNote && <div className="applied-mq">{block.mediaNote}</div>}
-      <div className="rule-head">
-        <span className="rule-selector">{block.heading}</span>
-        {block.badge && (
-          <span className="rule-state-badge">{block.badge}</span>
-        )}
-        <span className="rule-src" title={block.source}>{block.source}</span>
-      </div>
-      <div className="rule-brace">{'{'}</div>
+    <>
+      {block.mediaNote && <div className="sp-ip-mq">{block.mediaNote}</div>}
       {block.decls.map((d, i) => (
-        <div
+        <RuleRow
           key={i}
-          className={'rule-prop-row' + (d.overridden ? ' decl-overridden' : '')}
-        >
-          <span className="decl-key">{d.property}</span>
-          <span className="decl-colon">:</span>{' '}
-          {d.swatch && (
-            <span className="decl-swatch" style={{ background: d.swatch }} />
-          )}
-          <span className="decl-value">{convertColorTokens(d.value, format)}</span>
-          <span className="decl-semi">;</span>
-        </div>
+          prop={d.property}
+          value={convertColorTokens(d.value, format)}
+          swatch={d.swatch}
+          badge={badge}
+          source={source}
+          sourceTitle={sourceTitle}
+          overridden={d.overridden}
+          dim={inactive}
+        />
       ))}
-      <div className="rule-brace">{'}'}</div>
-    </div>
+    </>
   )
 }

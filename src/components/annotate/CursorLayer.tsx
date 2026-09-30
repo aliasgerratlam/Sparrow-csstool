@@ -66,7 +66,7 @@ export function CursorLayer() {
   if (!active || remoteCursors.length === 0) return null
 
   return (
-    <div id="collab-cursor-layer">
+    <div id="collab-cursor-layer" aria-hidden="true">
       {remoteCursors.map((c) => (
         <div
           key={c.id}

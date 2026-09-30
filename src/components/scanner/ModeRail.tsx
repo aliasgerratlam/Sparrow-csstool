@@ -1,9 +1,95 @@
-import { HiMiniEyeDropper } from 'react-icons/hi2'
-import { Images, Type } from 'lucide-react'
+import { Fragment, type ReactNode } from 'react'
 import { useScanner, type ScannerMode } from '@/context/scanner-context'
 import { useAuth } from '@/context/auth-context'
 import { useEntitlements, promptUpgrade } from '@/context/subscription-context'
-import { Button } from '@/components/ui/button'
+
+/* Right-hand tool rail — a slim pill with the six tools grouped by job:
+   measure (inspect, ruler) · feedback (annotate) · extract (colors, fonts,
+   assets). Each tool carries a hover/focus tooltip (name + hint). Icons and copy
+   come from the "Sparrow extension UI redesign" Main board. Styles live in
+   src/styles/sparrow-ui/chrome.css. */
+
+const SVG = {
+  width: 18,
+  height: 18,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+}
+
+const ICONS: Record<ScannerMode, ReactNode> = {
+  inspect: (
+    <svg {...SVG}>
+      <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+      <circle cx="11.5" cy="11.5" r="3.5" />
+      <path d="M14 14l2.5 2.5" />
+    </svg>
+  ),
+  ruler: (
+    <svg {...SVG}>
+      <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z" />
+      <path d="M14.5 12.5l2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2" />
+    </svg>
+  ),
+  annotate: (
+    <svg {...SVG}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  ),
+  dropper: (
+    <svg {...SVG}>
+      <path d="M2 22l1-1h3l9-9" />
+      <path d="M3 21v-3l9-9" />
+      <path d="M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3z" />
+    </svg>
+  ),
+  fonts: (
+    <svg {...SVG}>
+      <path d="M4 7V4h16v3" />
+      <path d="M9 20h6" />
+      <path d="M12 4v16" />
+    </svg>
+  ),
+  assets: (
+    <svg {...SVG}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="M21 15l-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </svg>
+  ),
+}
+
+interface ToolDef {
+  mode: ScannerMode
+  /** DOM id — tests and scripts look these up. */
+  id: string
+  name: string
+  desc: string
+  /** Thin divider before this tool (group boundary). */
+  sep?: boolean
+}
+
+const TOOLS: ToolDef[] = [
+  { mode: 'inspect', id: 'rail-inspect', name: 'Inspect', desc: 'CSS behind any element' },
+  { mode: 'ruler', id: 'rail-ruler', name: 'Ruler', desc: 'Distance between elements' },
+  { mode: 'annotate', id: 'rail-annotate', name: 'Annotate', desc: 'Pin feedback', sep: true },
+  { mode: 'dropper', id: 'rail-dropper', name: 'Colors', desc: 'Every color on the page', sep: true },
+  { mode: 'fonts', id: 'rail-fonts', name: 'Fonts', desc: 'Audit and swap typefaces' },
+  { mode: 'assets', id: 'rail-assets', name: 'Assets', desc: 'Images, SVGs, videos' },
+]
+
+/** Legacy hover copy, kept on `data-tooltip` for anything that still reads it. */
+const LOCKED_TOOLTIP: Partial<Record<ScannerMode, string>> = {
+  annotate: 'Sign in to use Annotate',
+  dropper: 'Upgrade to use Color Change',
+  fonts: 'Upgrade to use Fonts',
+  assets: 'Upgrade to download assets',
+}
 
 export function ModeRail() {
   const { mode, frozen, setMode, unfreeze } = useScanner()
@@ -31,6 +117,13 @@ export function ModeRail() {
   if (import.meta.env.VITE_IS_EXTENSION && (loading || !isAuthenticated))
     return null
 
+  const locked: Partial<Record<ScannerMode, boolean>> = {
+    annotate: annotateLocked,
+    dropper: dropperLocked,
+    fonts: fontsLocked,
+    assets: assetsLocked,
+  }
+
   const select = (m: ScannerMode) => {
     // Locked Annotate is a no-op — the tooltip tells the user to sign in first.
     if (m === 'annotate' && annotateLocked) return
@@ -46,101 +139,56 @@ export function ModeRail() {
   }
 
   return (
-    <div id="mode-rail" role="toolbar" aria-label="Scanner mode">
-      <Button
-        id="rail-inspect"
-        variant="ghost"
-        className={'mode-rail-btn' + (mode === 'inspect' ? ' active' : '')}
-        data-mode="inspect"
-        data-tooltip="Inspect"
-        aria-label="Inspect"
-        onClick={() => select('inspect')}
-      >
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M8.47 4.97a.75.75 0 0 0 0 1.06L9.94 7.5 8.47 8.97a.75.75 0 1 0 1.06 1.06l2-2a.75.75 0 0 0 0-1.06l-2-2a.75.75 0 0 0-1.06 0ZM6.53 6.03a.75.75 0 0 0-1.06-1.06l-2 2a.75.75 0 0 0 0 1.06l2 2a.75.75 0 1 0 1.06-1.06L5.06 7.5l1.47-1.47Z" />
-          <path d="M12.246 13.307a7.501 7.501 0 1 1 1.06-1.06l2.474 2.473a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM1.5 7.5a6.002 6.002 0 0 0 3.608 5.504 6.002 6.002 0 0 0 6.486-1.117.748.748 0 0 1 .292-.293A6 6 0 1 0 1.5 7.5Z" />
-        </svg>
-      </Button>
-      <Button
-        id="rail-annotate"
-        variant="ghost"
-        className={
-          'mode-rail-btn' +
-          (mode === 'annotate' ? ' active' : '') +
-          (annotateLocked ? ' locked' : '')
-        }
-        data-mode="annotate"
-        data-tooltip={annotateLocked ? 'Sign in to use Annotate' : 'Annotate'}
-        aria-label="Annotate"
-        aria-disabled={annotateLocked || undefined}
-        onClick={() => select('annotate')}
-      >
-        <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
-          <path d="M410.3 231l11.3-11.3-33.9-33.9-62.1-62.1L291.7 89.8l-11.3 11.3-22.6 22.6L58.6 322.9c-10.4 10.4-18 23.3-22.2 37.4L1 480.7c-2.5 8.4-.2 17.5 6.1 23.7s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L387.7 253.7 410.3 231zM160 399.4l-9.1 22.7c-4 3.1-8.5 5.4-13.3 6.9L59.4 452l23-78.1c1.4-4.9 3.8-9.4 6.9-13.3l22.7-9.1 0 32c0 8.8 7.2 16 16 16l32 0zM362.7 18.7L348.3 33.2 325.7 55.8 314.3 67.1l33.9 33.9 62.1 62.1 33.9 33.9 11.3-11.3 22.6-22.6 14.5-14.5c25-25 25-65.5 0-90.5L453.3 18.7c-25-25-65.5-25-90.5 0zm-47.4 168l-144 144c-6.2 6.2-16.4 6.2-22.6 0s-6.2-16.4 0-22.6l144-144c6.2-6.2 16.4-6.2 22.6 0s6.2 16.4 0 22.6z" />
-        </svg>
-      </Button>
-      <Button
-        id="rail-ruler"
-        variant="ghost"
-        className={'mode-rail-btn' + (mode === 'ruler' ? ' active' : '')}
-        data-mode="ruler"
-        data-tooltip="Ruler"
-        aria-label="Ruler"
-        onClick={() => select('ruler')}
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M15.5 2.5 21.5 8.5a1.5 1.5 0 0 1 0 2.1L10.6 21.5a1.5 1.5 0 0 1-2.1 0L2.5 15.5a1.5 1.5 0 0 1 0-2.1L13.4 2.5a1.5 1.5 0 0 1 2.1 0Z" />
-          <path d="M7 9.5 9 11.5M10 6.5 13 9.5M13.5 4 15.5 6M4.5 12 6.5 14" />
-        </svg>
-      </Button>
-      <Button
-        id="rail-dropper"
-        variant="ghost"
-        className={
-          'mode-rail-btn' +
-          (mode === 'dropper' ? ' active' : '') +
-          (dropperLocked ? ' locked' : '')
-        }
-        data-mode="dropper"
-        data-tooltip={dropperLocked ? 'Upgrade to use Color Change' : 'Colors'}
-        aria-label="Colors"
-        aria-disabled={dropperLocked || undefined}
-        onClick={() => select('dropper')}
-      >
-        <HiMiniEyeDropper size={20} aria-hidden="true" />
-      </Button>
-      <Button
-        id="rail-fonts"
-        variant="ghost"
-        className={
-          'mode-rail-btn' +
-          (mode === 'fonts' ? ' active' : '') +
-          (fontsLocked ? ' locked' : '')
-        }
-        data-mode="fonts"
-        data-tooltip={fontsLocked ? 'Upgrade to use Fonts' : 'Fonts'}
-        aria-label="Fonts"
-        aria-disabled={fontsLocked || undefined}
-        onClick={() => select('fonts')}
-      >
-        <Type size={20} aria-hidden="true" />
-      </Button>
-      <Button
-        id="rail-assets"
-        variant="ghost"
-        className={
-          'mode-rail-btn' +
-          (mode === 'assets' ? ' active' : '') +
-          (assetsLocked ? ' locked' : '')
-        }
-        data-mode="assets"
-        data-tooltip={assetsLocked ? 'Upgrade to download assets' : 'Assets'}
-        aria-label="Assets"
-        aria-disabled={assetsLocked || undefined}
-        onClick={() => select('assets')}
-      >
-        <Images size={20} aria-hidden="true" />
-      </Button>
-    </div>
+    <nav
+      id="mode-rail"
+      className="sp-rail"
+      role="toolbar"
+      aria-orientation="vertical"
+      aria-label="Sparrow tools"
+    >
+      {TOOLS.map((t) => {
+        const isLocked = !!locked[t.mode]
+        const active = mode === t.mode
+        const tipId = `${t.id}-tip`
+        const lockedHint = t.mode === 'annotate' ? 'Sign in to use' : 'Upgrade to unlock'
+        return (
+          <Fragment key={t.mode}>
+            {t.sep && <span className="sp-rail-sep" aria-hidden="true" />}
+            <div className="sp-rail-item">
+              <button
+                id={t.id}
+                type="button"
+                className={
+                  'mode-rail-btn sp-rail-btn' +
+                  (active ? ' active' : '') +
+                  (isLocked ? ' locked' : '')
+                }
+                data-mode={t.mode}
+                data-tooltip={isLocked ? LOCKED_TOOLTIP[t.mode] : t.name}
+                aria-label={t.name}
+                aria-pressed={active}
+                aria-disabled={isLocked || undefined}
+                aria-describedby={tipId}
+                onClick={() => select(t.mode)}
+              >
+                {ICONS[t.mode]}
+                {isLocked && (
+                  <span className="sp-rail-lock" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              <div id={tipId} role="tooltip" className="sp-rail-tip">
+                <span className="sp-rail-tip-name">{t.name}</span>
+                <span className="sp-rail-tip-desc">{isLocked ? lockedHint : t.desc}</span>
+              </div>
+            </div>
+          </Fragment>
+        )
+      })}
+    </nav>
   )
 }

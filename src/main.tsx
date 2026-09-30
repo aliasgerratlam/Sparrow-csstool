@@ -4,6 +4,7 @@ import { setCssFetcher } from '@/lib/cross-origin-css'
 import { installDevPerfGuard } from '@/lib/dev-perf-guard'
 import App from './App.tsx'
 import './index.css'
+import './styles/sparrow-ui/index.css'
 
 // React 19.2's dev-only profiler instrumentation crashes Firefox (its
 // Performance API rejects React's Chrome-DevTools-specific measure calls) —

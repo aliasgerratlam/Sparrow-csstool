@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { HiMiniEyeDropper } from 'react-icons/hi2'
-import { GripHorizontal } from 'lucide-react'
-import { nextColorFormat, type ColorFormat } from '@/lib/color'
+import type { ColorFormat } from '@/lib/color'
 import { useEntitlements, promptUpgrade } from '@/context/subscription-context'
+import { useScanner } from '@/context/scanner-context'
 import { useDraggable } from '@/hooks/use-draggable'
 import { SiteColorOverview } from './SiteColorOverview'
 
@@ -12,18 +11,19 @@ import { SiteColorOverview } from './SiteColorOverview'
 const RAIL_GAP = 92
 const MARGIN = 8
 
-/* Colors tool: a whole-page color overview — every solid color the page paints,
-   grouped into named categories with usage %, element counts, and a global edit
-   control (see SiteColorOverview / site-colors / site-recolor). It reads the
-   page as a whole, so it doesn't track the hovered element or the cursor; drag
-   it by the header to move it out of the way. */
+/* Colors tool: a whole-page color overview — every solid color the page paints
+   with usage %, element counts, and a site-wide swap control (see
+   SiteColorOverview / site-colors / site-recolor). It reads the page as a
+   whole, so it doesn't track the hovered element or the cursor; drag it by the
+   header to move it out of the way. */
 export function ColorDropper() {
-  // Color notation the overview values render in — HEX → RGBA → HSL.
+  // Color notation the overview values render in — HEX → RGB → HSL.
   const { colorFormat: canColorFormat } = useEntitlements()
+  const { setMode } = useScanner()
   const [format, setFormat] = useState<ColorFormat>('hex')
 
   // Drag the panel by its header so it never sits over content you want to read.
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
   const { pos: dragPos, dragging, onHandlePointerDown } = useDraggable(panelRef)
 
   // Dock beside the mode rail, vertically centered in the viewport. Measured in
@@ -44,53 +44,27 @@ export function ColorDropper() {
     : undefined
 
   return (
-    <div
+    <section
       id="scanner-dropper-panel"
+      aria-label="Colors on this page"
       ref={panelRef}
       className={dragging ? 'dragging' : undefined}
       style={placement}
     >
-      <div
-        id="dropper-head"
-        // Don't start a drag when the pointer lands on the format toggle, or the
-        // drag gesture swallows its click and the format never changes.
-        onPointerDown={(e) => {
-          if ((e.target as Element).closest('.dropper-format')) return
+      <SiteColorOverview
+        format={format}
+        formatLocked={!canColorFormat}
+        onFormatChange={(f) =>
+          canColorFormat ? setFormat(f) : promptUpgrade('CSS color-format switching')
+        }
+        onClose={() => setMode('inspect')}
+        // Don't start a drag when the pointer lands on a control (the drag
+        // gesture would swallow its click).
+        onHeadPointerDown={(e) => {
+          if ((e.target as Element).closest('button, input, label')) return
           onHandlePointerDown(e)
         }}
-      >
-        <span className="dropper-grip" aria-hidden="true" title="Drag to move">
-          <GripHorizontal size={16} />
-        </span>
-        <span className="dropper-icon">
-          <HiMiniEyeDropper size={16} />
-        </span>
-        <div className="dropper-head-text">
-          <span className="dropper-title">Website Colors</span>
-          <span className="dropper-sub">Every color used across this page</span>
-        </div>
-        <button
-          type="button"
-          className={'dropper-format' + (canColorFormat ? '' : ' locked')}
-          aria-disabled={canColorFormat ? undefined : true}
-          onClick={() =>
-            canColorFormat
-              ? setFormat(nextColorFormat)
-              : promptUpgrade('CSS color-format switching')
-          }
-          title={
-            canColorFormat
-              ? 'Switch color format (HEX / RGBA / HSL)'
-              : 'Upgrade to switch color format'
-          }
-        >
-          {format.toUpperCase()}
-        </button>
-      </div>
-
-      <div className="dropper-body">
-        <SiteColorOverview format={format} />
-      </div>
-    </div>
+      />
+    </section>
   )
 }

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Download, GripHorizontal, Images, Play } from 'lucide-react'
+import { Images } from 'lucide-react'
+import { useScanner } from '@/context/scanner-context'
 import { useDraggable } from '@/hooks/use-draggable'
 import {
   loadImageDimensions,
@@ -30,11 +31,30 @@ function badgeLabel(a: SiteAsset): string {
   return a.ext ? a.ext.toUpperCase() : 'IMG'
 }
 
+function DownloadIcon({ size, sw }: { size: number; sw: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={sw}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 4v12M7 11l5 5 5-5M5 20h14" />
+    </svg>
+  )
+}
+
 /* Assets tool: a whole-page media overview — every image, SVG, data-URI and
    video the page references (DOM + computed styles), with previews and
    per-asset or bundled ZIP download. Like the Colors/Fonts tools it reads the
    page as a whole; drag it by the header to move it aside. */
 export function AssetsPanel() {
+  const { setMode } = useScanner()
   const panelRef = useRef<HTMLDivElement>(null)
   const { pos: dragPos, dragging, onHandlePointerDown } = useDraggable(panelRef)
 
@@ -100,15 +120,15 @@ export function AssetsPanel() {
 
   // Derived counts/filtering — recomputed only when the asset set or filter
   // changes, not on every intrinsic-dimension enrichment re-render.
-  const { counts, visible, zipSet, excludedVideos } = useMemo(() => {
+  const { counts, visible, zipSet } = useMemo(() => {
     const counts: Record<Filter, number> = { all: assets.length, raster: 0, svg: 0, video: 0 }
     for (const a of assets) counts[filterKind(a)]++
     const visible = filter === 'all' ? assets : assets.filter((a) => filterKind(a) === filter)
     // "Download all" zips the visible set — except under All, where videos are
     // excluded (they can be enormous); the Videos chip zips them explicitly.
+    // The footer's "N of M can be downloaded" makes that exclusion visible.
     const zipSet = filter === 'all' ? visible.filter((a) => a.kind !== 'video') : visible
-    const excludedVideos = filter === 'all' ? counts.video : 0
-    return { counts, visible, zipSet, excludedVideos }
+    return { counts, visible, zipSet }
   }, [assets, filter])
 
   const onDownloadOne = async (asset: SiteAsset) => {
@@ -156,44 +176,61 @@ export function AssetsPanel() {
   return (
     <div
       id="scanner-assets-panel"
+      role="region"
+      aria-label="Page assets"
       ref={panelRef}
       className={dragging ? 'dragging' : undefined}
       style={placement}
     >
-      <div className="sassets-head" onPointerDown={onHandlePointerDown}>
+      {/* Grip strip + header together are the drag handle. */}
+      <div className="sassets-drag" onPointerDown={onHandlePointerDown}>
         <span className="sassets-grip" aria-hidden="true" title="Drag to move">
-          <GripHorizontal size={16} />
+          <svg width="18" height="6" viewBox="0 0 18 6" aria-hidden="true">
+            <circle cx="3" cy="1.5" r="1.3" fill="currentColor" />
+            <circle cx="9" cy="1.5" r="1.3" fill="currentColor" />
+            <circle cx="15" cy="1.5" r="1.3" fill="currentColor" />
+            <circle cx="3" cy="4.5" r="1.3" fill="currentColor" />
+            <circle cx="9" cy="4.5" r="1.3" fill="currentColor" />
+            <circle cx="15" cy="4.5" r="1.3" fill="currentColor" />
+          </svg>
         </span>
-        <span className="sassets-icon">
-          <Images size={16} />
-        </span>
-        <div className="sassets-head-text">
-          <span className="sassets-title">Page Assets</span>
-          <span className="sassets-sub">
-            {zipNote ||
-              (scanned
-                ? `${assets.length} asset${assets.length === 1 ? '' : 's'} found` +
-                  (excludedVideos > 0
-                    ? ` · ${excludedVideos} video${excludedVideos === 1 ? '' : 's'} excluded`
-                    : '')
-                : 'Images, SVGs & media on this page')}
+        <header className="sassets-head">
+          <span className="sassets-icon" aria-hidden="true">
+            <Images size={18} />
           </span>
-        </div>
-        <button
-          type="button"
-          className="sassets-zip"
-          disabled={busy || zipSet.length === 0}
-          // The head is the drag handle — don't let a button press wiggle the
-          // panel.
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => void onDownloadAll()}
-        >
-          <Download size={13} />
-          {busy ? 'Zipping…' : `Download all (${zipSet.length})`}
-        </button>
+          <div className="sassets-head-text">
+            <h2 className="sassets-title">Page assets</h2>
+            <p className="sassets-sub">
+              {scanned
+                ? `${assets.length} found, including backgrounds and favicons`
+                : 'Images, SVGs & media on this page'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="sassets-close"
+            aria-label="Close assets"
+            // The head is the drag handle — a press here must not start a drag.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setMode('inspect')}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </header>
       </div>
 
-      <div className="sassets-filters" role="tablist" aria-label="Asset type filter">
+      <div className="sassets-filters" role="tablist" aria-label="Asset type">
         {chips.map((c) => (
           <button
             key={c.key}
@@ -203,73 +240,112 @@ export function AssetsPanel() {
             className={'sassets-chip' + (filter === c.key ? ' active' : '')}
             onClick={() => setFilter(c.key)}
           >
-            {c.label} <span className="sassets-chip-count">{counts[c.key]}</span>
+            {c.label}
+            <span className="sassets-chip-count">{counts[c.key]}</span>
           </button>
         ))}
       </div>
 
       <div className="sassets-body">
         {visible.length === 0 ? (
-          <div className="sassets-empty">
+          <div className="sassets-empty" role="status">
             {scanned
               ? 'No downloadable assets found on this page.'
               : 'Scanning page…'}
           </div>
         ) : (
           <div className="sassets-grid">
-            {visible.map((a) => (
-              <div
-                key={a.id}
-                className={'sassets-item' + (failedIds.has(a.id) ? ' failed' : '')}
-              >
-                <div className="sassets-thumb">
-                  {a.kind === 'video' ? (
-                    <>
-                      <video src={a.previewUrl} muted preload="metadata" />
-                      <span className="sassets-play" aria-hidden="true">
-                        <Play size={14} />
-                      </span>
-                    </>
-                  ) : brokenIds.has(a.id) ? (
-                    <span className="sassets-thumb-fallback">{badgeLabel(a)}</span>
-                  ) : (
-                    <img
-                      src={a.previewUrl}
-                      alt={a.filename}
-                      loading="lazy"
-                      onError={() =>
-                        setBrokenIds((prev) => new Set(prev).add(a.id))
-                      }
-                    />
-                  )}
-                  <span className="sassets-badge">{badgeLabel(a)}</span>
-                  <button
-                    type="button"
-                    className="sassets-dl"
-                    title={`Download ${a.filename}`}
-                    aria-label={`Download ${a.filename}`}
-                    onClick={() => void onDownloadOne(a)}
-                  >
-                    <Download size={13} />
-                  </button>
+            {visible.map((a) => {
+              const kind = filterKind(a)
+              const meta = [
+                a.width != null && a.height != null ? `${a.width} × ${a.height}` : '',
+                a.usageCount > 1 ? `×${a.usageCount}` : '',
+                failedIds.has(a.id) ? 'opened in tab' : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')
+              return (
+                <div
+                  key={a.id}
+                  className={'sassets-item' + (failedIds.has(a.id) ? ' failed' : '')}
+                >
+                  <div className="sassets-thumb">
+                    {a.kind === 'video' ? (
+                      <>
+                        <video src={a.previewUrl} muted preload="metadata" />
+                        <span className="sassets-play" aria-hidden="true">
+                          <span className="sassets-play-disc">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </span>
+                        </span>
+                      </>
+                    ) : brokenIds.has(a.id) ? (
+                      <span className="sassets-thumb-fallback">{badgeLabel(a)}</span>
+                    ) : (
+                      <img
+                        src={a.previewUrl}
+                        alt={a.filename}
+                        loading="lazy"
+                        onError={() =>
+                          setBrokenIds((prev) => new Set(prev).add(a.id))
+                        }
+                      />
+                    )}
+                    <span className={'sassets-badge sassets-badge-' + kind}>
+                      {badgeLabel(a)}
+                    </span>
+                    <button
+                      type="button"
+                      className="sassets-dl"
+                      title={`Download ${a.filename}`}
+                      aria-label={`Download ${a.filename}`}
+                      onClick={() => void onDownloadOne(a)}
+                    >
+                      <DownloadIcon size={14} sw={2.4} />
+                    </button>
+                  </div>
+                  <div className="sassets-caption">
+                    <span className="sassets-name" title={a.url ?? a.filename}>
+                      {a.filename}
+                    </span>
+                    <span className="sassets-meta">{meta}</span>
+                  </div>
                 </div>
-                <div className="sassets-caption">
-                  <span className="sassets-name" title={a.url ?? a.filename}>
-                    {a.filename}
-                  </span>
-                  <span className="sassets-meta">
-                    {a.width != null && a.height != null
-                      ? `${a.width}×${a.height}`
-                      : ''}
-                    {a.usageCount > 1 ? ` ×${a.usageCount}` : ''}
-                    {failedIds.has(a.id) ? ' · opened in tab' : ''}
-                  </span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
+
+      <footer className="sassets-foot">
+        <div className="sassets-foot-text" role="status">
+          {zipNote ? (
+            zipNote
+          ) : (
+            <>
+              <span className="sassets-foot-num">{zipSet.length}</span> of {visible.length} can
+              be downloaded
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          className="sassets-zip"
+          disabled={busy || zipSet.length === 0}
+          onClick={() => void onDownloadAll()}
+        >
+          <DownloadIcon size={15} sw={2.2} />
+          {busy ? 'Zipping…' : `Download all (${zipSet.length})`}
+        </button>
+      </footer>
     </div>
   )
 }
