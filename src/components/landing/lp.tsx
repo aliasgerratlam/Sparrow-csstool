@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { cn } from '@/lib/format'
+import { Logo } from '@/components/ui/Logo'
 
 /* Shared building blocks for the redesigned landing page (Claude Design
    "Sparrow website redesign"). Sections are written once, mobile-first, and
@@ -261,7 +262,7 @@ export function ScaledStage({
   )
 }
 
-/** The design's brand tile: a blue rounded square with the white sparrow. */
+/** The live Sparrow bird mark (shared Logo asset). */
 export function BrandMark({
   size = 34,
   className,
@@ -272,29 +273,9 @@ export function BrandMark({
   return (
     <span
       aria-hidden="true"
-      className={cn(
-        'flex shrink-0 items-center justify-center bg-lp-blue',
-        className,
-      )}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.3),
-      }}
+      className={cn('flex shrink-0 items-center justify-center', className)}
     >
-      <svg
-        width={Math.round(size * 0.59)}
-        height={Math.round(size * 0.59)}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 14c3 0 5-2 6-5 1 3 4 5 8 5-2 3-5 5-8 5-3 0-5-2-6-5z" />
-        <path d="M14 7l3-3" />
-      </svg>
+      <Logo mark height={Math.round(size * 1.15)} title="" />
     </span>
   )
 }

@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { useInstallGuide } from '@/context/install-guide-context'
 import { extensionStoreUrl } from '@/lib/extension-download'
+import { Logo } from '@/components/ui/Logo'
 
 /* Browser marks for the store button. */
 import chromeIcon from '@/assets/chrome-icon.svg'
@@ -27,24 +28,33 @@ export function InstallGuideDialog() {
     <Dialog open={open} onOpenChange={(o) => (o ? openGuide() : closeGuide())}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[90vh] overflow-y-auto rounded-[28px] border-2 border-sparrow-blue/60 bg-white p-8 font-abeezee sm:max-w-[520px] md:p-10"
+        overlayStyle={{
+          background: 'rgba(15,23,42,0.4)',
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)',
+        }}
+        className="max-h-[90vh] gap-0 overflow-y-auto rounded-3xl border border-white/95 bg-white/90 px-6 pt-11 pb-10 text-center shadow-[0_32px_64px_-28px_rgba(15,23,42,0.5)] backdrop-blur-2xl backdrop-saturate-150 sm:max-w-[500px] sm:px-12"
       >
         <button
           type="button"
           aria-label="Close"
           onClick={closeGuide}
-          className="absolute right-4 top-4 inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-sparrow-ink/50 transition-colors hover:bg-sparrow-ink/5 hover:text-sparrow-ink"
+          className="absolute top-3.5 right-3.5 inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-[#71717a] transition-colors hover:bg-lp-blue/10 hover:text-lp-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lp-blue active:scale-[0.98]"
         >
-          <X className="size-4" />
+          <X className="size-[18px]" strokeWidth={1.8} />
         </button>
 
+        <span aria-hidden="true" className="mx-auto flex h-14 items-center justify-center">
+          <Logo mark height={56} title="" />
+        </span>
+
         <DialogTitle asChild>
-          <h3 className="mt-2 text-center font-pacifico text-[38px] leading-tight text-sparrow-blue">
-            Thanks for choosing Sparrow!
-          </h3>
+          <h2 className="mt-6 text-[28px] leading-9 font-semibold tracking-[-0.02em] text-lp-ink">
+            Thanks for choosing <span className="text-lp-blue">Sparrow</span>!
+          </h2>
         </DialogTitle>
         <DialogDescription asChild>
-          <p className="mx-auto mt-2 max-w-md text-center text-[15px] leading-relaxed text-sparrow-ink/70">
+          <p className="mx-auto mt-3 max-w-[360px] text-sm leading-[22px] text-lp-body">
             We’ve opened the {storeName} in a new tab so you can add Sparrow to
             your browser. Didn’t open? Use the button below.
           </p>
@@ -54,15 +64,15 @@ export function InstallGuideDialog() {
           href={storeUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mx-auto mt-8 inline-flex items-center gap-2.5 rounded-full bg-sparrow-blue px-7 py-3.5 text-base font-bold text-white transition-colors hover:bg-sparrow-blue/90"
+          className="group mx-auto mt-7 inline-flex h-12 items-center gap-2 rounded-full bg-lp-blue px-6 text-[15px] font-medium text-white transition-[background-color,transform] hover:bg-lp-blue-700 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-lp-blue active:scale-[0.98]"
         >
           <img
             src={isFirefox ? mozillaIcon : chromeIcon}
             alt=""
-            className="size-6 rounded-full"
+            className="size-5 rounded-full"
           />
           Open the {storeName}
-          <ArrowUpRight className="size-5" />
+          <ArrowUpRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </a>
       </DialogContent>
     </Dialog>

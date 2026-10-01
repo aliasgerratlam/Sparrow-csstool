@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { useScanner } from '@/context/scanner-context'
 import { useAuth } from '@/context/auth-context'
+import { Logo } from '@/components/ui/Logo'
 
 /* Extension-only sign-in gate. The whole tool is sign-in-gated in the
    extension (the mode rail is hidden too — see ModeRail), so the moment the
@@ -98,10 +99,7 @@ export function SignInGate() {
           {step === 'sign-in' ? (
             <div className="sp-auth-screen">
               <span className="sp-auth-tile" aria-hidden="true">
-                <svg width="26" height="26" {...ICON} stroke="#ffffff">
-                  <path d="M4 14c3 0 5-2 6-5 1 3 4 5 8 5-2 3-5 5-8 5-3 0-5-2-6-5z" />
-                  <path d="M14 7l3-3" />
-                </svg>
+                <Logo mark height={52} title="Sparrow" />
               </span>
 
               <DialogTitle asChild>

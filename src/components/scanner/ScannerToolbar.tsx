@@ -9,6 +9,7 @@ import { PresenceBar } from './PresenceBar'
 import { ShareDialog } from '@/components/annotate/ShareDialog'
 import { NotificationBell } from '@/components/annotate/NotificationBell'
 import { UserMenu } from '@/components/auth/UserMenu'
+import { Logo } from '@/components/ui/Logo'
 
 /* Bottom session pill — Sparrow mark, the active tool's name + hint + Esc key,
    then share / account / close. Copy, icons and metrics come from the "Sparrow
@@ -92,10 +93,7 @@ export function ScannerToolbar() {
       aria-label="Sparrow session"
     >
       <span className="sp-bar-mark" role="img" aria-label="Sparrow">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M4 14c3 0 5-2 6-5 1 3 4 5 8 5-2 3-5 5-8 5-3 0-5-2-6-5z" />
-          <path d="M14 7l3-3" />
-        </svg>
+        <Logo mark height={32} title="Sparrow" />
       </span>
 
       <div id="scanner-hint" className="sp-bar-status">

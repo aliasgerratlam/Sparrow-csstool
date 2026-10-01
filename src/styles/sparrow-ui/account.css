@@ -359,13 +359,10 @@
 
 .sp-auth-card .sp-auth-tile {
   width: 48px;
-  height: 48px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  background: var(--sp-blue);
-  box-shadow: 0 10px 24px -10px rgba(37, 99, 235, 0.9);
 }
 .sp-auth-card .sp-auth-title {
   margin: 20px 0 0;

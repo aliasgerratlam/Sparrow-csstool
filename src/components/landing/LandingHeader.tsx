@@ -110,7 +110,7 @@ export function LandingHeader() {
           aria-label="Sparrow home"
           className="flex items-center gap-2 text-lp-ink lg:gap-2.5"
         >
-          <BrandMark size={34} className="shadow-[0_6px_16px_-4px_rgba(37,99,235,0.6)]" />
+          <BrandMark size={34} />
           <span className="text-[17px] font-semibold tracking-[-0.01em] lg:text-lg">
             Sparrow
           </span>
